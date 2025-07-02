@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -6,18 +6,18 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Textarea } from '@/components/ui/textarea';
 import { useToast } from '@/hooks/use-toast';
-import { CheckCircle, DollarSign, FileText, User, Phone, Mail, MapPin, Briefcase } from 'lucide-react';
+import { CheckCircle, DollarSign, FileText, User, Phone, Mail, MapPin, Briefcase, Tag } from 'lucide-react';
 
 interface FormData {
   personalInfo: {
     firstName: string;
+    middleName: string;
     lastName: string;
     email: string;
     phone: string;
     dateOfBirth: string;
     address: string;
     city: string;
-    zipCode: string;
   };
   employmentInfo: {
     employmentStatus: string;
@@ -30,6 +30,7 @@ interface FormData {
     loanAmount: string;
     loanPurpose: string;
     loanTerm: string;
+    promoCode: string;
     additionalInfo: string;
   };
 }
@@ -42,13 +43,13 @@ const LoanApplicationForm = () => {
   const [formData, setFormData] = useState<FormData>({
     personalInfo: {
       firstName: '',
+      middleName: '',
       lastName: '',
       email: '',
       phone: '',
       dateOfBirth: '',
       address: '',
       city: '',
-      zipCode: '',
     },
     employmentInfo: {
       employmentStatus: '',
@@ -61,9 +62,19 @@ const LoanApplicationForm = () => {
       loanAmount: '',
       loanPurpose: '',
       loanTerm: '',
+      promoCode: '',
       additionalInfo: '',
     },
   });
+
+  // Get promo code from URL parameters
+  useEffect(() => {
+    const urlParams = new URLSearchParams(window.location.search);
+    const promoCodeFromUrl = urlParams.get('promo_code');
+    if (promoCodeFromUrl) {
+      updateFormData('loanInfo', 'promoCode', promoCodeFromUrl);
+    }
+  }, []);
 
   const updateFormData = (section: keyof FormData, field: string, value: string) => {
     setFormData(prev => ({
@@ -78,8 +89,8 @@ const LoanApplicationForm = () => {
   const validateStep = (step: number): boolean => {
     switch (step) {
       case 1:
-        const { firstName, lastName, email, phone, dateOfBirth } = formData.personalInfo;
-        return !!(firstName && lastName && email && phone && dateOfBirth);
+        const { firstName, middleName, lastName, email, phone, dateOfBirth } = formData.personalInfo;
+        return !!(firstName && middleName && lastName && email && phone && dateOfBirth);
       case 2:
         const { employmentStatus, monthlyIncome } = formData.employmentInfo;
         return !!(employmentStatus && monthlyIncome);
@@ -174,11 +185,14 @@ const LoanApplicationForm = () => {
               );
             })}
           </div>
-          <div className="hidden md:flex justify-between items-center max-w-2xl mx-auto mt-2 px-4">
+          <div className="flex justify-between items-center max-w-2xl mx-auto mt-2 px-4">
             {steps.map((step) => (
-              <div key={step.number} className="text-xs text-center w-12 lg:w-16">
-                <p className={`font-medium ${currentStep >= step.number ? 'text-foreground' : 'text-muted-foreground'}`}>
-                  {step.title}
+              <div key={step.number} className="text-xs text-center w-8 md:w-12 lg:w-16">
+                <p className={`font-medium text-center leading-tight ${currentStep >= step.number ? 'text-foreground' : 'text-muted-foreground'}`}>
+                  <span className="hidden sm:inline">{step.title}</span>
+                  <span className="sm:hidden">
+                    {step.title.split(' ')[0]}
+                  </span>
                 </p>
               </div>
             ))}
@@ -210,6 +224,16 @@ const LoanApplicationForm = () => {
                     placeholder="Juan"
                     value={formData.personalInfo.firstName}
                     onChange={(e) => updateFormData('personalInfo', 'firstName', e.target.value)}
+                    className="transition-all duration-300 focus:shadow-soft"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="middleName">Middle Name *</Label>
+                  <Input
+                    id="middleName"
+                    placeholder="Santos"
+                    value={formData.personalInfo.middleName}
+                    onChange={(e) => updateFormData('personalInfo', 'middleName', e.target.value)}
                     className="transition-all duration-300 focus:shadow-soft"
                   />
                 </div>
@@ -261,12 +285,12 @@ const LoanApplicationForm = () => {
                   />
                 </div>
                 <div className="space-y-2">
-                  <Label htmlFor="zipCode">ZIP Code</Label>
+                  <Label htmlFor="city">City</Label>
                   <Input
-                    id="zipCode"
-                    placeholder="1234"
-                    value={formData.personalInfo.zipCode}
-                    onChange={(e) => updateFormData('personalInfo', 'zipCode', e.target.value)}
+                    id="city"
+                    placeholder="Manila"
+                    value={formData.personalInfo.city}
+                    onChange={(e) => updateFormData('personalInfo', 'city', e.target.value)}
                     className="transition-all duration-300 focus:shadow-soft"
                   />
                 </div>
@@ -276,7 +300,7 @@ const LoanApplicationForm = () => {
                     <MapPin className="absolute left-3 top-3 text-muted-foreground w-4 h-4" />
                     <Textarea
                       id="address"
-                      placeholder="123 Main Street, Barangay, City, Province"
+                      placeholder="123 Main Street, Barangay, Province"
                       className="pl-10 transition-all duration-300 focus:shadow-soft"
                       value={formData.personalInfo.address}
                       onChange={(e) => updateFormData('personalInfo', 'address', e.target.value)}
@@ -394,6 +418,19 @@ const LoanApplicationForm = () => {
                       <SelectItem value="other">Other</SelectItem>
                     </SelectContent>
                   </Select>
+                </div>
+                <div className="space-y-2 md:col-span-2">
+                  <Label htmlFor="promoCode">Promo Code</Label>
+                  <div className="relative">
+                    <Tag className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground w-4 h-4" />
+                    <Input
+                      id="promoCode"
+                      placeholder="Enter promo code (optional)"
+                      className="pl-10 transition-all duration-300 focus:shadow-soft"
+                      value={formData.loanInfo.promoCode}
+                      onChange={(e) => updateFormData('loanInfo', 'promoCode', e.target.value)}
+                    />
+                  </div>
                 </div>
                 <div className="space-y-2 md:col-span-2">
                   <Label htmlFor="additionalInfo">Additional Information</Label>
