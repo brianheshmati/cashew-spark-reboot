@@ -148,7 +148,7 @@ const LoanApplicationForm = () => {
 
         {/* Progress Steps */}
         <div className="mb-8">
-          <div className="flex justify-between items-center max-w-2xl mx-auto">
+          <div className="flex justify-between items-center max-w-2xl mx-auto px-4">
             {steps.map((step, index) => {
               const Icon = step.icon;
               const isActive = currentStep === step.number;
@@ -156,17 +156,17 @@ const LoanApplicationForm = () => {
               
               return (
                 <div key={step.number} className="flex items-center">
-                  <div className={`flex items-center justify-center w-12 h-12 rounded-full border-2 transition-all duration-300 ${
+                  <div className={`flex items-center justify-center w-8 h-8 md:w-12 md:h-12 rounded-full border-2 transition-all duration-300 ${
                     isCompleted 
                       ? 'bg-success border-success text-white' 
                       : isActive 
                         ? 'bg-primary border-primary text-primary-foreground' 
                         : 'bg-background border-border text-muted-foreground'
                   }`}>
-                    <Icon className="w-5 h-5" />
+                    <Icon className="w-3 h-3 md:w-5 md:h-5" />
                   </div>
                   {index < steps.length - 1 && (
-                    <div className={`h-0.5 w-16 md:w-24 mx-2 transition-all duration-300 ${
+                    <div className={`h-0.5 w-8 md:w-16 lg:w-24 mx-1 md:mx-2 transition-all duration-300 ${
                       isCompleted ? 'bg-success' : 'bg-border'
                     }`} />
                   )}
@@ -174,9 +174,9 @@ const LoanApplicationForm = () => {
               );
             })}
           </div>
-          <div className="flex justify-between items-center max-w-2xl mx-auto mt-2">
+          <div className="hidden md:flex justify-between items-center max-w-2xl mx-auto mt-2 px-4">
             {steps.map((step) => (
-              <div key={step.number} className="text-xs text-center w-12">
+              <div key={step.number} className="text-xs text-center w-12 lg:w-16">
                 <p className={`font-medium ${currentStep >= step.number ? 'text-foreground' : 'text-muted-foreground'}`}>
                   {step.title}
                 </p>
