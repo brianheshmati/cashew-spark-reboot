@@ -51,8 +51,8 @@ const LoanFeatures = () => {
             return (
               <Card key={index} className="shadow-soft hover:shadow-medium transition-all duration-300 border-0">
                 <CardContent className="p-6 text-center">
-                  <div className="w-16 h-16 bg-gradient-primary rounded-full flex items-center justify-center mx-auto mb-4">
-                    <Icon className="w-8 h-8 text-primary-foreground" />
+                  <div className="w-16 h-16 bg-gradient-accent rounded-full flex items-center justify-center mx-auto mb-4">
+                    <Icon className="w-8 h-8 text-accent-foreground" />
                   </div>
                   <h3 className="text-xl font-semibold mb-2">{feature.title}</h3>
                   <p className="text-muted-foreground">{feature.description}</p>
