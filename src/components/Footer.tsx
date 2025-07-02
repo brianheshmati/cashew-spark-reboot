@@ -1,3 +1,5 @@
+import cashewLogo from '@/assets/cashew-logo.png';
+
 const Footer = () => {
   return (
     <footer className="bg-foreground text-background py-8 px-6">
@@ -5,11 +7,12 @@ const Footer = () => {
         <div className="flex flex-col md:flex-row justify-between items-center space-y-4 md:space-y-0">
           {/* Logo and Tagline */}
           <div className="flex items-center space-x-3">
-            <div className="w-8 h-8 bg-primary rounded-full flex items-center justify-center">
-              <span className="text-primary-foreground font-bold text-lg">C</span>
-            </div>
+            <img 
+              src={cashewLogo} 
+              alt="Cashew Philippines Logo" 
+              className="h-8 w-auto"
+            />
             <div>
-              <h2 className="text-xl font-bold text-primary">Cashew Philippines</h2>
               <p className="text-sm text-muted-foreground">Make Your Dream Come True!</p>
             </div>
           </div>

@@ -1,4 +1,5 @@
 import { Button } from '@/components/ui/button';
+import cashewLogo from '@/assets/cashew-logo.png';
 
 const Header = () => {
   return (
@@ -6,10 +7,11 @@ const Header = () => {
       <div className="max-w-7xl mx-auto flex items-center justify-between">
         {/* Logo */}
         <div className="flex items-center space-x-3">
-          <div className="w-8 h-8 bg-primary rounded-full flex items-center justify-center">
-            <span className="text-primary-foreground font-bold text-lg">C</span>
-          </div>
-          <h1 className="text-2xl font-bold text-primary">Cashew</h1>
+          <img 
+            src={cashewLogo} 
+            alt="Cashew Philippines Logo" 
+            className="h-10 w-auto"
+          />
           <span className="text-sm text-muted-foreground hidden md:block">
             Make Your Dream Come True!
           </span>
