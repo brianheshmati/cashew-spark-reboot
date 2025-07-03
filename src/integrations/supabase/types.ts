@@ -61,15 +61,7 @@ export type Database = {
           user_id?: string
           years_employed?: number | null
         }
-        Relationships: [
-          {
-            foreignKeyName: "applications_user_id_fkey"
-            columns: ["user_id"]
-            isOneToOne: false
-            referencedRelation: "profiles"
-            referencedColumns: ["id"]
-          },
-        ]
+        Relationships: []
       }
       loan_applications: {
         Row: {
