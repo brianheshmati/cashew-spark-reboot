@@ -94,15 +94,30 @@ const LoanApplicationForm = () => {
         // Check if date of birth is not in the future
         const dobDate = new Date(dateOfBirth);
         const today = new Date();
+        today.setHours(23, 59, 59, 999); // Set to end of today to allow today's date
         const isValidDate = dobDate <= today;
-        return !!(firstName && lastName && email && phone && dateOfBirth && address && isValidDate);
+        
+        // Validate email format
+        const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+        const isValidEmail = emailRegex.test(email);
+        
+        return !!(firstName && lastName && isValidEmail && phone && dateOfBirth && address && isValidDate);
       case 2:
-        const { employmentStatus, monthlyIncome, phone: empPhone, address: empAddress } = formData.employmentInfo;
-        return !!(employmentStatus && monthlyIncome && empPhone && empAddress);
+        const { employmentStatus, company, position, monthlyIncome, phone: empPhone, address: empAddress } = formData.employmentInfo;
+        
+        // Validate monthly income is a positive number
+        const monthlyIncomeNum = parseFloat(monthlyIncome.replace(/[^0-9.]/g, ''));
+        const isValidIncome = !isNaN(monthlyIncomeNum) && monthlyIncomeNum > 0;
+        
+        return !!(employmentStatus && company && position && monthlyIncome && empPhone && empAddress && isValidIncome);
       case 3:
         const { loanAmount, loanPurpose, loanTerm } = formData.loanInfo;
-        const loanAmountNum = parseFloat(loanAmount.replace(/,/g, ''));
-        return !!(loanAmount && loanPurpose && loanTerm && loanAmountNum >= 5000);
+        
+        // Validate loan amount is a number and meets minimum requirement
+        const loanAmountNum = parseFloat(loanAmount.replace(/[^0-9.]/g, ''));
+        const isValidLoanAmount = !isNaN(loanAmountNum) && loanAmountNum >= 5000;
+        
+        return !!(loanAmount && loanPurpose && loanTerm && isValidLoanAmount);
       case 4:
         return true;
       default:
@@ -304,6 +319,7 @@ const LoanApplicationForm = () => {
                   <Input
                     id="dateOfBirth"
                     type="date"
+                    max={new Date().toISOString().split('T')[0]}
                     value={formData.personalInfo.dateOfBirth}
                     onChange={(e) => updateFormData('personalInfo', 'dateOfBirth', e.target.value)}
                     className="transition-all duration-300 focus:shadow-soft"
@@ -353,7 +369,7 @@ const LoanApplicationForm = () => {
                   />
                 </div>
                 <div className="space-y-2">
-                  <Label htmlFor="company">Company/Business Name</Label>
+                  <Label htmlFor="company">Company/Business Name *</Label>
                   <Input
                     id="company"
                     placeholder="ABC Corporation"
@@ -363,7 +379,7 @@ const LoanApplicationForm = () => {
                   />
                 </div>
                 <div className="space-y-2">
-                  <Label htmlFor="position">Position/Title</Label>
+                  <Label htmlFor="position">Position/Title *</Label>
                   <Input
                     id="position"
                     placeholder="Software Engineer"
