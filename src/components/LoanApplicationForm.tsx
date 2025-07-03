@@ -199,12 +199,17 @@ const LoanApplicationForm = () => {
               );
             })}
           </div>
-          <div className="hidden md:flex justify-between items-center max-w-2xl mx-auto mt-2 px-4">
-            {steps.map((step) => (
-              <div key={step.number} className="text-xs text-center w-12 lg:w-16">
-                <p className={`font-medium text-center leading-tight ${currentStep >= step.number ? 'text-foreground' : 'text-muted-foreground'}`}>
-                  {step.title}
-                </p>
+          <div className="hidden md:flex items-center max-w-2xl mx-auto mt-2 px-4">
+            {steps.map((step, index) => (
+              <div key={step.number} className="flex items-center">
+                <div className="text-xs text-center w-8 md:w-12">
+                  <p className={`font-medium text-center leading-tight ${currentStep >= step.number ? 'text-foreground' : 'text-muted-foreground'}`}>
+                    {step.title}
+                  </p>
+                </div>
+                {index < steps.length - 1 && (
+                  <div className="w-8 md:w-16 lg:w-24 mx-1 md:mx-2" />
+                )}
               </div>
             ))}
           </div>
