@@ -105,14 +105,42 @@ const handler = async (req: Request): Promise<Response> => {
     // Get user ID for the applications table
     let userId = authData?.user?.id;
     
-    // If user already exists, get their ID
+    // If user already exists, find their profile
     if (authError && authError.message === 'User already registered') {
-      const { data: existingUser } = await supabase.auth.signInWithPassword({
-        email: email,
-        password: crypto.randomUUID() // This will fail but we just need the user lookup
-      });
-      // Alternative: query the auth.users table is not possible, so we'll use a different approach
-      // We'll create a profile if it doesn't exist and link to that
+      const { data: profileData } = await supabase
+        .from('profiles')
+        .select('id')
+        .eq('email', email)
+        .single();
+      
+      if (profileData) {
+        userId = profileData.id;
+      }
+    }
+
+    // Create profile if user was created and doesn't exist
+    if (userId && authData?.user) {
+      const { error: profileError } = await supabase
+        .from('profiles')
+        .upsert({
+          id: userId,
+          email: email,
+          first_name: applicationData.personalInfo.firstName,
+          last_name: applicationData.personalInfo.lastName,
+          phone: cleanPhone,
+          address: applicationData.personalInfo.address
+        });
+
+      if (profileError) {
+        console.error('Profile creation error:', profileError);
+      }
+    }
+
+    if (!userId) {
+      return new Response(
+        JSON.stringify({ error: 'Failed to get or create user profile' }),
+        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
     }
 
     // Insert loan application data into applications table
