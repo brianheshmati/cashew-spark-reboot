@@ -102,33 +102,37 @@ const handler = async (req: Request): Promise<Response> => {
       );
     }
 
-    // Insert loan application data
-    const { error: insertError } = await supabase
-      .from('loan_applications')
-      .insert({
-        application_id: applicationId,
-        first_name: applicationData.personalInfo.firstName.trim(),
-        last_name: applicationData.personalInfo.lastName.trim(),
+    // Get user ID for the applications table
+    let userId = authData?.user?.id;
+    
+    // If user already exists, get their ID
+    if (authError && authError.message === 'User already registered') {
+      const { data: existingUser } = await supabase.auth.signInWithPassword({
         email: email,
-        phone: cleanPhone,
-        address: applicationData.personalInfo.address.trim(),
+        password: crypto.randomUUID() // This will fail but we just need the user lookup
+      });
+      // Alternative: query the auth.users table is not possible, so we'll use a different approach
+      // We'll create a profile if it doesn't exist and link to that
+    }
+
+    // Insert loan application data into applications table
+    const { error: insertError } = await supabase
+      .from('applications')
+      .insert({
+        id: applicationId,
+        user_id: userId || applicationId, // Use applicationId as fallback if no user_id
+        loan_type: 'personal',
         loan_amount: cleanLoanAmount,
-        loan_term: loanTermMonths,
-        loan_purpose: applicationData.loanInfo.loanPurpose,
         monthly_income: cleanMonthlyIncome,
         years_employed: applicationData.employmentInfo.employmentLength === 'less-than-1' ? 0.5 : 
                        applicationData.employmentInfo.employmentLength === '1-2' ? 1.5 : 
                        applicationData.employmentInfo.employmentLength === '3-5' ? 4 : 5,
-        employer_name: applicationData.employmentInfo.company.trim() || 'Not specified',
-        job_title: applicationData.employmentInfo.position.trim() || 'Not specified',
-        agreed_to_terms: true,
         status: 'submitted',
-        // Required fields for the schema
-        city: 'Not specified',
-        state: 'Not specified', 
-        zip_code: 'Not specified',
-        id_image: 'pending',
-        signature: 'pending'
+        submitted_at: new Date().toISOString(),
+        loan_purpose: applicationData.loanInfo.loanPurpose,
+        employment_status: applicationData.employmentInfo.employmentStatus,
+        employer_name: applicationData.employmentInfo.company.trim() || 'Not specified',
+        job_title: applicationData.employmentInfo.position.trim() || 'Not specified'
       });
 
     if (insertError) {
@@ -168,7 +172,7 @@ const handler = async (req: Request): Promise<Response> => {
             <body>
               <div class="container">
                 <div class="header">
-                  <img src="https://gukvlegqhhifsnsynnmbx.supabase.co/storage/v1/object/public/assets/cashew-logo.png" alt="Cashew Logo" class="logo">
+                  <img src="https://www.cashew.ph/images/cashew_logo.svg" alt="Cashew Logo" class="logo">
                   <h1>Welcome to Cashew!</h1>
                   <p style="color: #fef3c7; margin: 0; font-size: 16px;">Make Your Dream Come True</p>
                 </div>

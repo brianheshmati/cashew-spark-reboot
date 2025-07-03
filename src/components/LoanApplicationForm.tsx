@@ -39,6 +39,7 @@ interface FormData {
 const LoanApplicationForm = () => {
   const [currentStep, setCurrentStep] = useState(1);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [applicationId, setApplicationId] = useState<string>('');
   const { toast } = useToast();
   
   const [formData, setFormData] = useState<FormData>({
@@ -155,6 +156,11 @@ const LoanApplicationForm = () => {
       });
 
       if (error) throw error;
+
+      // Store the application ID from the response
+      if (data?.applicationId) {
+        setApplicationId(data.applicationId);
+      }
 
       toast({
         title: "Application submitted successfully!",
@@ -550,7 +556,7 @@ const LoanApplicationForm = () => {
                 </div>
                 <div className="bg-muted p-4 rounded-lg">
                   <p className="text-sm text-muted-foreground mb-2">Application Reference Number:</p>
-                  <p className="font-mono text-lg font-bold">CW-{Date.now().toString().slice(-8)}</p>
+                  <p className="font-mono text-lg font-bold">{applicationId || 'Processing...'}</p>
                 </div>
                 <Button 
                   onClick={() => window.location.reload()} 
