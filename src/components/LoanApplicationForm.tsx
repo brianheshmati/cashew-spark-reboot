@@ -25,6 +25,8 @@ interface FormData {
     position: string;
     monthlyIncome: string;
     employmentLength: string;
+    phone: string;
+    address: string;
   };
   loanInfo: {
     loanAmount: string;
@@ -55,6 +57,8 @@ const LoanApplicationForm = () => {
       position: '',
       monthlyIncome: '',
       employmentLength: '',
+      phone: '',
+      address: '',
     },
     loanInfo: {
       loanAmount: '',
@@ -86,11 +90,15 @@ const LoanApplicationForm = () => {
   const validateStep = (step: number): boolean => {
     switch (step) {
       case 1:
-        const { firstName, middleName, lastName, email, phone, dateOfBirth } = formData.personalInfo;
-        return !!(firstName && middleName && lastName && email && phone && dateOfBirth);
+        const { firstName, lastName, email, phone, dateOfBirth, address } = formData.personalInfo;
+        // Check if date of birth is not in the future
+        const dobDate = new Date(dateOfBirth);
+        const today = new Date();
+        const isValidDate = dobDate <= today;
+        return !!(firstName && lastName && email && phone && dateOfBirth && address && isValidDate);
       case 2:
-        const { employmentStatus, monthlyIncome } = formData.employmentInfo;
-        return !!(employmentStatus && monthlyIncome);
+        const { employmentStatus, monthlyIncome, phone: empPhone, address: empAddress } = formData.employmentInfo;
+        return !!(employmentStatus && monthlyIncome && empPhone && empAddress);
       case 3:
         const { loanAmount, loanPurpose, loanTerm } = formData.loanInfo;
         const loanAmountNum = parseFloat(loanAmount.replace(/,/g, ''));
@@ -245,7 +253,7 @@ const LoanApplicationForm = () => {
                   />
                 </div>
                 <div className="space-y-2">
-                  <Label htmlFor="middleName">Middle Name *</Label>
+                  <Label htmlFor="middleName">Middle Name</Label>
                   <Input
                     id="middleName"
                     placeholder="Santos"
@@ -302,7 +310,7 @@ const LoanApplicationForm = () => {
                   />
                 </div>
                 <div className="space-y-2 md:col-span-2">
-                  <Label htmlFor="address">Complete Address</Label>
+                  <Label htmlFor="address">Complete Address *</Label>
                   <div className="relative">
                     <MapPin className="absolute left-3 top-3 text-muted-foreground w-4 h-4" />
                     <Textarea
@@ -364,7 +372,20 @@ const LoanApplicationForm = () => {
                     className="transition-all duration-300 focus:shadow-soft"
                   />
                 </div>
-                <div className="space-y-2 md:col-span-2">
+                <div className="space-y-2">
+                  <Label htmlFor="empPhone">Employment Phone Number *</Label>
+                  <div className="relative">
+                    <Phone className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground w-4 h-4" />
+                    <Input
+                      id="empPhone"
+                      placeholder="+63 912 345 6789"
+                      className="pl-10 transition-all duration-300 focus:shadow-soft"
+                      value={formData.employmentInfo.phone}
+                      onChange={(e) => updateFormData('employmentInfo', 'phone', e.target.value)}
+                    />
+                  </div>
+                </div>
+                <div className="space-y-2">
                   <Label htmlFor="employmentLength">Length of Employment</Label>
                   <Select value={formData.employmentInfo.employmentLength} onValueChange={(value) => updateFormData('employmentInfo', 'employmentLength', value)}>
                     <SelectTrigger className="transition-all duration-300 focus:shadow-soft">
@@ -377,6 +398,19 @@ const LoanApplicationForm = () => {
                       <SelectItem value="more-than-5">More than 5 years</SelectItem>
                     </SelectContent>
                   </Select>
+                </div>
+                <div className="space-y-2 md:col-span-2">
+                  <Label htmlFor="empAddress">Employment Address *</Label>
+                  <div className="relative">
+                    <MapPin className="absolute left-3 top-3 text-muted-foreground w-4 h-4" />
+                    <Textarea
+                      id="empAddress"
+                      placeholder="Company/Business address"
+                      className="pl-10 transition-all duration-300 focus:shadow-soft"
+                      value={formData.employmentInfo.address}
+                      onChange={(e) => updateFormData('employmentInfo', 'address', e.target.value)}
+                    />
+                  </div>
                 </div>
               </div>
             )}
