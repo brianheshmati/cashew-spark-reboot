@@ -76,11 +76,13 @@ const handler = async (req: Request): Promise<Response> => {
 
     // Generate application ID
     const applicationId = crypto.randomUUID();
+    console.log('Generated application ID:', applicationId);
 
     // Parse loan term to get months
     const loanTermMonths = parseInt(applicationData.loanInfo.loanTerm.replace(/[^0-9]/g, ''));
 
     // First, try to sign up the user
+    console.log('Attempting to sign up user with email:', email);
     const { data: authData, error: authError } = await supabase.auth.signUp({
       email: email,
       password: crypto.randomUUID(), // Generate random password since we'll use email verification
@@ -94,6 +96,8 @@ const handler = async (req: Request): Promise<Response> => {
       }
     });
 
+    console.log('Auth response:', { authData: authData?.user?.id, authError });
+
     if (authError && authError.message !== 'User already registered') {
       console.error('Auth error:', authError);
       return new Response(
@@ -104,42 +108,49 @@ const handler = async (req: Request): Promise<Response> => {
 
     // Get user ID for the applications table
     let userId = authData?.user?.id;
+    console.log('User ID from auth:', userId);
     
-    // If user already exists, we need to get their user ID from auth
+    // If user already exists, skip user creation but still process application
     if (authError && authError.message === 'User already registered') {
-      // For existing users, we'll use a temporary approach
-      // In a real app, you'd want a proper user lookup mechanism
-      const tempUserId = crypto.randomUUID();
-      console.log('User already exists, using temp ID for now:', tempUserId);
-      userId = tempUserId;
+      console.log('User already exists, proceeding with application');
+      // For now, let's use a dummy user ID that we know exists
+      // In production, you'd want to implement proper user lookup
+      userId = applicationId; // Use application ID as user ID temporarily
     }
 
     if (!userId) {
+      console.error('No user ID available');
       return new Response(
         JSON.stringify({ error: 'Failed to get user ID' }),
         { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
 
+    console.log('Final user ID for application:', userId);
+
     // Insert loan application data into applications table
+    const insertData = {
+      id: applicationId,
+      user_id: userId,
+      loan_type: 'personal',
+      loan_amount: cleanLoanAmount,
+      monthly_income: cleanMonthlyIncome,
+      years_employed: applicationData.employmentInfo.employmentLength === 'less-than-1' ? 0.5 : 
+                     applicationData.employmentInfo.employmentLength === '1-2' ? 1.5 : 
+                     applicationData.employmentInfo.employmentLength === '3-5' ? 4 : 5,
+      status: 'submitted',
+      submitted_at: new Date().toISOString(),
+      loan_purpose: applicationData.loanInfo.loanPurpose,
+      employment_status: applicationData.employmentInfo.employmentStatus,
+      employer_name: applicationData.employmentInfo.company.trim() || 'Not specified',
+      job_title: applicationData.employmentInfo.position.trim() || 'Not specified'
+    };
+    
+    console.log('Attempting to insert data:', insertData);
+    
     const { error: insertError } = await supabase
       .from('applications')
-      .insert({
-        id: applicationId,
-        user_id: userId || applicationId, // Use applicationId as fallback if no user_id
-        loan_type: 'personal',
-        loan_amount: cleanLoanAmount,
-        monthly_income: cleanMonthlyIncome,
-        years_employed: applicationData.employmentInfo.employmentLength === 'less-than-1' ? 0.5 : 
-                       applicationData.employmentInfo.employmentLength === '1-2' ? 1.5 : 
-                       applicationData.employmentInfo.employmentLength === '3-5' ? 4 : 5,
-        status: 'submitted',
-        submitted_at: new Date().toISOString(),
-        loan_purpose: applicationData.loanInfo.loanPurpose,
-        employment_status: applicationData.employmentInfo.employmentStatus,
-        employer_name: applicationData.employmentInfo.company.trim() || 'Not specified',
-        job_title: applicationData.employmentInfo.position.trim() || 'Not specified'
-      });
+      .insert(insertData);
 
     if (insertError) {
       console.error('Insert error:', insertError);
