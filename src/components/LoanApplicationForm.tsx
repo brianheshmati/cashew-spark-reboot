@@ -7,6 +7,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Textarea } from '@/components/ui/textarea';
 import { useToast } from '@/hooks/use-toast';
 import { CheckCircle, DollarSign, FileText, User, Phone, Mail, MapPin, Briefcase, Tag } from 'lucide-react';
+import { supabase } from '@/integrations/supabase/client';
 
 interface FormData {
   personalInfo: {
@@ -17,7 +18,6 @@ interface FormData {
     phone: string;
     dateOfBirth: string;
     address: string;
-    city: string;
   };
   employmentInfo: {
     employmentStatus: string;
@@ -31,7 +31,6 @@ interface FormData {
     loanPurpose: string;
     loanTerm: string;
     promoCode: string;
-    additionalInfo: string;
   };
 }
 
@@ -49,7 +48,6 @@ const LoanApplicationForm = () => {
       phone: '',
       dateOfBirth: '',
       address: '',
-      city: '',
     },
     employmentInfo: {
       employmentStatus: '',
@@ -63,7 +61,6 @@ const LoanApplicationForm = () => {
       loanPurpose: '',
       loanTerm: '',
       promoCode: '',
-      additionalInfo: '',
     },
   });
 
@@ -96,7 +93,10 @@ const LoanApplicationForm = () => {
         return !!(employmentStatus && monthlyIncome);
       case 3:
         const { loanAmount, loanPurpose, loanTerm } = formData.loanInfo;
-        return !!(loanAmount && loanPurpose && loanTerm);
+        const loanAmountNum = parseFloat(loanAmount.replace(/,/g, ''));
+        return !!(loanAmount && loanPurpose && loanTerm && loanAmountNum >= 5000);
+      case 4:
+        return true;
       default:
         return false;
     }
@@ -115,10 +115,10 @@ const LoanApplicationForm = () => {
   };
 
   const handleSubmit = async () => {
-    if (!validateStep(3)) {
+    if (!validateStep(4)) {
       toast({
-        title: "Please fill in all required fields",
-        description: "All marked fields must be completed before submitting.",
+        title: "Please review all information",
+        description: "Please ensure all information is correct before submitting.",
         variant: "destructive",
       });
       return;
@@ -126,22 +126,36 @@ const LoanApplicationForm = () => {
 
     setIsSubmitting(true);
     
-    // Simulate API call
-    setTimeout(() => {
-      setIsSubmitting(false);
+    try {
+      const { data, error } = await supabase.functions.invoke('submit-loan-application', {
+        body: formData,
+      });
+
+      if (error) throw error;
+
       toast({
         title: "Application submitted successfully!",
-        description: "We'll review your application and get back to you within 24 hours.",
+        description: data?.message || "We'll review your application and get back to you within 24 hours.",
       });
-      setCurrentStep(4);
-    }, 2000);
+      setCurrentStep(5);
+    } catch (error: any) {
+      console.error('Submission error:', error);
+      toast({
+        title: "Submission failed",
+        description: error?.message || "Please try again later.",
+        variant: "destructive",
+      });
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   const steps = [
     { number: 1, title: "Personal Information", icon: User },
     { number: 2, title: "Employment Details", icon: Briefcase },
     { number: 3, title: "Loan Information", icon: DollarSign },
-    { number: 4, title: "Confirmation", icon: CheckCircle },
+    { number: 4, title: "Review & Submit", icon: FileText },
+    { number: 5, title: "Confirmation", icon: CheckCircle },
   ];
 
   return (
@@ -207,7 +221,8 @@ const LoanApplicationForm = () => {
               {currentStep === 1 && "Please provide your personal information"}
               {currentStep === 2 && "Tell us about your employment status"}
               {currentStep === 3 && "Specify your loan requirements"}
-              {currentStep === 4 && "Your application has been submitted"}
+              {currentStep === 4 && "Review your application details before submitting"}
+              {currentStep === 5 && "Your application has been submitted"}
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-6">
@@ -278,16 +293,6 @@ const LoanApplicationForm = () => {
                     type="date"
                     value={formData.personalInfo.dateOfBirth}
                     onChange={(e) => updateFormData('personalInfo', 'dateOfBirth', e.target.value)}
-                    className="transition-all duration-300 focus:shadow-soft"
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="city">City</Label>
-                  <Input
-                    id="city"
-                    placeholder="Manila"
-                    value={formData.personalInfo.city}
-                    onChange={(e) => updateFormData('personalInfo', 'city', e.target.value)}
                     className="transition-all duration-300 focus:shadow-soft"
                   />
                 </div>
@@ -375,10 +380,10 @@ const LoanApplicationForm = () => {
             {currentStep === 3 && (
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div className="space-y-2">
-                  <Label htmlFor="loanAmount">Loan Amount (PHP) *</Label>
+                  <Label htmlFor="loanAmount">Loan Amount (PHP) * (Minimum: ₱5,000)</Label>
                   <Input
                     id="loanAmount"
-                    placeholder="100,000"
+                    placeholder="5,000"
                     value={formData.loanInfo.loanAmount}
                     onChange={(e) => updateFormData('loanInfo', 'loanAmount', e.target.value)}
                     className="transition-all duration-300 focus:shadow-soft"
@@ -391,11 +396,10 @@ const LoanApplicationForm = () => {
                       <SelectValue placeholder="Select loan term" />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="6-months">6 months</SelectItem>
-                      <SelectItem value="12-months">12 months</SelectItem>
-                      <SelectItem value="18-months">18 months</SelectItem>
-                      <SelectItem value="24-months">24 months</SelectItem>
-                      <SelectItem value="36-months">36 months</SelectItem>
+                      <SelectItem value="1-month">1 month</SelectItem>
+                      <SelectItem value="2-months">2 months</SelectItem>
+                      <SelectItem value="3-months">3 months</SelectItem>
+                      <SelectItem value="4-months">4 months</SelectItem>
                     </SelectContent>
                   </Select>
                 </div>
@@ -429,21 +433,56 @@ const LoanApplicationForm = () => {
                     />
                   </div>
                 </div>
-                <div className="space-y-2 md:col-span-2">
-                  <Label htmlFor="additionalInfo">Additional Information</Label>
-                  <Textarea
-                    id="additionalInfo"
-                    placeholder="Any additional information you'd like to share..."
-                    value={formData.loanInfo.additionalInfo}
-                    onChange={(e) => updateFormData('loanInfo', 'additionalInfo', e.target.value)}
-                    className="transition-all duration-300 focus:shadow-soft"
-                  />
+              </div>
+            )}
+
+            {/* Step 4: Review */}
+            {currentStep === 4 && (
+              <div className="space-y-6">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                  <div className="space-y-4">
+                    <h3 className="text-lg font-semibold">Personal Information</h3>
+                    <div className="space-y-2 text-sm">
+                      <p><span className="font-medium">Name:</span> {formData.personalInfo.firstName} {formData.personalInfo.middleName} {formData.personalInfo.lastName}</p>
+                      <p><span className="font-medium">Email:</span> {formData.personalInfo.email}</p>
+                      <p><span className="font-medium">Phone:</span> {formData.personalInfo.phone}</p>
+                      <p><span className="font-medium">Date of Birth:</span> {formData.personalInfo.dateOfBirth}</p>
+                      {formData.personalInfo.address && <p><span className="font-medium">Address:</span> {formData.personalInfo.address}</p>}
+                    </div>
+                  </div>
+                  
+                  <div className="space-y-4">
+                    <h3 className="text-lg font-semibold">Employment Details</h3>
+                    <div className="space-y-2 text-sm">
+                      <p><span className="font-medium">Status:</span> {formData.employmentInfo.employmentStatus}</p>
+                      <p><span className="font-medium">Monthly Income:</span> ₱{formData.employmentInfo.monthlyIncome}</p>
+                      {formData.employmentInfo.company && <p><span className="font-medium">Company:</span> {formData.employmentInfo.company}</p>}
+                      {formData.employmentInfo.position && <p><span className="font-medium">Position:</span> {formData.employmentInfo.position}</p>}
+                      {formData.employmentInfo.employmentLength && <p><span className="font-medium">Employment Length:</span> {formData.employmentInfo.employmentLength}</p>}
+                    </div>
+                  </div>
+                </div>
+                
+                <div className="border-t pt-6">
+                  <h3 className="text-lg font-semibold mb-4">Loan Information</h3>
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-sm">
+                    <p><span className="font-medium">Amount:</span> ₱{formData.loanInfo.loanAmount}</p>
+                    <p><span className="font-medium">Term:</span> {formData.loanInfo.loanTerm}</p>
+                    <p><span className="font-medium">Purpose:</span> {formData.loanInfo.loanPurpose}</p>
+                    {formData.loanInfo.promoCode && <p><span className="font-medium">Promo Code:</span> {formData.loanInfo.promoCode}</p>}
+                  </div>
+                </div>
+                
+                <div className="bg-muted p-4 rounded-lg">
+                  <p className="text-sm text-muted-foreground">
+                    By submitting this application, you agree to our terms and conditions and consent to a credit check.
+                  </p>
                 </div>
               </div>
             )}
 
-            {/* Step 4: Confirmation */}
-            {currentStep === 4 && (
+            {/* Step 5: Confirmation */}
+            {currentStep === 5 && (
               <div className="text-center space-y-6">
                 <div className="w-20 h-20 bg-success rounded-full flex items-center justify-center mx-auto">
                   <CheckCircle className="w-10 h-10 text-white" />
@@ -469,7 +508,7 @@ const LoanApplicationForm = () => {
             )}
 
             {/* Navigation Buttons */}
-            {currentStep < 4 && (
+            {currentStep < 5 && (
               <div className="flex justify-between pt-6">
                 <Button
                   variant="outline"
@@ -479,7 +518,7 @@ const LoanApplicationForm = () => {
                 >
                   Previous
                 </Button>
-                {currentStep < 3 ? (
+                {currentStep < 4 ? (
                   <Button 
                     onClick={handleNext}
                     className="bg-gradient-primary hover:opacity-90 transition-all duration-300 hover:shadow-soft"
