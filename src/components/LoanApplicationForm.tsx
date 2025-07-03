@@ -18,6 +18,7 @@ interface FormData {
     phone: string;
     dateOfBirth: string;
     address: string;
+    promoCode: string;
   };
   employmentInfo: {
     employmentStatus: string;
@@ -32,7 +33,6 @@ interface FormData {
     loanAmount: string;
     loanPurpose: string;
     loanTerm: string;
-    promoCode: string;
   };
 }
 
@@ -50,6 +50,7 @@ const LoanApplicationForm = () => {
       phone: '',
       dateOfBirth: '',
       address: '',
+      promoCode: '',
     },
     employmentInfo: {
       employmentStatus: '',
@@ -64,16 +65,15 @@ const LoanApplicationForm = () => {
       loanAmount: '',
       loanPurpose: '',
       loanTerm: '',
-      promoCode: '',
     },
   });
 
   // Get promo code from URL parameters
   useEffect(() => {
     const urlParams = new URLSearchParams(window.location.search);
-    const promoCodeFromUrl = urlParams.get('promo_code');
+    const promoCodeFromUrl = urlParams.get('promo');
     if (promoCodeFromUrl) {
-      updateFormData('loanInfo', 'promoCode', promoCodeFromUrl);
+      updateFormData('personalInfo', 'promoCode', promoCodeFromUrl);
     }
   }, []);
 
@@ -338,6 +338,19 @@ const LoanApplicationForm = () => {
                     />
                   </div>
                 </div>
+                <div className="space-y-2 md:col-span-2">
+                  <Label htmlFor="promoCode">Promo Code</Label>
+                  <div className="relative">
+                    <Tag className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground w-4 h-4" />
+                    <Input
+                      id="promoCode"
+                      placeholder="Enter promo code (optional)"
+                      className="pl-10 transition-all duration-300 focus:shadow-soft"
+                      value={formData.personalInfo.promoCode}
+                      onChange={(e) => updateFormData('personalInfo', 'promoCode', e.target.value)}
+                    />
+                  </div>
+                </div>
               </div>
             )}
 
@@ -475,19 +488,6 @@ const LoanApplicationForm = () => {
                     </SelectContent>
                   </Select>
                 </div>
-                <div className="space-y-2 md:col-span-2">
-                  <Label htmlFor="promoCode">Promo Code</Label>
-                  <div className="relative">
-                    <Tag className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground w-4 h-4" />
-                    <Input
-                      id="promoCode"
-                      placeholder="Enter promo code (optional)"
-                      className="pl-10 transition-all duration-300 focus:shadow-soft"
-                      value={formData.loanInfo.promoCode}
-                      onChange={(e) => updateFormData('loanInfo', 'promoCode', e.target.value)}
-                    />
-                  </div>
-                </div>
               </div>
             )}
 
@@ -503,6 +503,7 @@ const LoanApplicationForm = () => {
                       <p><span className="font-medium">Phone:</span> {formData.personalInfo.phone}</p>
                       <p><span className="font-medium">Date of Birth:</span> {formData.personalInfo.dateOfBirth}</p>
                       {formData.personalInfo.address && <p><span className="font-medium">Address:</span> {formData.personalInfo.address}</p>}
+                      {formData.personalInfo.promoCode && <p><span className="font-medium">Promo Code:</span> {formData.personalInfo.promoCode}</p>}
                     </div>
                   </div>
                   
@@ -524,7 +525,6 @@ const LoanApplicationForm = () => {
                     <p><span className="font-medium">Amount:</span> ₱{formData.loanInfo.loanAmount}</p>
                     <p><span className="font-medium">Term:</span> {formData.loanInfo.loanTerm}</p>
                     <p><span className="font-medium">Purpose:</span> {formData.loanInfo.loanPurpose}</p>
-                    {formData.loanInfo.promoCode && <p><span className="font-medium">Promo Code:</span> {formData.loanInfo.promoCode}</p>}
                   </div>
                 </div>
                 
