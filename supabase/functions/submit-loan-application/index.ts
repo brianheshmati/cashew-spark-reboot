@@ -1,115 +1,94 @@
 import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.50.3";
 import { Resend } from "npm:resend@2.0.0";
-
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
+  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type'
 };
-
-interface LoanApplicationData {
-  personalInfo: {
-    firstName: string;
-    middleName: string;
-    lastName: string;
-    email: string;
-    phone: string;
-    dateOfBirth: string;
-    address: string;
-    promoCode: string;
-  };
-  employmentInfo: {
-    employmentStatus: string;
-    company: string;
-    position: string;
-    monthlyIncome: string;
-    employmentLength: string;
-    phone: string;
-    address: string;
-  };
-  loanInfo: {
-    loanAmount: string;
-    loanPurpose: string;
-    loanTerm: string;
-  };
-}
-
-const handler = async (req: Request): Promise<Response> => {
+const handler = async (req)=>{
   if (req.method === 'OPTIONS') {
-    return new Response(null, { headers: corsHeaders });
+    return new Response(null, {
+      headers: corsHeaders
+    });
   }
-
   try {
-    const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
-    const supabaseKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
+    const supabaseUrl = Deno.env.get('SUPABASE_URL');
+    const supabaseKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY');
     const resendApiKey = Deno.env.get('RESEND_API_KEY');
-    
     const supabase = createClient(supabaseUrl, supabaseKey);
     const resend = resendApiKey ? new Resend(resendApiKey) : null;
-
-    const applicationData: LoanApplicationData = await req.json();
-
+    const applicationData = await req.json();
     // Clean and validate data
     const cleanLoanAmount = parseFloat(applicationData.loanInfo.loanAmount.replace(/[^0-9.]/g, ''));
     const cleanMonthlyIncome = parseFloat(applicationData.employmentInfo.monthlyIncome.replace(/[^0-9.]/g, ''));
-    
+    const cleanMonthlyExpense = parseFloat(applicationData.employmentInfo.monthlyExpense.replace(/[^0-9.]/g, ''));
     // Validate minimum loan amount
     if (cleanLoanAmount < 5000) {
-      return new Response(
-        JSON.stringify({ error: 'Minimum loan amount is PHP 5,000' }),
-        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      );
+      return new Response(JSON.stringify({
+        error: 'Minimum loan amount is PHP 5,000'
+      }), {
+        status: 400,
+        headers: {
+          ...corsHeaders,
+          'Content-Type': 'application/json'
+        }
+      });
     }
-
     // Clean phone number (remove any non-digits except +)
     const cleanPhone = applicationData.personalInfo.phone.replace(/[^\d+]/g, '');
-    
     // Clean and validate email
     const email = applicationData.personalInfo.email.toLowerCase().trim();
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
     if (!emailRegex.test(email)) {
-      return new Response(
-        JSON.stringify({ error: 'Invalid email address' }),
-        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      );
+      return new Response(JSON.stringify({
+        error: 'Invalid email address'
+      }), {
+        status: 400,
+        headers: {
+          ...corsHeaders,
+          'Content-Type': 'application/json'
+        }
+      });
     }
-
     // Generate application ID
     const applicationId = crypto.randomUUID();
     console.log('Generated application ID:', applicationId);
-
     // Parse loan term to get months
     const loanTermMonths = parseInt(applicationData.loanInfo.loanTerm.replace(/[^0-9]/g, ''));
-
     // First, try to sign up the user
     console.log('Attempting to sign up user with email:', email);
     const { data: authData, error: authError } = await supabase.auth.signUp({
       email: email,
-      password: crypto.randomUUID(), // Generate random password since we'll use email verification
+      password: crypto.randomUUID(),
       options: {
         emailRedirectTo: `${Deno.env.get('SUPABASE_URL')}/auth/v1/verify`,
         data: {
           first_name: applicationData.personalInfo.firstName,
           last_name: applicationData.personalInfo.lastName,
+          middle_name: applicationData.personalInfo.middleName,
           application_id: applicationId
         }
       }
     });
-
-    console.log('Auth response:', { authData: authData?.user?.id, authError });
-
+    console.log('Auth response:', {
+      authData: authData?.user?.id,
+      authError
+    });
     if (authError && authError.message !== 'User already registered') {
       console.error('Auth error:', authError);
-      return new Response(
-        JSON.stringify({ error: 'Failed to create account: ' + authError.message }),
-        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      );
+      return new Response(JSON.stringify({
+        error: 'Failed to create account: ' + authError.message
+      }), {
+        status: 400,
+        headers: {
+          ...corsHeaders,
+          'Content-Type': 'application/json'
+        }
+      });
     }
-
     // Get user ID for the applications table
     let userId = authData?.user?.id;
     console.log('User ID from auth:', userId);
-    
     // If user already exists, skip user creation but still process application
     if (authError && authError.message === 'User already registered') {
       console.log('User already exists, proceeding with application');
@@ -117,55 +96,68 @@ const handler = async (req: Request): Promise<Response> => {
       // In production, you'd want to implement proper user lookup
       userId = applicationId; // Use application ID as user ID temporarily
     }
-
     if (!userId) {
       console.error('No user ID available');
-      return new Response(
-        JSON.stringify({ error: 'Failed to get user ID' }),
-        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      );
+      return new Response(JSON.stringify({
+        error: 'Failed to get user ID'
+      }), {
+        status: 400,
+        headers: {
+          ...corsHeaders,
+          'Content-Type': 'application/json'
+        }
+      });
     }
-
     console.log('Final user ID for application:', userId);
-
     // Insert loan application data into applications table
     const insertData = {
       id: applicationId,
-      user_id: userId,
-      loan_type: 'personal',
-      loan_amount: cleanLoanAmount,
-      monthly_income: cleanMonthlyIncome,
-      years_employed: applicationData.employmentInfo.employmentLength === 'less-than-1' ? 0.5 : 
-                     applicationData.employmentInfo.employmentLength === '1-2' ? 1.5 : 
-                     applicationData.employmentInfo.employmentLength === '3-5' ? 4 : 5,
-      status: 'submitted',
-      submitted_at: new Date().toISOString(),
+      first_name: applicationData.personalInfo.firstName,
+      middle_name: applicationData.personalInfo.middleName,
+      last_name: applicationData.personalInfo.lastName,
+      email: applicationData.personalInfo.email,
+      phone: cleanPhone,
+      //user_id: userId,
+      //loan_type: 'personal',
+      amount: cleanLoanAmount,
+      term: loanTermMonths,
+      income: cleanMonthlyIncome,
+      expense: cleanMonthlyExpense,
+      years_employed: applicationData.employmentInfo.employmentLength === 'less-than-1' ? 0.5 : applicationData.employmentInfo.employmentLength === '1-2' ? 1.5 : applicationData.employmentInfo.employmentLength === '3-5' ? 4 : 5,
+      status: 'Open',
       loan_purpose: applicationData.loanInfo.loanPurpose,
       employment_status: applicationData.employmentInfo.employmentStatus,
-      employer_name: applicationData.employmentInfo.company.trim() || 'Not specified',
-      job_title: applicationData.employmentInfo.position.trim() || 'Not specified'
+      employer: applicationData.employmentInfo.company.trim() || 'Not specified',
+      employer_phone: applicationData.employmentInfo.employer_phone.trim() || 'Not specified',
+      employer_address: applicationData.employmentInfo.employer_address.trim() || 'Not specified',
+      job_title: applicationData.employmentInfo.position.trim() || 'Not specified',
+      address: applicationData.personalInfo.address,
+      promo_code: applicationData.personalInfo.promo_code,
+      dob: applicationData.personalInfo.dob
     };
-    
     console.log('Attempting to insert data:', insertData);
-    
-    const { error: insertError } = await supabase
-      .from('applications')
-      .insert(insertData);
-
+    const { error: insertError } = await supabase.from('applications').insert(insertData);
     if (insertError) {
       console.error('Insert error:', insertError);
-      return new Response(
-        JSON.stringify({ error: 'Failed to submit application: ' + insertError.message }),
-        { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      );
+      return new Response(JSON.stringify({
+        error: 'Failed to submit application: ' + insertError.message
+      }), {
+        status: 500,
+        headers: {
+          ...corsHeaders,
+          'Content-Type': 'application/json'
+        }
+      });
     }
-
     // Send confirmation email if Resend is configured
     if (resend) {
       try {
         await resend.emails.send({
           from: 'Cashew <noreply@cashew.ph>',
-          to: [email],
+          to: [
+            email
+          ],
+          cc: 'applications@cashew.ph',
           subject: 'Loan Application Submitted - Complete Your Registration',
           html: `
             <!DOCTYPE html>
@@ -234,29 +226,31 @@ const handler = async (req: Request): Promise<Response> => {
         });
       } catch (emailError) {
         console.error('Email error:', emailError);
-        // Don't fail the request if email fails
+      // Don't fail the request if email fails
       }
     }
-
-    return new Response(
-      JSON.stringify({ 
-        success: true, 
-        applicationId: applicationId,
-        message: 'Application submitted successfully. Please check your email to verify your account.'
-      }),
-      { 
-        status: 200, 
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
+    return new Response(JSON.stringify({
+      success: true,
+      applicationId: applicationId,
+      message: 'Application submitted successfully. Please check your email to verify your account.'
+    }), {
+      status: 200,
+      headers: {
+        ...corsHeaders,
+        'Content-Type': 'application/json'
       }
-    );
-
+    });
   } catch (error) {
     console.error('Unexpected error:', error);
-    return new Response(
-      JSON.stringify({ error: 'An unexpected error occurred' }),
-      { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-    );
+    return new Response(JSON.stringify({
+      error: 'An unexpected error occurred'
+    }), {
+      status: 500,
+      headers: {
+        ...corsHeaders,
+        'Content-Type': 'application/json'
+      }
+    });
   }
 };
-
 serve(handler);
