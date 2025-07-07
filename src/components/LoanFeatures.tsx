@@ -4,19 +4,14 @@ import { Clock, Shield, DollarSign, FileCheck, Smartphone, HeadphonesIcon } from
 const LoanFeatures = () => {
   const features = [
     {
-      icon: Clock,
-      title: "Quick Approval",
-      description: "Get approved in as little as 24 hours with our streamlined process.",
-    },
-    {
-      icon: Shield,
-      title: "Secure & Safe",
-      description: "Your personal and financial information is protected with bank-level security.",
-    },
-    {
       icon: DollarSign,
       title: "Competitive Rates",
       description: "Enjoy competitive interest rates tailored to your financial profile.",
+    },
+    {
+      icon: Clock,
+      title: "Quick Approval",
+      description: "Get approved in as little as 24 hours with our streamlined process.",
     },
     {
       icon: FileCheck,
@@ -29,6 +24,11 @@ const LoanFeatures = () => {
       description: "Complete your entire application online from the comfort of your home.",
     },
     {
+      icon: Shield,
+      title: "Secure & Safe",
+      description: "Your personal and financial information is protected with bank-level security.",
+    },    
+    {
       icon: HeadphonesIcon,
       title: "24/7 Support",
       description: "Our customer support team is available round the clock to assist you.",
@@ -39,7 +39,7 @@ const LoanFeatures = () => {
     <div className="py-16 px-4 bg-gradient-soft">
       <div className="max-w-6xl mx-auto">
         <div className="text-center mb-12">
-          <h2 className="text-3xl font-bold mb-4">Why Choose Cashew Philippines?</h2>
+          <h2 className="text-3xl font-bold mb-4">Why Choose Cashew Loans?</h2>
           <p className="text-muted-foreground text-lg">
             Experience the fastest and most reliable loan service in the Philippines
           </p>
