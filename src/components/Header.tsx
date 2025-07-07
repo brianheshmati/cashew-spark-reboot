@@ -13,8 +13,8 @@ const Header = () => {
             className="h-10 w-auto"
           />
           <span className="text-sm text-muted-foreground hidden md:block">
-            <h1 className="site-title">Cashew</h1>
-            <small className="header-description">Make Your Dream Come True!</small>
+            <div className="site-title">Cashew</div>
+            <div className="header-description">Make Your Dream Come True!</div>
           </span>
         </div>
 
