@@ -18,6 +18,7 @@ interface FormData {
     phone: string;
     dateOfBirth: string;
     address: string;
+    referralCode: string;
     promoCode: string;
   };
   employmentInfo: {
@@ -52,6 +53,7 @@ const LoanApplicationForm = () => {
       dateOfBirth: '',
       address: '',
       promoCode: '',
+      referralCode: '', // This can be used for tracking referrals
     },
     employmentInfo: {
       employmentStatus: '',
@@ -73,8 +75,13 @@ const LoanApplicationForm = () => {
   useEffect(() => {
     const urlParams = new URLSearchParams(window.location.search);
     const promoCodeFromUrl = urlParams.get('promo');
+    const referralCodeFromUrl = urlParams.get('referral');
+    
     if (promoCodeFromUrl) {
       updateFormData('personalInfo', 'promoCode', promoCodeFromUrl);
+    }
+    if (referralCodeFromUrl) {
+      updateFormData('personalInfo', 'referralCode', referralCodeFromUrl);
     }
   }, []);
 
@@ -363,6 +370,19 @@ const LoanApplicationForm = () => {
                       className="pl-10 transition-all duration-300 focus:shadow-soft"
                       value={formData.personalInfo.promoCode}
                       onChange={(e) => updateFormData('personalInfo', 'promoCode', e.target.value)}
+                    />
+                  </div>
+                </div>
+                <div className="space-y-2 md:col-span-2">
+                  <Label htmlFor="referralCode">Referral Code</Label>
+                  <div className="relative">
+                    <Tag className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground w-4 h-4" />
+                    <Input
+                      id="referralCode"
+                      placeholder="Enter referral code (optional)"
+                      className="pl-10 transition-all duration-300 focus:shadow-soft"
+                      value={formData.personalInfo.referralCode}
+                      onChange={(e) => updateFormData('personalInfo', 'referralCode', e.target.value)}
                     />
                   </div>
                 </div>
