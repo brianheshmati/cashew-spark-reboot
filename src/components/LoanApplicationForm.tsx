@@ -381,7 +381,7 @@ const LoanApplicationForm = () => {
                       id="referralCode"
                       placeholder="Enter referral code (optional)"
                       className="pl-10 transition-all duration-300 focus:shadow-soft"
-                      value={formData.personalInfo.referralCode} 
+                      value={formData.personalInfo.referralCode}
                       onChange={(e) => updateFormData('personalInfo', 'referralCode', e.target.value)}
                     />
                   </div>
