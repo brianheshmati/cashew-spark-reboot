@@ -388,6 +388,7 @@ const LoanApplicationForm = () => {
                 </div>
               </div>
             )}
+            
             {/* Step 2: Employment Information */}
             {currentStep === 2 && (
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
