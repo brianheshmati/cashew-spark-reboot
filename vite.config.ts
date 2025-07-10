@@ -8,6 +8,7 @@ export default defineConfig(({ mode }) => ({
   server: {
     host: "::",
     port: 8080,
+    allowedHosts: ['loan.cashew.ph']
   },
   plugins: [
     react(),
@@ -19,5 +20,5 @@ export default defineConfig(({ mode }) => ({
       "@": path.resolve(__dirname, "./src"),
     },
   },
-  base:"/cashew-spark-reboot/"
+  base:"/"
 }));

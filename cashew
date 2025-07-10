@@ -1,0 +1,27 @@
+server {
+    listen 80;
+    server_name loan.cashew.ph;
+
+    # Redirect HTTP to HTTPS
+    return 301 https://$host$request_uri;
+}
+
+server {
+    listen 443 ssl;
+    server_name loan.cashew.ph;
+
+    ssl_certificate /etc/letsencrypt/live/cashew.ph/fullchain.pem;
+    ssl_certificate_key /etc/letsencrypt/live/cashew.ph/privkey.pem;
+
+    ssl_protocols TLSv1.2 TLSv1.3;
+    ssl_ciphers HIGH:!aNULL:!MD5;
+
+    location / {
+        proxy_pass http://localhost:8080; # Or serve static files if needed
+        proxy_http_version 1.1;
+        proxy_set_header Host $host;
+        proxy_set_header Upgrade $http_upgrade;
+        proxy_set_header Connection 'upgrade';
+        proxy_cache_bypass $http_upgrade;
+    }
+}
