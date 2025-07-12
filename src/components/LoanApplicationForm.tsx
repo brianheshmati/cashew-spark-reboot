@@ -26,9 +26,10 @@ interface FormData {
     company: string;
     position: string;
     monthlyIncome: string;
+    monthlyExpense: string;
     employmentLength: string;
-    phone: string;
-    address: string;
+    employer_phone: string;
+    employer_address: string;
   };
   loanInfo: {
     loanAmount: string;
@@ -60,9 +61,10 @@ const LoanApplicationForm = () => {
       company: '',
       position: '',
       monthlyIncome: '',
+      monthlyExpense: '',
       employmentLength: '',
-      phone: '',
-      address: '',
+      employer_phone: '',
+      employer_address: '',
     },
     loanInfo: {
       loanAmount: '',
@@ -111,13 +113,14 @@ const LoanApplicationForm = () => {
         
         return !!(firstName && lastName && isValidEmail && phone && dateOfBirth && address && isValidDate);
       case 2:
-        const { employmentStatus, company, position, monthlyIncome, phone: empPhone, address: empAddress } = formData.employmentInfo;
+        const { employmentStatus, company, position, monthlyIncome, monthlyExpense, employer_phone: empPhone, employer_address: empAddress } = formData.employmentInfo;
         
         // Validate monthly income is a positive number
         const monthlyIncomeNum = parseFloat(monthlyIncome.replace(/[^0-9.]/g, ''));
-        const isValidIncome = !isNaN(monthlyIncomeNum) && monthlyIncomeNum > 0;
+        // Validate monthly expense is a positive number
+        const monthlyExpenseNum = parseFloat(monthlyExpense.replace(/[^0-9.]/g, ''));const isValidIncome = !isNaN(monthlyExpenseNum) && monthlyExpenseNum > 0;
         
-        return !!(employmentStatus && company && position && monthlyIncome && empPhone && empAddress && isValidIncome);
+        return !!(employmentStatus && company && position && monthlyIncome && monthlyExpense && empPhone && empAddress && isValidIncome);
       case 3:
         const { loanAmount, loanPurpose, loanTerm } = formData.loanInfo;
         
@@ -156,7 +159,7 @@ const LoanApplicationForm = () => {
     }
 
     setIsSubmitting(true);
-    
+    console.log(formData);
     try {
       const response = await fetch('https://fklaxhpublxhgxcajuyu.supabase.co/functions/v1/loan_application_submission', {
         method: 'POST',
@@ -168,6 +171,7 @@ const LoanApplicationForm = () => {
       });
 
       const data = await response.json();
+      //console.log(data);
 
       if (!response.ok) {
         throw new Error(data.error || 'Submission failed');
@@ -417,6 +421,16 @@ const LoanApplicationForm = () => {
                   />
                 </div>
                 <div className="space-y-2">
+                  <Label htmlFor="monthlyExpense">Estimated Monthly Expense (PHP) *</Label>
+                  <Input
+                    id="monthlyExpense"
+                    placeholder="20,000"
+                    value={formData.employmentInfo.monthlyExpense}
+                    onChange={(e) => updateFormData('employmentInfo', 'monthlyExpense', e.target.value)}
+                    className="transition-all duration-300 focus:shadow-soft"
+                  />
+                </div>
+                <div className="space-y-2">
                   <Label htmlFor="company">Company/Business Name *</Label>
                   <Input
                     id="company"
@@ -445,7 +459,7 @@ const LoanApplicationForm = () => {
                       placeholder="+63 912 345 6789"
                       className="pl-10 transition-all duration-300 focus:shadow-soft"
                       value={formData.employmentInfo.phone}
-                      onChange={(e) => updateFormData('employmentInfo', 'phone', e.target.value)}
+                      onChange={(e) => updateFormData('employmentInfo', 'employer_phone', e.target.value)}
                     />
                   </div>
                 </div>
@@ -457,9 +471,9 @@ const LoanApplicationForm = () => {
                     </SelectTrigger>
                     <SelectContent>
                       <SelectItem value="less-than-1">Less than 1 year</SelectItem>
-                      <SelectItem value="1-2">1-2 years</SelectItem>
-                      <SelectItem value="3-5">3-5 years</SelectItem>
-                      <SelectItem value="more-than-5">More than 5 years</SelectItem>
+                      <SelectItem value="1">1-2 years</SelectItem>
+                      <SelectItem value="3">3-5 years</SelectItem>
+                      <SelectItem value="5">More than 5 years</SelectItem>
                     </SelectContent>
                   </Select>
                 </div>
@@ -472,7 +486,7 @@ const LoanApplicationForm = () => {
                       placeholder="Company/Business address"
                       className="pl-10 transition-all duration-300 focus:shadow-soft"
                       value={formData.employmentInfo.address}
-                      onChange={(e) => updateFormData('employmentInfo', 'address', e.target.value)}
+                      onChange={(e) => updateFormData('employmentInfo', 'employer_address', e.target.value)}
                     />
                   </div>
                 </div>
@@ -499,10 +513,8 @@ const LoanApplicationForm = () => {
                       <SelectValue placeholder="Select loan term" />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="1-month">1 month</SelectItem>
-                      <SelectItem value="2-months">2 months</SelectItem>
-                      <SelectItem value="3-months">3 months</SelectItem>
-                      <SelectItem value="4-months">4 months</SelectItem>
+                      <SelectItem value="1">1 month</SelectItem>
+                      <SelectItem value="2">2 months</SelectItem>
                     </SelectContent>
                   </Select>
                 </div>
@@ -547,9 +559,12 @@ const LoanApplicationForm = () => {
                     <div className="space-y-2 text-sm">
                       <p><span className="font-medium">Status:</span> {formData.employmentInfo.employmentStatus}</p>
                       <p><span className="font-medium">Monthly Income:</span> ₱{formData.employmentInfo.monthlyIncome}</p>
-                      {formData.employmentInfo.company && <p><span className="font-medium">Company:</span> {formData.employmentInfo.company}</p>}
-                      {formData.employmentInfo.position && <p><span className="font-medium">Position:</span> {formData.employmentInfo.position}</p>}
-                      {formData.employmentInfo.employmentLength && <p><span className="font-medium">Employment Length:</span> {formData.employmentInfo.employmentLength}</p>}
+                      <p><span className="font-medium">Monthly Expense:</span> ₱{formData.employmentInfo.monthlyExpense}</p>
+                      <p><span className="font-medium">Company:</span> {formData.employmentInfo.company}</p>
+                      <p><span className="font-medium">Company phone:</span> {formData.employmentInfo.employer_phone}</p>
+                      <p><span className="font-medium">Company address:</span> {formData.employmentInfo.employer_address}</p>
+                      <p><span className="font-medium">Position:</span> {formData.employmentInfo.position}</p>
+                      <p><span className="font-medium">Employment Length:</span> {formData.employmentInfo.employmentLength}</p>
                     </div>
                   </div>
                 </div>
