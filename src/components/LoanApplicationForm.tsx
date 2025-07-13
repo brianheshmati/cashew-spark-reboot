@@ -458,7 +458,7 @@ const LoanApplicationForm = () => {
                       id="empPhone"
                       placeholder="+63 912 345 6789"
                       className="pl-10 transition-all duration-300 focus:shadow-soft"
-                      value={formData.employmentInfo.phone}
+                      value={formData.employmentInfo.employer_phone}
                       onChange={(e) => updateFormData('employmentInfo', 'employer_phone', e.target.value)}
                     />
                   </div>
@@ -485,7 +485,7 @@ const LoanApplicationForm = () => {
                       id="empAddress"
                       placeholder="Company/Business address"
                       className="pl-10 transition-all duration-300 focus:shadow-soft"
-                      value={formData.employmentInfo.address}
+                      value={formData.employmentInfo.employer_address}
                       onChange={(e) => updateFormData('employmentInfo', 'employer_address', e.target.value)}
                     />
                   </div>
