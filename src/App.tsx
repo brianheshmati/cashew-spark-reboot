@@ -7,7 +7,8 @@ import Landing from "./pages/Landing";
 import Auth from "./pages/Auth";
 import Dashboard from "./pages/Dashboard";
 import Apply from "./pages/Apply";
-import LoanApplicationForm from "./components/LoanApplicationForm";
+//import LoanApplicationForm from "./components/LoanApplicationForm";
+import Index from "./pages/Index";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -20,7 +21,7 @@ const App = () => (
       <BrowserRouter basename="/">
         <Routes>
           {/* <Route path="/" element={<Landing />} /> */}
-           <Route path="/" element={<LoanApplicationForm />} />
+           <Route path="/" element={<Index />} />
           <Route path="/auth" element={<Auth />} />
           <Route path="/dashboard" element={<Dashboard />} />
           {/* <Route path="/apply" element={<Apply />} /> */}
