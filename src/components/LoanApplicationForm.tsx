@@ -141,10 +141,15 @@ const LoanApplicationForm = () => {
     setIsUploading(true);
 
     try {
+      // Get current user
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) {
+        throw new Error('User not authenticated');
+      }
+
       // Generate unique filename
-      const userId = 'temp-' + Date.now(); // This will be replaced with actual user ID
       const fileExt = file.name.split('.').pop();
-      const fileName = `${userId}/${documentType}-${Date.now()}.${fileExt}`;
+      const fileName = `${user.id}/${documentType}-${Date.now()}.${fileExt}`;
 
       // Upload to Supabase Storage
       const { data, error } = await supabase.storage
