@@ -42,8 +42,9 @@ const Landing = () => {
       {/* Hero Section */}
       <section className="py-20 lg:py-32 px-6 bg-gradient-soft relative overflow-hidden">
         <div className="max-w-7xl mx-auto">
-          <div className="grid lg:grid-cols-2 gap-12 items-center">
-            <div className="text-left">
+          <div className="flex flex-col lg:flex-row gap-12 items-center">
+            {/* Left Column - Text Content */}
+            <div className="flex-1 text-left lg:pr-8">
               <div className="text-sm font-semibold text-primary mb-4 tracking-wide uppercase">
                 — Lender of choice for individuals and small businesses
               </div>
@@ -79,8 +80,8 @@ const Landing = () => {
               </div>
             </div>
 
-            {/* iPhone 15 Mockup */}
-            <div className="relative lg:pl-12">
+            {/* Right Column - iPhone 15 Mockup */}
+            <div className="flex-shrink-0 w-full lg:w-auto flex justify-center lg:justify-end">
               <div className="relative mx-auto w-72 h-[580px] bg-foreground rounded-[3.5rem] p-2 shadow-2xl">
                 <div className="w-full h-full bg-background rounded-[3rem] overflow-hidden relative">
                   {/* iPhone notch */}
