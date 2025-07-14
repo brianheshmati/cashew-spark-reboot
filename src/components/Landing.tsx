@@ -8,36 +8,7 @@ const Landing = () => {
   return (
     <div className="min-h-screen bg-background">
       {/* Header */}
-      <header className="bg-background/80 backdrop-blur-sm border-b sticky top-0 z-50">
-        <div className="max-w-7xl mx-auto px-6 py-4 flex items-center justify-between">
-          <div className="flex items-center space-x-3">
-            <img 
-              src={cashewLogo} 
-              alt="Cashew Logo" 
-              className="h-10 w-auto"
-            />
-            <div>
-              <div className="font-bold text-lg text-foreground">Cashew</div>
-              <div className="text-sm text-muted-foreground">Make Your Dream Come True!</div>
-            </div>
-          </div>
-          
-          <nav className="hidden md:flex items-center space-x-8">
-            <a href="#services" className="text-foreground hover:text-primary transition-colors">Services</a>
-            <a href="#features" className="text-foreground hover:text-primary transition-colors">Features</a>
-            <a href="#about" className="text-foreground hover:text-primary transition-colors">About</a>
-          </nav>
-          
-          <div className="flex items-center space-x-4">
-            <Link to="/auth">
-              <Button variant="outline">Sign In</Button>
-            </Link>
-            <Link to="/apply">
-              <Button>Apply Now</Button>
-            </Link>
-          </div>
-        </div>
-      </header>
+    <header className="bg-foreground text-background py-4 px-6 shadow-medium"><div className="max-w-7xl mx-auto flex items-center justify-between"><div className="flex items-center space-x-3"><img src="/assets/cashew-logo-C8uN5DCd.png" alt="Cashew Logo" className="h-10 w-auto"/><span className="text-sm text-muted-foreground hidden md:block"><div className="site-title">Cashew</div><div className="header-description">Make Your Dream Come True!</div></span></div><nav className="flex items-center space-x-6"><a href="https://www.cashew.ph" target="_blank" rel="noopener noreferrer" className="text-background hover:text-primary transition-colors duration-300 font-medium">Home</a><a href="https://www.cashew.ph/terms.html" target="_blank" rel="noopener noreferrer" className="text-background hover:text-primary transition-colors duration-300 font-medium">Privacy Policy</a></nav></div></header>
 
       {/* Hero Section */}
       <section className="py-20 lg:py-32 px-6 bg-gradient-soft relative overflow-hidden">
@@ -46,7 +17,6 @@ const Landing = () => {
             {/* Left Column - Text Content */}
             <div className="flex-1 text-left lg:pr-8">
               <div className="text-sm font-semibold text-primary mb-4 tracking-wide uppercase">
-                — Lender of choice for individuals and small businesses
               </div>
               <h1 className="text-4xl lg:text-6xl font-bold text-foreground mb-6 leading-tight">
                 Fast & Hassle-Free <span className="text-primary">Loans</span>
