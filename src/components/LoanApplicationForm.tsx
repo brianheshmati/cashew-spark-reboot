@@ -6,7 +6,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Textarea } from '@/components/ui/textarea';
 import { useToast } from '@/hooks/use-toast';
-import { CheckCircle, DollarSign, FileText, User, Phone, Mail, MapPin, Briefcase, Tag } from 'lucide-react';
+import { CheckCircle, DollarSign, FileText, User, Phone, Mail, MapPin, Briefcase, Tag, Upload, X } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 
 interface FormData {
@@ -36,12 +36,25 @@ interface FormData {
     loanPurpose: string;
     loanTerm: string;
   };
+  documents: {
+    validId: File | null;
+    proofOfIncome: File | null;
+    bankStatement: File | null;
+    proofOfEmployment: File | null;
+  };
+}
+
+interface UploadedFile {
+  file: File;
+  url: string;
 }
 
 const LoanApplicationForm = () => {
   const [currentStep, setCurrentStep] = useState(1);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [applicationId, setApplicationId] = useState<string>('');
+  const [uploadedFiles, setUploadedFiles] = useState<{[key: string]: UploadedFile}>({});
+  const [isUploading, setIsUploading] = useState(false);
   const { toast } = useToast();
   
   const [formData, setFormData] = useState<FormData>({
@@ -71,6 +84,12 @@ const LoanApplicationForm = () => {
       loanPurpose: '',
       loanTerm: '',
     },
+    documents: {
+      validId: null,
+      proofOfIncome: null,
+      bankStatement: null,
+      proofOfEmployment: null,
+    },
   });
 
   // Get promo code from URL parameters
@@ -87,7 +106,7 @@ const LoanApplicationForm = () => {
     }
   }, []);
 
-  const updateFormData = (section: keyof FormData, field: string, value: string) => {
+  const updateFormData = (section: keyof FormData, field: string, value: string | File | null) => {
     setFormData(prev => ({
       ...prev,
       [section]: {
@@ -95,6 +114,85 @@ const LoanApplicationForm = () => {
         [field]: value,
       },
     }));
+  };
+
+  const handleFileUpload = async (file: File, documentType: keyof FormData['documents']) => {
+    if (!file) return;
+
+    // Validate file type
+    const allowedTypes = ['image/jpeg', 'image/png', 'image/webp', 'application/pdf'];
+    if (!allowedTypes.includes(file.type)) {
+      toast({
+        title: "Invalid file type",
+        description: "Please upload JPG, PNG, WebP, or PDF files only.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    // Validate file size (50MB)
+    if (file.size > 52428800) {
+      toast({
+        title: "File too large",
+        description: "Please upload files smaller than 50MB.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    setIsUploading(true);
+
+    try {
+      // Generate unique filename
+      const userId = 'temp-' + Date.now(); // This will be replaced with actual user ID
+      const fileExt = file.name.split('.').pop();
+      const fileName = `${userId}/${documentType}-${Date.now()}.${fileExt}`;
+
+      // Upload to Supabase Storage
+      const { data, error } = await supabase.storage
+        .from('loan-documents')
+        .upload(fileName, file);
+
+      if (error) {
+        throw error;
+      }
+
+      // Get public URL
+      const { data: { publicUrl } } = supabase.storage
+        .from('loan-documents')
+        .getPublicUrl(fileName);
+
+      // Update form data and uploaded files state
+      updateFormData('documents', documentType, file);
+      setUploadedFiles(prev => ({
+        ...prev,
+        [documentType]: { file, url: publicUrl }
+      }));
+
+      toast({
+        title: "File uploaded successfully",
+        description: `${file.name} has been uploaded.`,
+      });
+
+    } catch (error: any) {
+      console.error('Upload error:', error);
+      toast({
+        title: "Upload failed",
+        description: error.message || "Failed to upload file. Please try again.",
+        variant: "destructive",
+      });
+    } finally {
+      setIsUploading(false);
+    }
+  };
+
+  const removeFile = (documentType: keyof FormData['documents']) => {
+    updateFormData('documents', documentType, null);
+    setUploadedFiles(prev => {
+      const newFiles = { ...prev };
+      delete newFiles[documentType];
+      return newFiles;
+    });
   };
 
   const validateStep = (step: number): boolean => {
@@ -130,6 +228,9 @@ const LoanApplicationForm = () => {
         
         return !!(loanAmount && loanPurpose && loanTerm && isValidLoanAmount);
       case 4:
+        // Documents are optional but at least one should be uploaded for better processing
+        return true;
+      case 5:
         return true;
       default:
         return false;
@@ -149,7 +250,7 @@ const LoanApplicationForm = () => {
   };
 
   const handleSubmit = async () => {
-    if (!validateStep(4)) {
+    if (!validateStep(5)) {
       toast({
         title: "Please review all information",
         description: "Please ensure all information is correct before submitting.",
@@ -161,13 +262,22 @@ const LoanApplicationForm = () => {
     setIsSubmitting(true);
     console.log(formData);
     try {
+      // Prepare form data with uploaded file URLs
+      const submissionData = {
+        ...formData,
+        documents: Object.keys(uploadedFiles).reduce((acc, key) => {
+          acc[key] = uploadedFiles[key].url;
+          return acc;
+        }, {} as {[key: string]: string})
+      };
+
       const response = await fetch('https://fklaxhpublxhgxcajuyu.supabase.co/functions/v1/loan_application_submission', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
           'Authorization': 'Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImZrbGF4aHB1Ymx4aGd4Y2FqdXl1Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3MzEwNDcyODAsImV4cCI6MjA0NjYyMzI4MH0.8c7FWSRsw0PfrZmq9dzVEq5wTl668AG0ww7jf9tYIAo',
         },
-        body: JSON.stringify(formData),
+        body: JSON.stringify(submissionData),
       });
 
       const data = await response.json();
@@ -186,7 +296,7 @@ const LoanApplicationForm = () => {
         title: "Application submitted successfully!",
         description: data?.message || "We'll review your application and get back to you within 24 hours.",
       });
-      setCurrentStep(5);
+      setCurrentStep(6);
     } catch (error: any) {
       console.error('Submission error:', error);
       toast({
@@ -203,8 +313,9 @@ const LoanApplicationForm = () => {
     { number: 1, title: "Personal Information", icon: User },
     { number: 2, title: "Employment Details", icon: Briefcase },
     { number: 3, title: "Loan Information", icon: DollarSign },
-    { number: 4, title: "Review & Submit", icon: FileText },
-    { number: 5, title: "Confirmation", icon: CheckCircle },
+    { number: 4, title: "Upload Documents", icon: Upload },
+    { number: 5, title: "Review & Submit", icon: FileText },
+    { number: 6, title: "Confirmation", icon: CheckCircle },
   ];
 
   return (
@@ -275,8 +386,9 @@ const LoanApplicationForm = () => {
               {currentStep === 1 && "Please provide your personal information"}
               {currentStep === 2 && "Tell us about your employment status"}
               {currentStep === 3 && "Specify your loan requirements"}
-              {currentStep === 4 && "Review your application details before submitting"}
-              {currentStep === 5 && "Your application has been submitted"}
+              {currentStep === 4 && "Upload your supporting documents"}
+              {currentStep === 5 && "Review your application details before submitting"}
+              {currentStep === 6 && "Your application has been submitted"}
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-6">
@@ -538,8 +650,215 @@ const LoanApplicationForm = () => {
               </div>
             )}
 
-            {/* Step 4: Review */}
+            {/* Step 4: Document Upload */}
             {currentStep === 4 && (
+              <div className="space-y-6">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                  {/* Valid ID */}
+                  <div className="space-y-3">
+                    <Label htmlFor="validId" className="text-sm font-medium">
+                      Valid ID *
+                    </Label>
+                    <div className="border-2 border-dashed border-border rounded-lg p-4 text-center hover:border-primary transition-colors">
+                      {uploadedFiles.validId ? (
+                        <div className="space-y-2">
+                          <div className="flex items-center justify-between">
+                            <span className="text-sm text-muted-foreground truncate">
+                              {uploadedFiles.validId.file.name}
+                            </span>
+                            <Button
+                              type="button"
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => removeFile('validId')}
+                            >
+                              <X className="w-4 h-4" />
+                            </Button>
+                          </div>
+                          <p className="text-xs text-green-600">✓ Uploaded successfully</p>
+                        </div>
+                      ) : (
+                        <>
+                          <Upload className="w-8 h-8 text-muted-foreground mx-auto mb-2" />
+                          <p className="text-sm text-muted-foreground mb-2">
+                            Upload a valid government-issued ID
+                          </p>
+                          <Input
+                            type="file"
+                            accept="image/*,.pdf"
+                            onChange={(e) => {
+                              const file = e.target.files?.[0];
+                              if (file) handleFileUpload(file, 'validId');
+                            }}
+                            className="cursor-pointer"
+                            disabled={isUploading}
+                          />
+                        </>
+                      )}
+                    </div>
+                    <p className="text-xs text-muted-foreground">
+                      Driver's License, Passport, or National ID (JPG, PNG, PDF - Max 50MB)
+                    </p>
+                  </div>
+
+                  {/* Proof of Income */}
+                  <div className="space-y-3">
+                    <Label htmlFor="proofOfIncome" className="text-sm font-medium">
+                      Proof of Income
+                    </Label>
+                    <div className="border-2 border-dashed border-border rounded-lg p-4 text-center hover:border-primary transition-colors">
+                      {uploadedFiles.proofOfIncome ? (
+                        <div className="space-y-2">
+                          <div className="flex items-center justify-between">
+                            <span className="text-sm text-muted-foreground truncate">
+                              {uploadedFiles.proofOfIncome.file.name}
+                            </span>
+                            <Button
+                              type="button"
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => removeFile('proofOfIncome')}
+                            >
+                              <X className="w-4 h-4" />
+                            </Button>
+                          </div>
+                          <p className="text-xs text-green-600">✓ Uploaded successfully</p>
+                        </div>
+                      ) : (
+                        <>
+                          <Upload className="w-8 h-8 text-muted-foreground mx-auto mb-2" />
+                          <p className="text-sm text-muted-foreground mb-2">
+                            Upload proof of income
+                          </p>
+                          <Input
+                            type="file"
+                            accept="image/*,.pdf"
+                            onChange={(e) => {
+                              const file = e.target.files?.[0];
+                              if (file) handleFileUpload(file, 'proofOfIncome');
+                            }}
+                            className="cursor-pointer"
+                            disabled={isUploading}
+                          />
+                        </>
+                      )}
+                    </div>
+                    <p className="text-xs text-muted-foreground">
+                      Payslip, Certificate of Employment, or ITR (JPG, PNG, PDF - Max 50MB)
+                    </p>
+                  </div>
+
+                  {/* Bank Statement */}
+                  <div className="space-y-3">
+                    <Label htmlFor="bankStatement" className="text-sm font-medium">
+                      Bank Statement
+                    </Label>
+                    <div className="border-2 border-dashed border-border rounded-lg p-4 text-center hover:border-primary transition-colors">
+                      {uploadedFiles.bankStatement ? (
+                        <div className="space-y-2">
+                          <div className="flex items-center justify-between">
+                            <span className="text-sm text-muted-foreground truncate">
+                              {uploadedFiles.bankStatement.file.name}
+                            </span>
+                            <Button
+                              type="button"
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => removeFile('bankStatement')}
+                            >
+                              <X className="w-4 h-4" />
+                            </Button>
+                          </div>
+                          <p className="text-xs text-green-600">✓ Uploaded successfully</p>
+                        </div>
+                      ) : (
+                        <>
+                          <Upload className="w-8 h-8 text-muted-foreground mx-auto mb-2" />
+                          <p className="text-sm text-muted-foreground mb-2">
+                            Upload bank statement
+                          </p>
+                          <Input
+                            type="file"
+                            accept="image/*,.pdf"
+                            onChange={(e) => {
+                              const file = e.target.files?.[0];
+                              if (file) handleFileUpload(file, 'bankStatement');
+                            }}
+                            className="cursor-pointer"
+                            disabled={isUploading}
+                          />
+                        </>
+                      )}
+                    </div>
+                    <p className="text-xs text-muted-foreground">
+                      Last 3 months bank statement (JPG, PNG, PDF - Max 50MB)
+                    </p>
+                  </div>
+
+                  {/* Proof of Employment */}
+                  <div className="space-y-3">
+                    <Label htmlFor="proofOfEmployment" className="text-sm font-medium">
+                      Proof of Employment
+                    </Label>
+                    <div className="border-2 border-dashed border-border rounded-lg p-4 text-center hover:border-primary transition-colors">
+                      {uploadedFiles.proofOfEmployment ? (
+                        <div className="space-y-2">
+                          <div className="flex items-center justify-between">
+                            <span className="text-sm text-muted-foreground truncate">
+                              {uploadedFiles.proofOfEmployment.file.name}
+                            </span>
+                            <Button
+                              type="button"
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => removeFile('proofOfEmployment')}
+                            >
+                              <X className="w-4 h-4" />
+                            </Button>
+                          </div>
+                          <p className="text-xs text-green-600">✓ Uploaded successfully</p>
+                        </div>
+                      ) : (
+                        <>
+                          <Upload className="w-8 h-8 text-muted-foreground mx-auto mb-2" />
+                          <p className="text-sm text-muted-foreground mb-2">
+                            Upload proof of employment
+                          </p>
+                          <Input
+                            type="file"
+                            accept="image/*,.pdf"
+                            onChange={(e) => {
+                              const file = e.target.files?.[0];
+                              if (file) handleFileUpload(file, 'proofOfEmployment');
+                            }}
+                            className="cursor-pointer"
+                            disabled={isUploading}
+                          />
+                        </>
+                      )}
+                    </div>
+                    <p className="text-xs text-muted-foreground">
+                      Certificate of Employment or Company ID (JPG, PNG, PDF - Max 50MB)
+                    </p>
+                  </div>
+                </div>
+
+                <div className="bg-muted p-4 rounded-lg">
+                  <p className="text-sm text-muted-foreground">
+                    <strong>Note:</strong> While documents are not required to submit your application, uploading them will help us process your loan faster and increase your approval chances.
+                  </p>
+                </div>
+
+                {isUploading && (
+                  <div className="text-center">
+                    <p className="text-sm text-muted-foreground">Uploading file...</p>
+                  </div>
+                )}
+              </div>
+            )}
+
+            {/* Step 5: Review */}
+            {currentStep === 5 && (
               <div className="space-y-6">
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                   <div className="space-y-4">
@@ -577,6 +896,16 @@ const LoanApplicationForm = () => {
                     <p><span className="font-medium">Purpose:</span> {formData.loanInfo.loanPurpose}</p>
                   </div>
                 </div>
+
+                <div className="border-t pt-6">
+                  <h3 className="text-lg font-semibold mb-4">Uploaded Documents</h3>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
+                    <p><span className="font-medium">Valid ID:</span> {uploadedFiles.validId ? '✓ Uploaded' : '❌ Not uploaded'}</p>
+                    <p><span className="font-medium">Proof of Income:</span> {uploadedFiles.proofOfIncome ? '✓ Uploaded' : '❌ Not uploaded'}</p>
+                    <p><span className="font-medium">Bank Statement:</span> {uploadedFiles.bankStatement ? '✓ Uploaded' : '❌ Not uploaded'}</p>
+                    <p><span className="font-medium">Proof of Employment:</span> {uploadedFiles.proofOfEmployment ? '✓ Uploaded' : '❌ Not uploaded'}</p>
+                  </div>
+                </div>
                 
                 <div className="bg-muted p-4 rounded-lg">
                   <p className="text-sm text-muted-foreground">
@@ -586,8 +915,8 @@ const LoanApplicationForm = () => {
               </div>
             )}
 
-            {/* Step 5: Confirmation */}
-            {currentStep === 5 && (
+            {/* Step 6: Confirmation */}
+            {currentStep === 6 && (
               <div className="text-center space-y-6">
                 <div className="w-20 h-20 bg-success rounded-full flex items-center justify-center mx-auto">
                   <CheckCircle className="w-10 h-10 text-white" />
@@ -613,7 +942,7 @@ const LoanApplicationForm = () => {
             )}
 
             {/* Navigation Buttons */}
-            {currentStep < 5 && (
+            {currentStep < 6 && (
               <div className="flex justify-between pt-6">
                 <Button
                   variant="outline"
@@ -623,7 +952,7 @@ const LoanApplicationForm = () => {
                 >
                   Previous
                 </Button>
-                {currentStep < 4 ? (
+                {currentStep < 5 ? (
                   <Button 
                     onClick={handleNext}
                     className="bg-gradient-primary hover:opacity-90 transition-all duration-300 hover:shadow-soft"
