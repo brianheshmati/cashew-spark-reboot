@@ -38,9 +38,8 @@ interface FormData {
   };
   documents: {
     validId: File | null;
-    proofOfIncome: File | null;
-    bankStatement: File | null;
-    proofOfEmployment: File | null;
+    paySlipMonth1: File | null;
+    paySlipMonth2: File | null;
   };
 }
 
@@ -86,9 +85,8 @@ const LoanApplicationForm = () => {
     },
     documents: {
       validId: null,
-      proofOfIncome: null,
-      bankStatement: null,
-      proofOfEmployment: null,
+      paySlipMonth1: null,
+      paySlipMonth2: null,
     },
   });
 
@@ -701,23 +699,23 @@ const LoanApplicationForm = () => {
                     </p>
                   </div>
 
-                  {/* Proof of Income */}
+                  {/* Pay Slip Month 1 */}
                   <div className="space-y-3">
-                    <Label htmlFor="proofOfIncome" className="text-sm font-medium">
-                      Proof of Income
+                    <Label htmlFor="paySlipMonth1" className="text-sm font-medium">
+                      Pay Slip - First Month *
                     </Label>
                     <div className="border-2 border-dashed border-border rounded-lg p-4 text-center hover:border-primary transition-colors">
-                      {uploadedFiles.proofOfIncome ? (
+                      {uploadedFiles.paySlipMonth1 ? (
                         <div className="space-y-2">
                           <div className="flex items-center justify-between">
                             <span className="text-sm text-muted-foreground truncate">
-                              {uploadedFiles.proofOfIncome.file.name}
+                              {uploadedFiles.paySlipMonth1.file.name}
                             </span>
                             <Button
                               type="button"
                               variant="ghost"
                               size="sm"
-                              onClick={() => removeFile('proofOfIncome')}
+                              onClick={() => removeFile('paySlipMonth1')}
                             >
                               <X className="w-4 h-4" />
                             </Button>
@@ -728,14 +726,14 @@ const LoanApplicationForm = () => {
                         <>
                           <Upload className="w-8 h-8 text-muted-foreground mx-auto mb-2" />
                           <p className="text-sm text-muted-foreground mb-2">
-                            Upload proof of income
+                            Upload your first month pay slip
                           </p>
                           <Input
                             type="file"
                             accept="image/*,.pdf"
                             onChange={(e) => {
                               const file = e.target.files?.[0];
-                              if (file) handleFileUpload(file, 'proofOfIncome');
+                              if (file) handleFileUpload(file, 'paySlipMonth1');
                             }}
                             className="cursor-pointer"
                             disabled={isUploading}
@@ -744,27 +742,27 @@ const LoanApplicationForm = () => {
                       )}
                     </div>
                     <p className="text-xs text-muted-foreground">
-                      Payslip, Certificate of Employment, or ITR (JPG, PNG, PDF - Max 50MB)
+                      Your most recent pay slip (JPG, PNG, PDF - Max 50MB)
                     </p>
                   </div>
 
-                  {/* Bank Statement */}
+                  {/* Pay Slip Month 2 */}
                   <div className="space-y-3">
-                    <Label htmlFor="bankStatement" className="text-sm font-medium">
-                      Bank Statement
+                    <Label htmlFor="paySlipMonth2" className="text-sm font-medium">
+                      Pay Slip - Second Month *
                     </Label>
                     <div className="border-2 border-dashed border-border rounded-lg p-4 text-center hover:border-primary transition-colors">
-                      {uploadedFiles.bankStatement ? (
+                      {uploadedFiles.paySlipMonth2 ? (
                         <div className="space-y-2">
                           <div className="flex items-center justify-between">
                             <span className="text-sm text-muted-foreground truncate">
-                              {uploadedFiles.bankStatement.file.name}
+                              {uploadedFiles.paySlipMonth2.file.name}
                             </span>
                             <Button
                               type="button"
                               variant="ghost"
                               size="sm"
-                              onClick={() => removeFile('bankStatement')}
+                              onClick={() => removeFile('paySlipMonth2')}
                             >
                               <X className="w-4 h-4" />
                             </Button>
@@ -775,14 +773,14 @@ const LoanApplicationForm = () => {
                         <>
                           <Upload className="w-8 h-8 text-muted-foreground mx-auto mb-2" />
                           <p className="text-sm text-muted-foreground mb-2">
-                            Upload bank statement
+                            Upload your second month pay slip
                           </p>
                           <Input
                             type="file"
                             accept="image/*,.pdf"
                             onChange={(e) => {
                               const file = e.target.files?.[0];
-                              if (file) handleFileUpload(file, 'bankStatement');
+                              if (file) handleFileUpload(file, 'paySlipMonth2');
                             }}
                             className="cursor-pointer"
                             disabled={isUploading}
@@ -791,54 +789,7 @@ const LoanApplicationForm = () => {
                       )}
                     </div>
                     <p className="text-xs text-muted-foreground">
-                      Last 3 months bank statement (JPG, PNG, PDF - Max 50MB)
-                    </p>
-                  </div>
-
-                  {/* Proof of Employment */}
-                  <div className="space-y-3">
-                    <Label htmlFor="proofOfEmployment" className="text-sm font-medium">
-                      Proof of Employment
-                    </Label>
-                    <div className="border-2 border-dashed border-border rounded-lg p-4 text-center hover:border-primary transition-colors">
-                      {uploadedFiles.proofOfEmployment ? (
-                        <div className="space-y-2">
-                          <div className="flex items-center justify-between">
-                            <span className="text-sm text-muted-foreground truncate">
-                              {uploadedFiles.proofOfEmployment.file.name}
-                            </span>
-                            <Button
-                              type="button"
-                              variant="ghost"
-                              size="sm"
-                              onClick={() => removeFile('proofOfEmployment')}
-                            >
-                              <X className="w-4 h-4" />
-                            </Button>
-                          </div>
-                          <p className="text-xs text-green-600">✓ Uploaded successfully</p>
-                        </div>
-                      ) : (
-                        <>
-                          <Upload className="w-8 h-8 text-muted-foreground mx-auto mb-2" />
-                          <p className="text-sm text-muted-foreground mb-2">
-                            Upload proof of employment
-                          </p>
-                          <Input
-                            type="file"
-                            accept="image/*,.pdf"
-                            onChange={(e) => {
-                              const file = e.target.files?.[0];
-                              if (file) handleFileUpload(file, 'proofOfEmployment');
-                            }}
-                            className="cursor-pointer"
-                            disabled={isUploading}
-                          />
-                        </>
-                      )}
-                    </div>
-                    <p className="text-xs text-muted-foreground">
-                      Certificate of Employment or Company ID (JPG, PNG, PDF - Max 50MB)
+                      Your second most recent pay slip (JPG, PNG, PDF - Max 50MB)
                     </p>
                   </div>
                 </div>
@@ -900,10 +851,9 @@ const LoanApplicationForm = () => {
                 <div className="border-t pt-6">
                   <h3 className="text-lg font-semibold mb-4">Uploaded Documents</h3>
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
-                    <p><span className="font-medium">Valid ID:</span> {uploadedFiles.validId ? '✓ Uploaded' : '❌ Not uploaded'}</p>
-                    <p><span className="font-medium">Proof of Income:</span> {uploadedFiles.proofOfIncome ? '✓ Uploaded' : '❌ Not uploaded'}</p>
-                    <p><span className="font-medium">Bank Statement:</span> {uploadedFiles.bankStatement ? '✓ Uploaded' : '❌ Not uploaded'}</p>
-                    <p><span className="font-medium">Proof of Employment:</span> {uploadedFiles.proofOfEmployment ? '✓ Uploaded' : '❌ Not uploaded'}</p>
+                     <p><span className="font-medium">Valid ID:</span> {uploadedFiles.validId ? '✓ Uploaded' : '❌ Not uploaded'}</p>
+                     <p><span className="font-medium">Pay Slip Month 1:</span> {uploadedFiles.paySlipMonth1 ? '✓ Uploaded' : '❌ Not uploaded'}</p>
+                     <p><span className="font-medium">Pay Slip Month 2:</span> {uploadedFiles.paySlipMonth2 ? '✓ Uploaded' : '❌ Not uploaded'}</p>
                   </div>
                 </div>
                 
