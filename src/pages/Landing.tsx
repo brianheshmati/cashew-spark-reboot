@@ -35,7 +35,7 @@ const Landing = () => {
                 </Link>
                 <Link to="/auth">
                   <Button variant="outline" size="lg" className="w-full sm:w-auto">
-                    Already have an account? Log in
+                    Already have an account? Log in.
                   </Button>
                 </Link>
               </div>

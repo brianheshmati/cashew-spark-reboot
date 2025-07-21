@@ -3,11 +3,17 @@ import { createClient } from '@supabase/supabase-js';
 import type { Database } from './types';
 const SUPABASE_URL = "https://fklaxhpublxhgxcajuyu.supabase.co";
 const SUPABASE_PUBLISHABLE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImZrbGF4aHB1Ymx4aGd4Y2FqdXl1Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3MzEwNDcyODAsImV4cCI6MjA0NjYyMzI4MH0.8c7FWSRsw0PfrZmq9dzVEq5wTl668AG0ww7jf9tYIAo";
-
+const SUPABASE_SERVICE_ROLE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImZrbGF4aHB1Ymx4aGd4Y2FqdXl1Iiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTczMTA0NzI4MCwiZXhwIjoyMDQ2NjIzMjgwfQ.xbyrgZdnaeI0gkjL-W0qLKDCjfKHmmEqcDBhGJANGpY';
 // Import the supabase client like this:
 // import { supabase } from "@/integrations/supabase/client";
 
 export const supabase = createClient<Database>(SUPABASE_URL, SUPABASE_PUBLISHABLE_KEY, {
+  global:{
+    headers: {
+      apikey: SUPABASE_SERVICE_ROLE_KEY,
+      Authorization: `Bearer ${SUPABASE_SERVICE_ROLE_KEY}`
+    }
+  },
   auth: {
     storage: localStorage,
     persistSession: true,

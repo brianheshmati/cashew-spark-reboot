@@ -20,9 +20,9 @@ interface Profile {
   email: string;
   phone: string | null;
   address: string | null;
-  city: string | null;
-  state: string | null;
-  zip_code: string | null;
+  //city: string | null;
+  //state: string | null;
+  //zip_code: string | null;
 }
 
 interface ApplicationData {
@@ -71,9 +71,9 @@ export function ProfileView({ user }: ProfileViewProps) {
     try {
       console.log(supabase);
       const { data, error } = await supabase
-        .from('borrower_profile_view')
+        .from('userProfiles')
         .select('*')
-        .eq('id', user?.id)
+        .eq('internal_user_id', user?.id)
         .maybeSingle();
 
       if (error && error.code !== 'PGRST116') {
@@ -91,9 +91,9 @@ export function ProfileView({ user }: ProfileViewProps) {
           email: user?.email || '',
           phone: null,
           address: null,
-          city: null,
-          state: null,
-          zip_code: null
+          // city: null,
+          // state: null,
+          // zip_code: null
         };
         setProfile(newProfile);
         setEditedProfile(newProfile);
@@ -116,7 +116,7 @@ export function ProfileView({ user }: ProfileViewProps) {
       const { data, error } = await supabase
         .from('applications')
         .select('*')
-        .eq('user_id', user.id)
+        .eq('email', user.email)
         .order('created_at', { ascending: false })
         .limit(1)
         .maybeSingle();
@@ -140,9 +140,9 @@ export function ProfileView({ user }: ProfileViewProps) {
     setSaving(true);
     try {
       const { error } = await supabase
-        .from('profiles')
+        .from('userProfiles')
         .upsert({
-          id: user.id,
+          internal_user_id: user.id,
           ...editedProfile
         });
 
@@ -348,7 +348,7 @@ export function ProfileView({ user }: ProfileViewProps) {
                   )}
                 </div>
 
-                <div className="grid grid-cols-2 gap-4">
+                {/* <div className="grid grid-cols-2 gap-4">
                   <div className="space-y-2">
                     <Label>City</Label>
                     {isEditing ? (
@@ -392,7 +392,7 @@ export function ProfileView({ user }: ProfileViewProps) {
                       {profile?.zip_code || 'Not provided'}
                     </div>
                   )}
-                </div>
+                </div> */}
               </CardContent>
             </Card>
           </div>
@@ -521,13 +521,13 @@ export function ProfileView({ user }: ProfileViewProps) {
                   <div className="space-y-2">
                     <Label>Monthly Income</Label>
                     <div className="p-3 bg-muted rounded-md">
-                      {formatCurrency(applicationData.monthly_income)}
+                      {formatCurrency(applicationData.income)}
                     </div>
                   </div>
                   <div className="space-y-2">
                     <Label>Monthly Expenses</Label>
                     <div className="p-3 bg-muted rounded-md">
-                      {formatCurrency(applicationData.monthly_expense)}
+                      {formatCurrency(applicationData.expense)}
                     </div>
                   </div>
                   <div className="space-y-2">
@@ -573,7 +573,7 @@ export function ProfileView({ user }: ProfileViewProps) {
                   <div className="space-y-2">
                     <Label>Loan Amount</Label>
                     <div className="p-3 bg-muted rounded-md">
-                      {formatCurrency(applicationData.loan_amount)}
+                      {formatCurrency(applicationData.amount)}
                     </div>
                   </div>
                   <div className="space-y-2">

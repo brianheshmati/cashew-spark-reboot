@@ -13,14 +13,11 @@ const Header = () => {
             className="h-16 w-auto"
           />
           <span className="text-sm text-muted-foreground hidden md:block">
-<<<<<<< HEAD
-            <div className="site-title ">Cashew</div>
+            {/* <div className="site-title ">Cashew</div>
             <div className="header-description">Make Your Dream Come True!</div>
-=======
-            {/* <div className="site-title" >Cashew</div> */}
+            <div className="site-title" >Cashew</div> */}
             <h1 className="text-4xl font-bold text-yellow-500">Cashew</h1>
             <div className="header-description text-yellow-500">Make Your Dream Come True!</div>
->>>>>>> 267573fe3be79fd4149d1bb66fa90474cd3c1580
           </span>
         </div>
 
