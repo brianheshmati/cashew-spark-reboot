@@ -5,6 +5,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Checkbox } from '@/components/ui/checkbox';
 import { useToast } from '@/hooks/use-toast';
 import { supabase } from '@/integrations/supabase/client';
 import cashewLogo from '@/assets/cashew-logo.png';
@@ -20,6 +21,8 @@ const Auth = () => {
     firstName: '',
     lastName: ''
   });
+  const [resetEmail, setResetEmail] = useState('');
+  const [mfaEnabled, setMfaEnabled] = useState(false);
   const { toast } = useToast();
   const navigate = useNavigate();
 
@@ -92,6 +95,13 @@ const Auth = () => {
           title: "Success!",
           description: "Account created successfully. Please check your email for verification.",
         });
+        
+        // Set up MFA if enabled
+        if (mfaEnabled) {
+          setTimeout(() => {
+            setupMFA();
+          }, 1000);
+        }
       }
     } catch (error: any) {
       toast({
@@ -136,6 +146,59 @@ const Auth = () => {
     }
   };
 
+  const handlePasswordReset = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setLoading(true);
+
+    try {
+      const { error } = await supabase.auth.resetPasswordForEmail(resetEmail, {
+        redirectTo: `${window.location.origin}/auth`
+      });
+
+      if (error) {
+        throw error;
+      }
+
+      toast({
+        title: "Reset email sent",
+        description: "Please check your email for password reset instructions.",
+      });
+      setResetEmail('');
+    } catch (error: any) {
+      toast({
+        title: "Reset failed",
+        description: error.message || "An error occurred while sending reset email",
+        variant: "destructive"
+      });
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const setupMFA = async () => {
+    try {
+      const { data, error } = await supabase.auth.mfa.enroll({
+        factorType: 'totp',
+        friendlyName: 'Cashew Account'
+      });
+
+      if (error) {
+        throw error;
+      }
+
+      toast({
+        title: "MFA Setup",
+        description: "Multi-factor authentication has been configured for your account.",
+      });
+    } catch (error: any) {
+      toast({
+        title: "MFA Setup Failed",
+        description: error.message || "An error occurred while setting up MFA",
+        variant: "destructive"
+      });
+    }
+  };
+
   return (
     <div className="min-h-screen bg-gradient-soft flex items-center justify-center px-4">
       <div className="w-full max-w-md">
@@ -163,9 +226,10 @@ const Auth = () => {
           </CardHeader>
           <CardContent>
             <Tabs defaultValue="signin" className="w-full">
-              <TabsList className="grid w-full grid-cols-2">
+              <TabsList className="grid w-full grid-cols-3">
                 <TabsTrigger value="signin">Sign In</TabsTrigger>
                 <TabsTrigger value="signup">Sign Up</TabsTrigger>
+                <TabsTrigger value="reset">Reset</TabsTrigger>
               </TabsList>
               
               <TabsContent value="signin">
@@ -255,6 +319,16 @@ const Auth = () => {
                       minLength={6}
                     />
                   </div>
+                  <div className="flex items-center space-x-2">
+                    <Checkbox 
+                      id="mfa-setup" 
+                      checked={mfaEnabled}
+                      onCheckedChange={(checked) => setMfaEnabled(checked as boolean)}
+                    />
+                    <Label htmlFor="mfa-setup" className="text-sm">
+                      Enable two-factor authentication for enhanced security
+                    </Label>
+                  </div>
                   <Button 
                     type="submit" 
                     className="w-full" 
@@ -262,6 +336,32 @@ const Auth = () => {
                   >
                     {loading ? 'Creating Account...' : 'Create Account'}
                   </Button>
+                </form>
+              </TabsContent>
+
+              <TabsContent value="reset">
+                <form onSubmit={handlePasswordReset} className="space-y-4">
+                  <div className="space-y-2">
+                    <Label htmlFor="reset-email">Email</Label>
+                    <Input
+                      id="reset-email"
+                      type="email"
+                      placeholder="Enter your email"
+                      value={resetEmail}
+                      onChange={(e) => setResetEmail(e.target.value)}
+                      required
+                    />
+                  </div>
+                  <Button 
+                    type="submit" 
+                    className="w-full" 
+                    disabled={loading}
+                  >
+                    {loading ? 'Sending Reset Email...' : 'Send Reset Email'}
+                  </Button>
+                  <p className="text-sm text-muted-foreground text-center">
+                    Enter your email address and we'll send you a link to reset your password.
+                  </p>
                 </form>
               </TabsContent>
             </Tabs>
