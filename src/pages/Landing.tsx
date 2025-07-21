@@ -9,11 +9,7 @@ import Footer from '@/components/Footer';
 const Landing = () => {
   return (
     <div className="min-h-screen bg-background">
-<<<<<<< HEAD
-     <Header />
-=======
       <Header />
->>>>>>> 4a5a586ff3dc41b930a68e5deb8cc23ce38061e6
 
       {/* Hero Section */}
       <section className="py-20 lg:py-32 px-6 bg-gradient-soft relative overflow-hidden">
