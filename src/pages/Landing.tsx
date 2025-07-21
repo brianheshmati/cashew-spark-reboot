@@ -3,41 +3,13 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import cashewLogo from '@/assets/cashew-logo.png';
 import { Link } from 'react-router-dom';
 import { Zap, Shield, Clock, Users, Building, GraduationCap, Home, CreditCard } from 'lucide-react';
+import Header from '@/components/Header';
+import Footer from '@/components/Footer';
 
 const Landing = () => {
   return (
     <div className="min-h-screen bg-background">
-      {/* Header */}
-      <header className="bg-background/80 backdrop-blur-sm border-b sticky top-0 z-50">
-        <div className="max-w-7xl mx-auto px-6 py-4 flex items-center justify-between">
-          <div className="flex items-center space-x-3">
-            <img 
-              src={cashewLogo} 
-              alt="Cashew Logo" 
-              className="h-10 w-auto"
-            />
-            <div>
-              <div className="font-bold text-lg text-foreground">Cashew</div>
-              <div className="text-sm text-muted-foreground">Make Your Dream Come True!</div>
-            </div>
-          </div>
-          
-          <nav className="hidden md:flex items-center space-x-8">
-            <a href="#services" className="text-foreground hover:text-primary transition-colors">Services</a>
-            <a href="#features" className="text-foreground hover:text-primary transition-colors">Features</a>
-            <a href="#about" className="text-foreground hover:text-primary transition-colors">About</a>
-          </nav>
-          
-          <div className="flex items-center space-x-4">
-            <Link to="/auth">
-              <Button variant="outline">Sign In</Button>
-            </Link>
-            <Link to="/apply">
-              <Button>Apply Now</Button>
-            </Link>
-          </div>
-        </div>
-      </header>
+      <Header />
 
       {/* Hero Section */}
       <section className="py-20 lg:py-32 px-6 bg-gradient-soft relative overflow-hidden">
@@ -359,67 +331,7 @@ const Landing = () => {
         </div>
       </section>
 
-      {/* Footer */}
-      <footer className="bg-foreground text-background py-16 px-6">
-        <div className="max-w-7xl mx-auto">
-          <div className="grid md:grid-cols-4 gap-8 mb-8">
-            <div>
-              <div className="flex items-center space-x-3 mb-4">
-                <img 
-                  src={cashewLogo} 
-                  alt="Cashew Logo" 
-                  className="h-8 w-auto brightness-0 invert"
-                />
-                <span className="font-semibold text-lg">Cashew</span>
-              </div>
-              <p className="text-background/80 mb-4">
-                Make Your Dream Come True! Lender of choice for individuals and small businesses.
-              </p>
-            </div>
-            
-            <div>
-              <h4 className="font-semibold mb-4">Services</h4>
-              <ul className="space-y-2 text-background/80">
-                <li><a href="#" className="hover:text-primary transition-colors">Business Loan</a></li>
-                <li><a href="#" className="hover:text-primary transition-colors">Quick Cash</a></li>
-                <li><a href="#" className="hover:text-primary transition-colors">Education Loan</a></li>
-                <li><a href="#" className="hover:text-primary transition-colors">Home Loan</a></li>
-              </ul>
-            </div>
-            
-            <div>
-              <h4 className="font-semibold mb-4">Company</h4>
-              <ul className="space-y-2 text-background/80">
-                <li><a href="#" className="hover:text-primary transition-colors">About Us</a></li>
-                <li><a href="#" className="hover:text-primary transition-colors">Contact</a></li>
-                <li><a href="#" className="hover:text-primary transition-colors">Careers</a></li>
-                <li><a href="#" className="hover:text-primary transition-colors">Blog</a></li>
-              </ul>
-            </div>
-            
-            <div>
-              <h4 className="font-semibold mb-4">Legal</h4>
-              <ul className="space-y-2 text-background/80">
-                <li><a href="https://www.cashew.ph/terms.html" target="_blank" rel="noopener noreferrer" className="hover:text-primary transition-colors">Terms of Service</a></li>
-                <li><a href="https://www.cashew.ph/terms.html" target="_blank" rel="noopener noreferrer" className="hover:text-primary transition-colors">Privacy Policy</a></li>
-              </ul>
-            </div>
-          </div>
-          
-          <div className="border-t border-background/20 pt-8 flex flex-col md:flex-row items-center justify-between">
-            <p className="text-background/60 text-sm">
-              © 2024 Cashew. All rights reserved.
-            </p>
-            <div className="flex items-center space-x-4 mt-4 md:mt-0">
-              <Link to="/apply">
-                <Button variant="outline" className="border-background/20 text-background hover:bg-background hover:text-foreground">
-                  Get Started
-                </Button>
-              </Link>
-            </div>
-          </div>
-        </div>
-      </footer>
+      <Footer />
     </div>
   );
 };
