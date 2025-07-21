@@ -3,41 +3,13 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import cashewLogo from '@/assets/cashew-logo.png';
 import { Link } from 'react-router-dom';
 import { Zap, Shield, Clock, Users, Building, GraduationCap, Home, CreditCard } from 'lucide-react';
+import Header from '@/components/Header';
+import Footer from '@/components/Footer';
 
 const Landing = () => {
   return (
     <div className="min-h-screen bg-background">
-      {/* Header */}
-      <header className="bg-background/80 backdrop-blur-sm border-b sticky top-0 z-50">
-        <div className="max-w-7xl mx-auto px-6 py-4 flex items-center justify-between">
-          <div className="flex items-center space-x-3">
-            <img 
-              src={cashewLogo} 
-              alt="Cashew Logo" 
-              className="h-10 w-auto"
-            />
-            <div>
-              <div className="font-bold text-lg text-foreground">Cashew</div>
-              <div className="text-sm text-muted-foreground">Make Your Dream Come True!</div>
-            </div>
-          </div>
-          
-          <nav className="hidden md:flex items-center space-x-8">
-            <a href="#services" className="text-foreground hover:text-primary transition-colors">Services</a>
-            <a href="#features" className="text-foreground hover:text-primary transition-colors">Features</a>
-            <a href="#about" className="text-foreground hover:text-primary transition-colors">About</a>
-          </nav>
-          
-          <div className="flex items-center space-x-4">
-            <Link to="/auth">
-              <Button variant="outline">Sign In</Button>
-            </Link>
-            <Link to="/apply">
-              <Button>Apply Now</Button>
-            </Link>
-          </div>
-        </div>
-      </header>
+      <Header />
 
       {/* Hero Section */}
       <section className="py-20 lg:py-32 px-6 bg-gradient-soft relative overflow-hidden">
@@ -45,9 +17,9 @@ const Landing = () => {
           <div className="flex flex-col lg:flex-row gap-12 items-center">
             {/* Left Column - Text Content */}
             <div className="flex-1 text-left lg:pr-8">
-              <div className="text-sm font-semibold text-primary mb-4 tracking-wide uppercase">
+              {/* <div className="text-sm font-semibold text-primary mb-4 tracking-wide uppercase">
                 — Lender of choice for individuals and small businesses
-              </div>
+              </div> */}
               <h1 className="text-4xl lg:text-6xl font-bold text-foreground mb-6 leading-tight">
                 Fast & Hassle-Free <span className="text-primary">Loans</span>
               </h1>
@@ -58,12 +30,12 @@ const Landing = () => {
               <div className="flex flex-col sm:flex-row gap-4 mb-8">
                 <Link to="/apply">
                   <Button size="lg" className="w-full sm:w-auto">
-                    Apply for Loan
+                    New Client
                   </Button>
                 </Link>
                 <Link to="/auth">
                   <Button variant="outline" size="lg" className="w-full sm:w-auto">
-                    Access Dashboard
+                    Already have an account? Log in
                   </Button>
                 </Link>
               </div>
@@ -104,8 +76,8 @@ const Landing = () => {
                     {/* Header */}
                     <div className="flex items-center justify-between mb-6">
                       <div>
-                        <h3 className="font-bold text-lg">Dashboard</h3>
-                        <p className="text-xs text-muted-foreground">Welcome back, Maria</p>
+                        <h3 className="font-bold text-lg">Welcome back, Maria</h3>
+                        {/* <p className="text-xs text-muted-foreground">Welcome back, Maria</p> */}
                       </div>
                       <img 
                         src={cashewLogo} 
@@ -116,11 +88,11 @@ const Landing = () => {
 
                     {/* Balance Card */}
                     <div className="bg-primary rounded-xl p-4 mb-4 text-white">
-                      <div className="text-xs opacity-80 mb-1">Total Balance</div>
-                      <div className="text-xl font-bold mb-2">₱125,500.00</div>
+                      <div className="text-xs opacity-90 mb-1 text-black-400">Total Balance</div>
+                      <div className="text-xl font-bold mb-2">₱25,500.00</div>
                       <div className="flex justify-between text-xs">
-                        <span>Available: ₱45,000</span>
-                        <span>Due: ₱80,500</span>
+                        <span>Due: ₱6,000</span>
+                        <span>Due Date: 08/15/2025</span>
                       </div>
                     </div>
 
@@ -143,8 +115,8 @@ const Landing = () => {
                         <div className="bg-card rounded-lg p-3 border">
                           <div className="flex justify-between items-start">
                             <div>
-                              <div className="text-xs font-medium">Business Loan #001</div>
-                              <div className="text-xs text-muted-foreground">₱50,000 • 12 months</div>
+                              <div className="text-xs font-medium">Business Loan #12011</div>
+                              <div className="text-xs text-muted-foreground">₱40,000 • 2 months</div>
                             </div>
                             <div className="bg-green-100 text-green-800 text-xs px-2 py-1 rounded">Active</div>
                           </div>
@@ -153,10 +125,10 @@ const Landing = () => {
                         <div className="bg-card rounded-lg p-3 border">
                           <div className="flex justify-between items-start">
                             <div>
-                              <div className="text-xs font-medium">Quick Cash #002</div>
-                              <div className="text-xs text-muted-foreground">₱15,000 • 6 months</div>
+                              <div className="text-xs font-medium">Quick Cash #23122</div>
+                              <div className="text-xs text-muted-foreground">₱15,000 • 2 months</div>
                             </div>
-                            <div className="bg-blue-100 text-blue-800 text-xs px-2 py-1 rounded">Pending</div>
+                            <div className="bg-blue-100 text-blue-800 text-xs px-2 py-1 rounded">Paid</div>
                           </div>
                         </div>
                       </div>
@@ -359,67 +331,7 @@ const Landing = () => {
         </div>
       </section>
 
-      {/* Footer */}
-      <footer className="bg-foreground text-background py-16 px-6">
-        <div className="max-w-7xl mx-auto">
-          <div className="grid md:grid-cols-4 gap-8 mb-8">
-            <div>
-              <div className="flex items-center space-x-3 mb-4">
-                <img 
-                  src={cashewLogo} 
-                  alt="Cashew Logo" 
-                  className="h-8 w-auto brightness-0 invert"
-                />
-                <span className="font-semibold text-lg">Cashew</span>
-              </div>
-              <p className="text-background/80 mb-4">
-                Make Your Dream Come True! Lender of choice for individuals and small businesses.
-              </p>
-            </div>
-            
-            <div>
-              <h4 className="font-semibold mb-4">Services</h4>
-              <ul className="space-y-2 text-background/80">
-                <li><a href="#" className="hover:text-primary transition-colors">Business Loan</a></li>
-                <li><a href="#" className="hover:text-primary transition-colors">Quick Cash</a></li>
-                <li><a href="#" className="hover:text-primary transition-colors">Education Loan</a></li>
-                <li><a href="#" className="hover:text-primary transition-colors">Home Loan</a></li>
-              </ul>
-            </div>
-            
-            <div>
-              <h4 className="font-semibold mb-4">Company</h4>
-              <ul className="space-y-2 text-background/80">
-                <li><a href="#" className="hover:text-primary transition-colors">About Us</a></li>
-                <li><a href="#" className="hover:text-primary transition-colors">Contact</a></li>
-                <li><a href="#" className="hover:text-primary transition-colors">Careers</a></li>
-                <li><a href="#" className="hover:text-primary transition-colors">Blog</a></li>
-              </ul>
-            </div>
-            
-            <div>
-              <h4 className="font-semibold mb-4">Legal</h4>
-              <ul className="space-y-2 text-background/80">
-                <li><a href="https://www.cashew.ph/terms.html" target="_blank" rel="noopener noreferrer" className="hover:text-primary transition-colors">Terms of Service</a></li>
-                <li><a href="https://www.cashew.ph/terms.html" target="_blank" rel="noopener noreferrer" className="hover:text-primary transition-colors">Privacy Policy</a></li>
-              </ul>
-            </div>
-          </div>
-          
-          <div className="border-t border-background/20 pt-8 flex flex-col md:flex-row items-center justify-between">
-            <p className="text-background/60 text-sm">
-              © 2024 Cashew. All rights reserved.
-            </p>
-            <div className="flex items-center space-x-4 mt-4 md:mt-0">
-              <Link to="/apply">
-                <Button variant="outline" className="border-background/20 text-background hover:bg-background hover:text-foreground">
-                  Get Started
-                </Button>
-              </Link>
-            </div>
-          </div>
-        </div>
-      </footer>
+      <Footer />
     </div>
   );
 };
