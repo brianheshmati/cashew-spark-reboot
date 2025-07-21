@@ -3,7 +3,7 @@ import cashewLogo from '@/assets/cashew-logo.png';
 
 const Header = () => {
   return (
-    <header className="bg-foreground text-background py-4 px-6 shadow-medium">
+    <header className="bg-foreground text-background py-4 px-6 shadow-medium" style={{backgroundColor:"#2d2d2d"}}>
       <div className="max-w-7xl mx-auto flex items-center justify-between">
         {/* Logo */}
         <div className="flex items-center space-x-3">
@@ -13,7 +13,7 @@ const Header = () => {
             className="h-10 w-auto"
           />
           <span className="text-sm text-muted-foreground hidden md:block">
-            <div className="site-title">Cashew</div>
+            <div className="site-title ">Cashew</div>
             <div className="header-description">Make Your Dream Come True!</div>
           </span>
         </div>

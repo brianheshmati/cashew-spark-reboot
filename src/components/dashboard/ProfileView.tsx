@@ -40,8 +40,9 @@ export function ProfileView({ user }: ProfileViewProps) {
 
   const fetchProfile = async () => {
     try {
+      console.log(supabase);
       const { data, error } = await supabase
-        .from('profiles')
+        .from('borrower_profile_view')
         .select('*')
         .eq('id', user?.id)
         .maybeSingle();
