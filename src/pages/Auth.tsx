@@ -6,6 +6,7 @@ import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Checkbox } from '@/components/ui/checkbox';
+import { InputOTP, InputOTPGroup, InputOTPSlot } from '@/components/ui/input-otp';
 import { useToast } from '@/hooks/use-toast';
 import { supabase } from '@/integrations/supabase/client';
 import cashewLogo from '@/assets/cashew-logo.png';
@@ -23,6 +24,8 @@ const Auth = () => {
   });
   const [resetEmail, setResetEmail] = useState('');
   const [mfaEnabled, setMfaEnabled] = useState(false);
+  const [mfaSetup, setMfaSetup] = useState<{qr: string, secret: string, factorId: string} | null>(null);
+  const [otpCode, setOtpCode] = useState('');
   const { toast } = useToast();
   const navigate = useNavigate();
 
@@ -186,14 +189,59 @@ const Auth = () => {
         throw error;
       }
 
-      toast({
-        title: "MFA Setup",
-        description: "Multi-factor authentication has been configured for your account.",
-      });
+      if (data) {
+        setMfaSetup({
+          qr: data.totp.qr_code,
+          secret: data.totp.secret,
+          factorId: data.id
+        });
+        
+        toast({
+          title: "MFA Setup",
+          description: "Scan the QR code with your authenticator app and enter the verification code.",
+        });
+      }
     } catch (error: any) {
       toast({
         title: "MFA Setup Failed",
         description: error.message || "An error occurred while setting up MFA",
+        variant: "destructive"
+      });
+    }
+  };
+
+  const verifyMFA = async () => {
+    if (!mfaSetup || !otpCode || otpCode.length !== 6) {
+      toast({
+        title: "Invalid Code",
+        description: "Please enter a valid 6-digit code from your authenticator app.",
+        variant: "destructive"
+      });
+      return;
+    }
+
+    try {
+      const { error } = await supabase.auth.mfa.verify({
+        factorId: mfaSetup.factorId,
+        challengeId: mfaSetup.factorId,
+        code: otpCode
+      });
+
+      if (error) {
+        throw error;
+      }
+
+      toast({
+        title: "MFA Verified",
+        description: "Two-factor authentication has been successfully enabled.",
+      });
+      
+      setMfaSetup(null);
+      setOtpCode('');
+    } catch (error: any) {
+      toast({
+        title: "Verification Failed",
+        description: error.message || "Invalid verification code. Please try again.",
         variant: "destructive"
       });
     }
@@ -367,6 +415,74 @@ const Auth = () => {
             </Tabs>
           </CardContent>
         </Card>
+
+        {/* MFA Setup Modal */}
+        {mfaSetup && (
+          <Card className="mt-6 shadow-medium">
+            <CardHeader className="text-center">
+              <CardTitle>Setup Two-Factor Authentication</CardTitle>
+              <CardDescription>
+                Scan this QR code with your authenticator app (Google Authenticator, Authy, etc.)
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div className="flex justify-center">
+                <img 
+                  src={mfaSetup.qr} 
+                  alt="QR Code for MFA setup" 
+                  className="w-48 h-48 border rounded-lg"
+                />
+              </div>
+              
+              <div className="text-center">
+                <Label className="text-sm font-medium">Manual Entry Key:</Label>
+                <code className="block mt-1 p-2 bg-muted rounded text-xs break-all">
+                  {mfaSetup.secret}
+                </code>
+              </div>
+
+              <div className="space-y-2">
+                <Label>Enter Verification Code</Label>
+                <div className="flex justify-center">
+                  <InputOTP
+                    maxLength={6}
+                    value={otpCode}
+                    onChange={setOtpCode}
+                  >
+                    <InputOTPGroup>
+                      <InputOTPSlot index={0} />
+                      <InputOTPSlot index={1} />
+                      <InputOTPSlot index={2} />
+                      <InputOTPSlot index={3} />
+                      <InputOTPSlot index={4} />
+                      <InputOTPSlot index={5} />
+                    </InputOTPGroup>
+                  </InputOTP>
+                </div>
+              </div>
+
+              <div className="flex gap-2">
+                <Button 
+                  variant="outline" 
+                  onClick={() => {
+                    setMfaSetup(null);
+                    setOtpCode('');
+                  }}
+                  className="flex-1"
+                >
+                  Cancel
+                </Button>
+                <Button 
+                  onClick={verifyMFA}
+                  disabled={otpCode.length !== 6}
+                  className="flex-1"
+                >
+                  Verify & Enable
+                </Button>
+              </div>
+            </CardContent>
+          </Card>
+        )}
 
         <div className="mt-6 text-center">
           <Link 
