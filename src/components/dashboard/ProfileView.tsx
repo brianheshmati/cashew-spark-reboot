@@ -27,28 +27,35 @@ interface Profile {
 
 interface ApplicationData {
   id: string;
+  internal_user_id?:string;
+  app_id?:string;
   first_name?: string;
   middle_name?: string;
   last_name?: string;
   email?: string;
   phone?: string;
-  date_of_birth?: string;
+  dob?: string;
   address?: string;
-  referral_code?: string;
+  referral?: string;
   promo_code?: string;
   employment_status?: string;
-  employer_name?: string;
+  employer?: string;
   job_title?: string;
-  monthly_income?: number;
-  monthly_expense?: number;
+  income?: number;
+  expense?: number;
   years_employed?: number;
   employer_phone?: string;
   employer_address?: string;
-  loan_amount?: number;
+  amount?: number;
   loan_purpose?: string;
-  loan_term?: number;
+  term?: number;
   status?: string;
   created_at?: string;
+  bank_account?: string;
+  bank_name?: string;
+  phil_id?: string;
+  facebook?: string;
+  remarks?: string;
 }
 
 export function ProfileView({ user }: ProfileViewProps) {
@@ -66,6 +73,8 @@ export function ProfileView({ user }: ProfileViewProps) {
       fetchApplicationData();
     }
   }, [user]);
+
+  console.log('user id', user?.id);
 
   const fetchProfile = async () => {
     try {
