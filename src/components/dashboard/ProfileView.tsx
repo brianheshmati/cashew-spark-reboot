@@ -80,9 +80,9 @@ export function ProfileView({ user }: ProfileViewProps) {
     try {
       console.log(supabase);
       const { data, error } = await supabase
-        .from('userProfiles')
+        .from('profiles')
         .select('*')
-        .eq('internal_user_id', user?.id)
+        .eq('id', user?.id)
         .maybeSingle();
 
       if (error && error.code !== 'PGRST116') {
@@ -125,7 +125,7 @@ export function ProfileView({ user }: ProfileViewProps) {
       const { data, error } = await supabase
         .from('applications')
         .select('*')
-        .eq('email', user.email)
+        .eq('user_id', user.id)
         .order('created_at', { ascending: false })
         .limit(1)
         .maybeSingle();
@@ -149,9 +149,9 @@ export function ProfileView({ user }: ProfileViewProps) {
     setSaving(true);
     try {
       const { error } = await supabase
-        .from('userProfiles')
+        .from('profiles')
         .upsert({
-          internal_user_id: user.id,
+          id: user.id,
           ...editedProfile
         });
 
@@ -454,7 +454,7 @@ export function ProfileView({ user }: ProfileViewProps) {
                   <div className="space-y-2">
                     <Label>Date of Birth</Label>
                     <div className="p-3 bg-muted rounded-md">
-                      {applicationData.date_of_birth ? new Date(applicationData.date_of_birth).toLocaleDateString() : 'Not provided'}
+                      {applicationData.dob ? new Date(applicationData.dob).toLocaleDateString() : 'Not provided'}
                     </div>
                   </div>
                   <div className="space-y-2 md:col-span-2">
@@ -466,7 +466,7 @@ export function ProfileView({ user }: ProfileViewProps) {
                   <div className="space-y-2">
                     <Label>Referral Code</Label>
                     <div className="p-3 bg-muted rounded-md">
-                      {applicationData.referral_code || 'Not provided'}
+                      {applicationData.referral || 'Not provided'}
                     </div>
                   </div>
                   <div className="space-y-2">
@@ -512,7 +512,7 @@ export function ProfileView({ user }: ProfileViewProps) {
                   <div className="space-y-2">
                     <Label>Company/Employer</Label>
                     <div className="p-3 bg-muted rounded-md">
-                      {applicationData.employer_name || 'Not provided'}
+                      {applicationData.employer || 'Not provided'}
                     </div>
                   </div>
                   <div className="space-y-2">
@@ -594,7 +594,7 @@ export function ProfileView({ user }: ProfileViewProps) {
                   <div className="space-y-2">
                     <Label>Loan Term</Label>
                     <div className="p-3 bg-muted rounded-md">
-                      {applicationData.loan_term ? `${applicationData.loan_term} months` : 'Not provided'}
+                      {applicationData.term ? `${applicationData.term} months` : 'Not provided'}
                     </div>
                   </div>
                   <div className="space-y-2">
