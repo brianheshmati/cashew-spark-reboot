@@ -22,7 +22,6 @@ interface FormData {
     promoCode: string;
   };
   employmentInfo: {
-    employmentStatus: string;
     company: string;
     position: string;
     monthlyIncome: string;
@@ -57,7 +56,6 @@ const LoanApplicationForm = () => {
       referralCode: '', // This can be used for tracking referrals
     },
     employmentInfo: {
-      employmentStatus: '',
       company: '',
       position: '',
       monthlyIncome: '',
@@ -113,14 +111,14 @@ const LoanApplicationForm = () => {
         
         return !!(firstName && lastName && isValidEmail && phone && dateOfBirth && address && isValidDate);
       case 2:
-        const { employmentStatus, company, position, monthlyIncome, monthlyExpense, employer_phone: empPhone, employer_address: empAddress } = formData.employmentInfo;
+        const { company, position, monthlyIncome, monthlyExpense, employer_phone: empPhone, employer_address: empAddress } = formData.employmentInfo;
         
         // Validate monthly income is a positive number
         const monthlyIncomeNum = parseFloat(monthlyIncome.replace(/[^0-9.]/g, ''));
         // Validate monthly expense is a positive number
         const monthlyExpenseNum = parseFloat(monthlyExpense.replace(/[^0-9.]/g, ''));const isValidIncome = !isNaN(monthlyExpenseNum) && monthlyExpenseNum > 0;
         
-        return !!(employmentStatus && company && position && monthlyIncome && monthlyExpense && empPhone && empAddress && isValidIncome);
+        return !!(company && position && monthlyIncome && monthlyExpense && empPhone && empAddress && isValidIncome);
       case 3:
         const { loanAmount, loanPurpose, loanTerm } = formData.loanInfo;
         
@@ -396,20 +394,7 @@ const LoanApplicationForm = () => {
             {/* Step 2: Employment Information */}
             {currentStep === 2 && (
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div className="space-y-2">
-                  <Label htmlFor="employmentStatus">Employment Status *</Label>
-                  <Select value={formData.employmentInfo.employmentStatus} onValueChange={(value) => updateFormData('employmentInfo', 'employmentStatus', value)}>
-                    <SelectTrigger className="transition-all duration-300 focus:shadow-soft">
-                      <SelectValue placeholder="Select employment status" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="employed">Employed</SelectItem>
-                      <SelectItem value="self-employed">Self-Employed</SelectItem>
-                      <SelectItem value="freelancer">Freelancer</SelectItem>
-                      <SelectItem value="business-owner">Business Owner</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
+                
                 <div className="space-y-2">
                   <Label htmlFor="monthlyIncome">Monthly Income (PHP) *</Label>
                   <Input
@@ -557,7 +542,6 @@ const LoanApplicationForm = () => {
                   <div className="space-y-4">
                     <h3 className="text-lg font-semibold">Employment Details</h3>
                     <div className="space-y-2 text-sm">
-                      <p><span className="font-medium">Status:</span> {formData.employmentInfo.employmentStatus}</p>
                       <p><span className="font-medium">Monthly Income:</span> ₱{formData.employmentInfo.monthlyIncome}</p>
                       <p><span className="font-medium">Monthly Expense:</span> ₱{formData.employmentInfo.monthlyExpense}</p>
                       <p><span className="font-medium">Company:</span> {formData.employmentInfo.company}</p>
