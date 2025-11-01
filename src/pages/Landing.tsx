@@ -1,422 +1,255 @@
+import { Link } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import cashewLogo from '@/assets/cashew-logo.png';
-import { Link } from 'react-router-dom';
-import { Zap, Shield, Clock, Users, Building, GraduationCap, Home, CreditCard } from 'lucide-react';
+import {
+  ArrowRight,
+  CheckCircle2,
+  Lock,
+  Shield,
+  Sparkles,
+  Users
+} from 'lucide-react';
+
+const newApplicantSteps = [
+  {
+    title: 'Submit your loan application',
+    description: 'Complete the secure online form in minutes and tell us how we can help.'
+  },
+  {
+    title: 'Verify your email',
+    description: 'Receive a welcome email with a temporary password and click the link to confirm your account.'
+  },
+  {
+    title: 'Confirm your mobile number',
+    description: "We’ll text you a thank-you message and referral link. Reply VERIFY to activate your number."
+  },
+  {
+    title: 'First-time login',
+    description: 'Sign in with your email and temporary password, then create your permanent password.'
+  }
+];
+
+const returningClientSteps = [
+  {
+    title: 'Sign in securely',
+    description: 'Use your verified email address and password to access the Cashew dashboard.'
+  },
+  {
+    title: 'Manage your loans',
+    description: 'Track balances, make payments, submit new applications, and monitor your status in real time.'
+  }
+];
+
+const featureHighlights = [
+  {
+    title: 'End-to-end digital onboarding',
+    description: 'From loan submission to verification, everything happens online with status updates at each step.',
+    icon: Sparkles
+  },
+  {
+    title: 'Secure by design',
+    description: 'Email and SMS verification ensure only verified clients gain access to sensitive financial data.',
+    icon: Shield
+  },
+  {
+    title: 'Personal support',
+    description: 'Our customer success team is ready to assist you by phone, SMS, or email whenever you need help.',
+    icon: Users
+  }
+];
 
 const Landing = () => {
   return (
-    <div className="min-h-screen bg-background">
-      {/* Header */}
-      <header className="bg-background/80 backdrop-blur-sm border-b sticky top-0 z-50">
-        <div className="max-w-7xl mx-auto px-6 py-4 flex items-center justify-between">
-          <div className="flex items-center space-x-3">
-            <img 
-              src={cashewLogo} 
-              alt="Cashew Logo" 
-              className="h-10 w-auto"
-            />
+    <div className="min-h-screen bg-gradient-soft">
+      <header className="border-b bg-background/80 backdrop-blur">
+        <div className="mx-auto flex max-w-6xl items-center justify-between px-6 py-5">
+          <Link to="/" className="flex items-center gap-3">
+            <img src={cashewLogo} alt="Cashew" className="h-10 w-auto" />
             <div>
-              <div className="font-bold text-lg text-foreground">Cashew</div>
-              <div className="text-sm text-muted-foreground">Make Your Dream Come True!</div>
+              <p className="text-lg font-bold text-foreground">Cashew</p>
+              <p className="text-sm text-muted-foreground">Make Your Dream Come True</p>
             </div>
-          </div>
-          
-          <nav className="hidden md:flex items-center space-x-8">
-            <a href="#services" className="text-foreground hover:text-primary transition-colors">Services</a>
-            <a href="#features" className="text-foreground hover:text-primary transition-colors">Features</a>
-            <a href="#about" className="text-foreground hover:text-primary transition-colors">About</a>
-          </nav>
-          
-          <div className="flex items-center space-x-4">
+          </Link>
+          <div className="hidden items-center gap-3 sm:flex">
             <Link to="/auth">
-              <Button variant="outline">Sign In</Button>
+              <Button variant="outline">Returning clients</Button>
             </Link>
             <Link to="/apply">
-              <Button>Apply Now</Button>
+              <Button>
+                Start an application
+                <ArrowRight className="ml-2 h-4 w-4" />
+              </Button>
             </Link>
           </div>
         </div>
       </header>
 
-      {/* Hero Section */}
-      <section className="py-20 lg:py-32 px-6 bg-gradient-soft relative overflow-hidden">
-        <div className="max-w-7xl mx-auto">
-          <div className="flex flex-col lg:flex-row gap-12 items-center">
-            {/* Left Column - Text Content */}
-            <div className="flex-1 text-left lg:pr-8">
-              <div className="text-sm font-semibold text-primary mb-4 tracking-wide uppercase">
-                — Lender of choice for individuals and small businesses
-              </div>
-              <h1 className="text-4xl lg:text-6xl font-bold text-foreground mb-6 leading-tight">
-                Fast & Hassle-Free <span className="text-primary">Loans</span>
+      <main>
+        <section className="border-b bg-background">
+          <div className="mx-auto flex max-w-6xl flex-col gap-10 px-6 py-16 md:flex-row md:items-center">
+            <div className="flex-1 space-y-6">
+              <span className="inline-flex items-center rounded-full border border-primary/30 bg-primary/10 px-4 py-1 text-sm font-medium text-primary">
+                A single flow for every Cashew client
+              </span>
+              <h1 className="text-4xl font-bold leading-tight text-foreground md:text-5xl">
+                Get funded faster with a guided onboarding experience
               </h1>
-              <p className="text-xl text-muted-foreground mb-8 max-w-lg">
-                Quick application with minimal documentation. Instant decisions for pre-qualified applicants with same-day disbursement.
+              <p className="max-w-xl text-lg text-muted-foreground">
+                Whether you are applying for the first time or returning to manage an existing loan, the Cashew experience begins on this page.
+                Choose the journey that fits you and follow the clear steps all the way to your dashboard.
               </p>
-              
-              <div className="flex flex-col sm:flex-row gap-4 mb-8">
+              <div className="flex flex-col gap-3 sm:flex-row">
                 <Link to="/apply">
-                  <Button size="lg" className="w-full sm:w-auto">
-                    Apply for Loan
+                  <Button size="lg">
+                    New applicants
+                    <ArrowRight className="ml-2 h-5 w-5" />
                   </Button>
                 </Link>
                 <Link to="/auth">
-                  <Button variant="outline" size="lg" className="w-full sm:w-auto">
-                    Access Dashboard
+                  <Button size="lg" variant="outline">
+                    Returning clients
                   </Button>
                 </Link>
               </div>
-
-              <div className="flex items-center space-x-6 text-sm text-muted-foreground">
-                <div className="flex items-center space-x-2">
-                  <Zap className="h-4 w-4 text-primary" />
-                  <span>Fast Approval</span>
-                </div>
-                <div className="flex items-center space-x-2">
-                  <Shield className="h-4 w-4 text-primary" />
-                  <span>Secure Process</span>
-                </div>
-              </div>
             </div>
-
-            {/* Right Column - iPhone 15 Mockup */}
-            <div className="flex-shrink-0 w-full lg:w-auto flex justify-center lg:justify-end">
-              <div className="relative mx-auto w-72 h-[580px] bg-foreground rounded-[3.5rem] p-2 shadow-2xl">
-                <div className="w-full h-full bg-background rounded-[3rem] overflow-hidden relative">
-                  {/* iPhone notch */}
-                  <div className="absolute top-0 left-1/2 transform -translate-x-1/2 w-32 h-6 bg-foreground rounded-b-2xl z-10"></div>
-                  
-                  {/* Dashboard content */}
-                  <div className="p-4 pt-8 h-full overflow-hidden">
-                    {/* Status bar */}
-                    <div className="flex items-center justify-between mb-6 text-xs">
-                      <div className="font-semibold">9:41</div>
-                      <div className="flex items-center space-x-1">
-                        <div className="w-4 h-2 bg-foreground rounded-sm"></div>
-                        <div className="w-1 h-1 bg-foreground rounded-full"></div>
-                        <div className="w-6 h-3 border border-foreground rounded-sm">
-                          <div className="w-4 h-1.5 bg-foreground rounded-sm m-0.5"></div>
-                        </div>
-                      </div>
+            <Card className="flex-1 border-primary/20 bg-primary/5">
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2 text-primary">
+                  <CheckCircle2 className="h-5 w-5" />
+                  Your Cashew checklist
+                </CardTitle>
+                <CardDescription>
+                  Every step is tracked to keep your application moving and your profile secure.
+                </CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                {newApplicantSteps.slice(0, 3).map((step, index) => (
+                  <div key={step.title} className="flex items-start gap-3">
+                    <div className="mt-1 h-6 w-6 rounded-full border border-primary/40 bg-primary/10 text-center text-xs font-semibold leading-6 text-primary">
+                      {index + 1}
                     </div>
-                    
-                    {/* Header */}
-                    <div className="flex items-center justify-between mb-6">
-                      <div>
-                        <h3 className="font-bold text-lg">Dashboard</h3>
-                        <p className="text-xs text-muted-foreground">Welcome back, Maria</p>
-                      </div>
-                      <img 
-                        src={cashewLogo} 
-                        alt="Cashew" 
-                        className="h-6 w-auto"
-                      />
-                    </div>
-
-                    {/* Balance Card */}
-                    <div className="bg-primary rounded-xl p-4 mb-4 text-white">
-                      <div className="text-xs opacity-80 mb-1">Total Balance</div>
-                      <div className="text-xl font-bold mb-2">₱125,500.00</div>
-                      <div className="flex justify-between text-xs">
-                        <span>Available: ₱45,000</span>
-                        <span>Due: ₱80,500</span>
-                      </div>
-                    </div>
-
-                    {/* Quick Actions */}
-                    <div className="grid grid-cols-2 gap-3 mb-4">
-                      <div className="bg-card rounded-lg p-3 border text-center">
-                        <Building className="h-4 w-4 text-primary mx-auto mb-1" />
-                        <div className="text-xs font-medium">Apply Loan</div>
-                      </div>
-                      <div className="bg-card rounded-lg p-3 border text-center">
-                        <CreditCard className="h-4 w-4 text-primary mx-auto mb-1" />
-                        <div className="text-xs font-medium">Pay Now</div>
-                      </div>
-                    </div>
-
-                    {/* Recent Loans */}
-                    <div className="mb-4">
-                      <div className="text-sm font-semibold mb-3">Recent Loans</div>
-                      <div className="space-y-2">
-                        <div className="bg-card rounded-lg p-3 border">
-                          <div className="flex justify-between items-start">
-                            <div>
-                              <div className="text-xs font-medium">Business Loan #001</div>
-                              <div className="text-xs text-muted-foreground">₱50,000 • 12 months</div>
-                            </div>
-                            <div className="bg-green-100 text-green-800 text-xs px-2 py-1 rounded">Active</div>
-                          </div>
-                        </div>
-                        
-                        <div className="bg-card rounded-lg p-3 border">
-                          <div className="flex justify-between items-start">
-                            <div>
-                              <div className="text-xs font-medium">Quick Cash #002</div>
-                              <div className="text-xs text-muted-foreground">₱15,000 • 6 months</div>
-                            </div>
-                            <div className="bg-blue-100 text-blue-800 text-xs px-2 py-1 rounded">Pending</div>
-                          </div>
-                        </div>
-                      </div>
-                    </div>
-
-                    {/* Bottom navigation */}
-                    <div className="absolute bottom-4 left-4 right-4">
-                      <div className="bg-card rounded-full p-2 border flex justify-around">
-                        <div className="w-8 h-8 bg-primary/20 rounded-full flex items-center justify-center">
-                          <div className="w-2 h-2 bg-primary rounded-full"></div>
-                        </div>
-                        <div className="w-8 h-8 rounded-full flex items-center justify-center">
-                          <Users className="h-3 w-3 text-muted-foreground" />
-                        </div>
-                        <div className="w-8 h-8 rounded-full flex items-center justify-center">
-                          <CreditCard className="h-3 w-3 text-muted-foreground" />
-                        </div>
-                        <div className="w-8 h-8 rounded-full flex items-center justify-center">
-                          <div className="w-3 h-3 border border-muted-foreground rounded-full"></div>
-                        </div>
-                      </div>
+                    <div>
+                      <p className="font-medium text-foreground">{step.title}</p>
+                      <p className="text-sm text-muted-foreground">{step.description}</p>
                     </div>
                   </div>
+                ))}
+                <div className="flex items-start gap-3">
+                  <div className="mt-1 h-6 w-6 rounded-full border border-primary/40 bg-primary/10 text-center text-xs font-semibold leading-6 text-primary">
+                    4
+                  </div>
+                  <div>
+                    <p className="font-medium text-foreground">First-time login</p>
+                    <p className="text-sm text-muted-foreground">
+                      After verification, sign in with your temporary password and set a new secure password.
+                    </p>
+                  </div>
                 </div>
-              </div>
-            </div>
+              </CardContent>
+            </Card>
           </div>
-        </div>
-      </section>
+        </section>
 
-      {/* Loan Types Section */}
-      <section id="services" className="py-20 px-6">
-        <div className="max-w-7xl mx-auto">
-          <div className="text-center mb-16">
-            <div className="text-sm font-semibold text-primary mb-4 tracking-wide uppercase">
-              SERVICES
-            </div>
-            <h2 className="text-3xl lg:text-4xl font-bold text-foreground mb-4">
-              Choose Your Perfect Loan
-            </h2>
-            <p className="text-lg text-muted-foreground max-w-2xl mx-auto">
-              We offer different loan types to meet your specific needs with competitive rates and flexible terms.
-            </p>
-          </div>
-          
-          <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-6">
-            <Card className="border-border/50 hover:shadow-lg transition-all duration-300 hover:-translate-y-1">
-              <CardHeader className="text-center">
-                <div className="mx-auto mb-4 p-3 bg-primary/10 rounded-full w-fit">
-                  <Building className="h-6 w-6 text-primary" />
+        <section className="bg-gradient-to-b from-background via-background to-primary/5">
+          <div className="mx-auto grid max-w-6xl gap-8 px-6 py-16 md:grid-cols-2">
+            <Card className="shadow-soft">
+              <CardHeader>
+                <div className="flex items-center gap-3 text-primary">
+                  <Sparkles className="h-5 w-5" />
+                  <CardTitle>New applicants</CardTitle>
                 </div>
-                <CardTitle className="text-lg">Business Loan</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <CardDescription className="text-center mb-4">
-                  Get capital to expand, buy inventory, or invest in new opportunities. Quick approval with minimal requirements.
+                <CardDescription>
+                  Follow these steps to complete your loan application and activate your Cashew account.
                 </CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-5">
+                {newApplicantSteps.map((step) => (
+                  <div key={step.title} className="rounded-lg border border-border/60 bg-background/80 p-4">
+                    <p className="font-medium text-foreground">{step.title}</p>
+                    <p className="text-sm text-muted-foreground">{step.description}</p>
+                  </div>
+                ))}
+                <div className="rounded-lg border border-primary/30 bg-primary/10 p-4 text-sm text-primary">
+                  Once your email and mobile number are verified, you will see updated statuses in your Cashew profile and gain full dashboard access.
+                </div>
                 <Link to="/apply" className="block">
-                  <Button variant="outline" className="w-full">Apply Now</Button>
+                  <Button className="w-full">
+                    Start your application
+                    <ArrowRight className="ml-2 h-4 w-4" />
+                  </Button>
                 </Link>
               </CardContent>
             </Card>
 
-            <Card className="border-border/50 hover:shadow-lg transition-all duration-300 hover:-translate-y-1">
-              <CardHeader className="text-center">
-                <div className="mx-auto mb-4 p-3 bg-primary/10 rounded-full w-fit">
-                  <Zap className="h-6 w-6 text-primary" />
+            <Card className="shadow-soft">
+              <CardHeader>
+                <div className="flex items-center gap-3 text-primary">
+                  <Lock className="h-5 w-5" />
+                  <CardTitle>Returning clients</CardTitle>
                 </div>
-                <CardTitle className="text-lg">Quick Cash</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <CardDescription className="text-center mb-4">
-                  No long waits—get fast approval for bills, medical needs, or unexpected expenses. Simple and hassle-free.
+                <CardDescription>
+                  Already verified? Log back in to manage your loans and view personalized offers.
                 </CardDescription>
-                <Link to="/apply" className="block">
-                  <Button variant="outline" className="w-full">Apply Now</Button>
-                </Link>
-              </CardContent>
-            </Card>
-
-            <Card className="border-border/50 hover:shadow-lg transition-all duration-300 hover:-translate-y-1">
-              <CardHeader className="text-center">
-                <div className="mx-auto mb-4 p-3 bg-primary/10 rounded-full w-fit">
-                  <GraduationCap className="h-6 w-6 text-primary" />
+              </CardHeader>
+              <CardContent className="space-y-5">
+                {returningClientSteps.map((step) => (
+                  <div key={step.title} className="rounded-lg border border-border/60 bg-background/80 p-4">
+                    <p className="font-medium text-foreground">{step.title}</p>
+                    <p className="text-sm text-muted-foreground">{step.description}</p>
+                  </div>
+                ))}
+                <div className="rounded-lg border border-primary/30 bg-primary/10 p-4 text-sm text-primary">
+                  Forgot your password? Use the change password option inside the dashboard at any time.
                 </div>
-                <CardTitle className="text-lg">Education Loan</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <CardDescription className="text-center mb-4">
-                  Focus on your studies while we handle the finances. Affordable rates and flexible repayment terms.
-                </CardDescription>
-                <Link to="/apply" className="block">
-                  <Button variant="outline" className="w-full">Apply Now</Button>
-                </Link>
-              </CardContent>
-            </Card>
-
-            <Card className="border-border/50 hover:shadow-lg transition-all duration-300 hover:-translate-y-1">
-              <CardHeader className="text-center">
-                <div className="mx-auto mb-4 p-3 bg-primary/10 rounded-full w-fit">
-                  <Home className="h-6 w-6 text-primary" />
-                </div>
-                <CardTitle className="text-lg">Home Loan</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <CardDescription className="text-center mb-4">
-                  Own a home with low-interest rates and easy terms. Whether buying, building, or refinancing.
-                </CardDescription>
-                <Link to="/apply" className="block">
-                  <Button variant="outline" className="w-full">Apply Now</Button>
+                <Link to="/auth" className="block">
+                  <Button className="w-full" variant="outline">
+                    Go to sign in
+                  </Button>
                 </Link>
               </CardContent>
             </Card>
           </div>
-        </div>
-      </section>
+        </section>
 
-      {/* Features Section */}
-      <section id="features" className="py-20 px-6 bg-muted/30">
-        <div className="max-w-7xl mx-auto">
-          <div className="grid lg:grid-cols-2 gap-16 items-center">
-            <div>
-              <div className="text-sm font-semibold text-primary mb-4 tracking-wide uppercase">
-                WHY CHOOSE US
-              </div>
-              <h2 className="text-3xl lg:text-4xl font-bold text-foreground mb-6">
-                Built for Your <span className="text-primary">Financial Success</span>
-              </h2>
-              <p className="text-lg text-muted-foreground mb-8">
-                We understand the challenges of accessing capital. That's why we've designed our process to be inclusive, accessible, and transparent.
-              </p>
-              
-              <div className="space-y-6">
-                <div className="flex items-start space-x-4">
-                  <div className="p-2 bg-primary/10 rounded-lg flex-shrink-0">
-                    <Clock className="h-5 w-5 text-primary" />
-                  </div>
-                  <div>
-                    <h3 className="font-semibold text-foreground mb-2">Fast & Hassle-Free</h3>
-                    <p className="text-muted-foreground">Quick application with minimal documentation and instant decisions for pre-qualified applicants.</p>
-                  </div>
-                </div>
-                
-                <div className="flex items-start space-x-4">
-                  <div className="p-2 bg-primary/10 rounded-lg flex-shrink-0">
-                    <CreditCard className="h-5 w-5 text-primary" />
-                  </div>
-                  <div>
-                    <h3 className="font-semibold text-foreground mb-2">Flexible Repayment</h3>
-                    <p className="text-muted-foreground">Multiple repayment terms and payment options including bank transfer, GCash, or cash.</p>
-                  </div>
-                </div>
-                
-                <div className="flex items-start space-x-4">
-                  <div className="p-2 bg-primary/10 rounded-lg flex-shrink-0">
-                    <Users className="h-5 w-5 text-primary" />
-                  </div>
-                  <div>
-                    <h3 className="font-semibold text-foreground mb-2">Inclusive & Accessible</h3>
-                    <p className="text-muted-foreground">No credit history required—evaluations based on real-life financial behavior.</p>
-                  </div>
-                </div>
-                
-                <div className="flex items-start space-x-4">
-                  <div className="p-2 bg-primary/10 rounded-lg flex-shrink-0">
-                    <Shield className="h-5 w-5 text-primary" />
-                  </div>
-                  <div>
-                    <h3 className="font-semibold text-foreground mb-2">Secure & Transparent</h3>
-                    <p className="text-muted-foreground">Data security measures and clear loan terms with upfront details—no hidden clauses.</p>
-                  </div>
-                </div>
-              </div>
-            </div>
-            
-            <div className="relative">
-              <div className="bg-gradient-to-br from-primary/10 to-primary/5 rounded-2xl p-8 border border-primary/20">
-                <div className="text-center">
-                  <div className="inline-flex items-center justify-center w-16 h-16 bg-primary rounded-full mb-6">
-                    <Shield className="h-8 w-8 text-white" />
-                  </div>
-                  <h3 className="text-2xl font-bold text-foreground mb-4">Trusted by Thousands</h3>
-                  <p className="text-muted-foreground mb-6">
-                    Join thousands of satisfied customers who trust Cashew for their financial needs.
-                  </p>
-                  <div className="grid grid-cols-2 gap-4 text-center">
-                    <div className="bg-background rounded-lg p-4">
-                      <div className="text-2xl font-bold text-primary">10K+</div>
-                      <div className="text-sm text-muted-foreground">Happy Customers</div>
-                    </div>
-                    <div className="bg-background rounded-lg p-4">
-                      <div className="text-2xl font-bold text-primary">₱50M+</div>
-                      <div className="text-sm text-muted-foreground">Loans Processed</div>
-                    </div>
-                  </div>
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
-      </section>
-
-      {/* Footer */}
-      <footer className="bg-foreground text-background py-16 px-6">
-        <div className="max-w-7xl mx-auto">
-          <div className="grid md:grid-cols-4 gap-8 mb-8">
-            <div>
-              <div className="flex items-center space-x-3 mb-4">
-                <img 
-                  src={cashewLogo} 
-                  alt="Cashew Logo" 
-                  className="h-8 w-auto brightness-0 invert"
-                />
-                <span className="font-semibold text-lg">Cashew</span>
-              </div>
-              <p className="text-background/80 mb-4">
-                Make Your Dream Come True! Lender of choice for individuals and small businesses.
+        <section className="border-t bg-background">
+          <div className="mx-auto max-w-6xl px-6 py-16">
+            <div className="mb-10 text-center">
+              <h2 className="text-3xl font-bold text-foreground md:text-4xl">Why clients love the Cashew experience</h2>
+              <p className="mt-3 text-lg text-muted-foreground">
+                Every improvement in this release is focused on reducing friction from your onboarding flow.
               </p>
             </div>
-            
-            <div>
-              <h4 className="font-semibold mb-4">Services</h4>
-              <ul className="space-y-2 text-background/80">
-                <li><a href="#" className="hover:text-primary transition-colors">Business Loan</a></li>
-                <li><a href="#" className="hover:text-primary transition-colors">Quick Cash</a></li>
-                <li><a href="#" className="hover:text-primary transition-colors">Education Loan</a></li>
-                <li><a href="#" className="hover:text-primary transition-colors">Home Loan</a></li>
-              </ul>
-            </div>
-            
-            <div>
-              <h4 className="font-semibold mb-4">Company</h4>
-              <ul className="space-y-2 text-background/80">
-                <li><a href="#" className="hover:text-primary transition-colors">About Us</a></li>
-                <li><a href="#" className="hover:text-primary transition-colors">Contact</a></li>
-                <li><a href="#" className="hover:text-primary transition-colors">Careers</a></li>
-                <li><a href="#" className="hover:text-primary transition-colors">Blog</a></li>
-              </ul>
-            </div>
-            
-            <div>
-              <h4 className="font-semibold mb-4">Legal</h4>
-              <ul className="space-y-2 text-background/80">
-                <li><a href="https://www.cashew.ph/terms.html" target="_blank" rel="noopener noreferrer" className="hover:text-primary transition-colors">Terms of Service</a></li>
-                <li><a href="https://www.cashew.ph/terms.html" target="_blank" rel="noopener noreferrer" className="hover:text-primary transition-colors">Privacy Policy</a></li>
-              </ul>
+            <div className="grid gap-6 md:grid-cols-3">
+              {featureHighlights.map(({ title, description, icon: Icon }) => (
+                <Card key={title} className="h-full border-border/60">
+                  <CardHeader>
+                    <div className="mb-4 inline-flex h-12 w-12 items-center justify-center rounded-full bg-primary/10 text-primary">
+                      <Icon className="h-5 w-5" />
+                    </div>
+                    <CardTitle>{title}</CardTitle>
+                    <CardDescription>{description}</CardDescription>
+                  </CardHeader>
+                </Card>
+              ))}
             </div>
           </div>
-          
-          <div className="border-t border-background/20 pt-8 flex flex-col md:flex-row items-center justify-between">
-            <p className="text-background/60 text-sm">
-              © 2024 Cashew. All rights reserved.
-            </p>
-            <div className="flex items-center space-x-4 mt-4 md:mt-0">
-              <Link to="/apply">
-                <Button variant="outline" className="border-background/20 text-background hover:bg-background hover:text-foreground">
-                  Get Started
-                </Button>
-              </Link>
-            </div>
+        </section>
+      </main>
+
+      <footer className="border-t bg-background">
+        <div className="mx-auto flex max-w-6xl flex-col items-center justify-between gap-4 px-6 py-6 text-center text-sm text-muted-foreground md:flex-row md:text-left">
+          <p>© {new Date().getFullYear()} Cashew Philippines. All rights reserved.</p>
+          <div className="flex flex-wrap items-center justify-center gap-4">
+            <Link to="/apply" className="hover:text-primary">
+              Start a new loan
+            </Link>
+            <Link to="/auth" className="hover:text-primary">
+              Client dashboard
+            </Link>
+            <a href="mailto:support@cashew.ph" className="hover:text-primary">
+              support@cashew.ph
+            </a>
           </div>
         </div>
       </footer>

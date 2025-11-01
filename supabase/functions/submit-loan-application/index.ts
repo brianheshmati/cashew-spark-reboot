@@ -1,6 +1,16 @@
 import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.50.3";
 import { Resend } from "npm:resend@2.0.0";
+
+const generateTemporaryPassword = () => {
+  const characters = "ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz23456789!@$#";
+  const length = 12;
+  let password = "";
+  for (let index = 0; index < length; index++) {
+    password += characters.charAt(Math.floor(Math.random() * characters.length));
+  }
+  return password;
+};
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type'
@@ -17,6 +27,11 @@ const handler = async (req)=>{
     const resendApiKey = Deno.env.get('RESEND_API_KEY');
     const supabase = createClient(supabaseUrl, supabaseKey);
     const resend = resendApiKey ? new Resend(resendApiKey) : null;
+    const twilioAccountSid = Deno.env.get('TWILIO_ACCOUNT_SID');
+    const twilioAuthToken = Deno.env.get('TWILIO_AUTH_TOKEN');
+    const twilioMessagingServiceSid = Deno.env.get('TWILIO_MESSAGING_SERVICE_SID');
+    const twilioFromNumber = Deno.env.get('TWILIO_FROM_NUMBER');
+    const appBaseUrl = Deno.env.get('APP_BASE_URL') ?? 'https://app.cashew.ph';
     const applicationData = await req.json();
     // Clean and validate data
     const cleanLoanAmount = parseFloat(applicationData.loanInfo.loanAmount.replace(/[^0-9.]/g, ''));
@@ -57,16 +72,19 @@ const handler = async (req)=>{
     const loanTermMonths = parseInt(applicationData.loanInfo.loanTerm.replace(/[^0-9]/g, ''));
     // First, try to sign up the user
     console.log('Attempting to sign up user with email:', email);
+    const temporaryPassword = generateTemporaryPassword();
     const { data: authData, error: authError } = await supabase.auth.signUp({
-      email: email,
-      password: crypto.randomUUID(),
+      email,
+      password: temporaryPassword,
       options: {
-        emailRedirectTo: `${Deno.env.get('SUPABASE_URL')}/auth/v1/verify`,
+        emailRedirectTo: `${appBaseUrl}/auth`,
         data: {
           first_name: applicationData.personalInfo.firstName,
           last_name: applicationData.personalInfo.lastName,
           middle_name: applicationData.personalInfo.middleName,
-          application_id: applicationId
+          application_id: applicationId,
+          must_change_password: true,
+          phone_number: cleanPhone
         }
       }
     });
@@ -74,7 +92,21 @@ const handler = async (req)=>{
       authData: authData?.user?.id,
       authError
     });
-    if (authError && authError.message !== 'User already registered') {
+    if (authError) {
+      if (authError.message === 'User already registered') {
+        console.warn('Applicant attempted to register an existing account');
+        return new Response(JSON.stringify({
+          error: 'An account with this email already exists. Please sign in as a returning client.',
+          code: 'USER_EXISTS'
+        }), {
+          status: 409,
+          headers: {
+            ...corsHeaders,
+            'Content-Type': 'application/json'
+          }
+        });
+      }
+
       console.error('Auth error:', authError);
       return new Response(JSON.stringify({
         error: 'Failed to create account: ' + authError.message
@@ -87,15 +119,8 @@ const handler = async (req)=>{
       });
     }
     // Get user ID for the applications table
-    let userId = authData?.user?.id;
+    const userId = authData?.user?.id;
     console.log('User ID from auth:', userId);
-    // If user already exists, skip user creation but still process application
-    if (authError && authError.message === 'User already registered') {
-      console.log('User already exists, proceeding with application');
-      // For now, let's use a dummy user ID that we know exists
-      // In production, you'd want to implement proper user lookup
-      userId = applicationId; // Use application ID as user ID temporarily
-    }
     if (!userId) {
       console.error('No user ID available');
       return new Response(JSON.stringify({
@@ -126,14 +151,15 @@ const handler = async (req)=>{
       years_employed: applicationData.employmentInfo.employmentLength === 'less-than-1' ? 0.5 : applicationData.employmentInfo.employmentLength === '1-2' ? 1.5 : applicationData.employmentInfo.employmentLength === '3-5' ? 4 : 5,
       status: 'Open',
       loan_purpose: applicationData.loanInfo.loanPurpose,
-      employment_status: applicationData.employmentInfo.employmentStatus,
+      employment_status: applicationData.employmentInfo.employmentStatus || 'submitted',
       employer: applicationData.employmentInfo.company.trim() || 'Not specified',
       employer_phone: applicationData.employmentInfo.employer_phone.trim() || 'Not specified',
       employer_address: applicationData.employmentInfo.employer_address.trim() || 'Not specified',
       job_title: applicationData.employmentInfo.position.trim() || 'Not specified',
       address: applicationData.personalInfo.address,
-      promo_code: applicationData.personalInfo.promo_code,
-      dob: applicationData.personalInfo.dob
+      promo_code: applicationData.personalInfo.promoCode,
+      referral_code: applicationData.personalInfo.referralCode,
+      dob: applicationData.personalInfo.dateOfBirth
     };
     console.log('Attempting to insert data:', insertData);
     const { error: insertError } = await supabase.from('applications').insert(insertData);
@@ -149,6 +175,34 @@ const handler = async (req)=>{
         }
       });
     }
+    if (userId) {
+      try {
+        const profilePayload = {
+          user_id: userId,
+          email,
+          phone_number: cleanPhone,
+          email_verified: false,
+          email_verified_at: null,
+          phone_verified: false,
+          phone_verified_at: null,
+          last_application_id: applicationId,
+          referral_code: applicationData.personalInfo.referralCode || null,
+          promo_code: applicationData.personalInfo.promoCode || null,
+          updated_at: new Date().toISOString(),
+        };
+
+        const { error: profileError } = await supabase
+          .from('userProfiles')
+          .upsert(profilePayload, { onConflict: 'user_id' });
+
+        if (profileError) {
+          console.error('Profile upsert error:', profileError);
+        }
+      } catch (profileException) {
+        console.error('Profile update exception:', profileException);
+      }
+    }
+    const referralLink = `${appBaseUrl}/apply?referral=${encodeURIComponent(applicationData.personalInfo.referralCode || applicationId)}`;
     // Send confirmation email if Resend is configured
     if (resend) {
       try {
@@ -192,15 +246,18 @@ const handler = async (req)=>{
                   <div class="highlight">
                     <p><strong>Application Reference Number:</strong> ${applicationId}</p>
                     <p><strong>Loan Amount:</strong> ₱${cleanLoanAmount.toLocaleString()}</p>
-                    <p><strong>Status:</strong> Submitted - Pending Verification</p>
+                    <p><strong>Temporary Password:</strong> ${temporaryPassword}</p>
+                    <p><strong>Status:</strong> Submitted — Pending Email & SMS Verification</p>
                   </div>
-                  
+
                   <h3>What's Next?</h3>
                   <ol>
-                    <li>Check your email for a verification link to complete your account setup</li>
-                    <li>Our team will review your application within 24 hours</li>
-                    <li>You'll receive an update on your application status via email</li>
+                    <li><strong>Verify your email:</strong> Click the button in this email to confirm your address and activate your Cashew account.</li>
+                    <li><strong>First-time login:</strong> Sign in at <a href="${appBaseUrl}/auth" style="color: #d97706;">${appBaseUrl}/auth</a> using the temporary password above, then create a new secure password.</li>
+                    <li><strong>Confirm your mobile number:</strong> We will text ${cleanPhone}. Reply <strong>VERIFY</strong> to mark your phone number as confirmed and unlock your dashboard.</li>
                   </ol>
+
+                  <p style="margin-top: 20px;">Share your referral link with friends and family: <a href="${referralLink}" style="color: #d97706;">${referralLink}</a></p>
                   
                   <div class="support-info">
                     <h4>Need Help?</h4>
@@ -229,10 +286,44 @@ const handler = async (req)=>{
       // Don't fail the request if email fails
       }
     }
+    if (twilioAccountSid && twilioAuthToken && (twilioMessagingServiceSid || twilioFromNumber)) {
+      try {
+        const smsBody = `Hi ${applicationData.personalInfo.firstName}! Thank you for submitting your Cashew loan application. Reply VERIFY to confirm your number and unlock your dashboard. Share your referral link: ${referralLink}`;
+        const params = new URLSearchParams({
+          Body: smsBody,
+          To: cleanPhone
+        });
+
+        if (twilioMessagingServiceSid) {
+          params.append('MessagingServiceSid', twilioMessagingServiceSid);
+        } else if (twilioFromNumber) {
+          params.append('From', twilioFromNumber);
+        }
+
+        const twilioResponse = await fetch(`https://api.twilio.com/2010-04-01/Accounts/${twilioAccountSid}/Messages.json`, {
+          method: 'POST',
+          headers: {
+            Authorization: `Basic ${btoa(`${twilioAccountSid}:${twilioAuthToken}`)}`,
+            'Content-Type': 'application/x-www-form-urlencoded'
+          },
+          body: params
+        });
+
+        if (!twilioResponse.ok) {
+          const responseText = await twilioResponse.text();
+          console.error('Twilio SMS error:', twilioResponse.status, responseText);
+        }
+      } catch (smsError) {
+        console.error('Failed to send SMS notification:', smsError);
+      }
+    } else {
+      console.log('Skipping SMS notification; Twilio credentials are not fully configured.');
+    }
     return new Response(JSON.stringify({
       success: true,
-      applicationId: applicationId,
-      message: 'Application submitted successfully. Please check your email to verify your account.'
+      applicationId,
+      requiresPasswordChange: true,
+      message: 'Application submitted successfully. Please verify your email and reply VERIFY to the SMS we sent.'
     }), {
       status: 200,
       headers: {
