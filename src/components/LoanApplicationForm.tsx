@@ -6,8 +6,8 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Textarea } from '@/components/ui/textarea';
 import { useToast } from '@/hooks/use-toast';
-import { CheckCircle, DollarSign, FileText, User, Phone, Mail, MapPin, Briefcase, Tag } from 'lucide-react';
-import { supabase } from '@/integrations/supabase/client';
+import { CheckCircle, DollarSign, FileText, User, Phone, Mail, MapPin, Briefcase, Tag, Lock } from 'lucide-react';
+import { Link } from 'react-router-dom';
 
 interface FormData {
   personalInfo: {
@@ -37,10 +37,17 @@ interface FormData {
   };
 }
 
+interface SubmissionDetails {
+  applicationId: string;
+  email: string;
+  phone: string;
+}
+
 const LoanApplicationForm = () => {
   const [currentStep, setCurrentStep] = useState(1);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [applicationId, setApplicationId] = useState<string>('');
+  const [submissionDetails, setSubmissionDetails] = useState<SubmissionDetails | null>(null);
   const { toast } = useToast();
   
   const [formData, setFormData] = useState<FormData>({
@@ -159,7 +166,7 @@ const LoanApplicationForm = () => {
     setIsSubmitting(true);
     console.log(formData);
     try {
-      const response = await fetch('https://fklaxhpublxhgxcajuyu.supabase.co/functions/v1/loan_application_submission', {
+      const response = await fetch('https://fklaxhpublxhgxcajuyu.supabase.co/functions/v1/submit-loan-application', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -179,6 +186,12 @@ const LoanApplicationForm = () => {
       if (data?.applicationId) {
         setApplicationId(data.applicationId);
       }
+
+      setSubmissionDetails({
+        applicationId: data?.applicationId ?? '',
+        email: formData.personalInfo.email,
+        phone: formData.personalInfo.phone,
+      });
 
       toast({
         title: "Application submitted successfully!",
@@ -572,27 +585,72 @@ const LoanApplicationForm = () => {
 
             {/* Step 5: Confirmation */}
             {currentStep === 5 && (
-              <div className="text-center space-y-6">
-                <div className="w-20 h-20 bg-success rounded-full flex items-center justify-center mx-auto">
-                  <CheckCircle className="w-10 h-10 text-white" />
+              <div className="space-y-6">
+                <div className="text-center space-y-4">
+                  <div className="mx-auto flex h-20 w-20 items-center justify-center rounded-full bg-success text-white">
+                    <CheckCircle className="h-10 w-10" />
+                  </div>
+                  <div>
+                    <h3 className="text-2xl font-bold">Application submitted!</h3>
+                    <p className="text-muted-foreground">
+                      Thank you for choosing Cashew. Follow the verification steps below to activate your account and access the dashboard.
+                    </p>
+                  </div>
                 </div>
-                <div>
-                  <h3 className="text-2xl font-bold mb-2">Application Submitted Successfully!</h3>
-                  <p className="text-muted-foreground">
-                    Thank you for choosing Cashew Philippines. We've received your loan application and will review it within 24 hours.
+
+                <div className="rounded-lg border border-success/30 bg-success/10 p-4">
+                  <p className="text-sm font-medium text-success">
+                    Application reference number
+                  </p>
+                  <p className="font-mono text-lg font-bold text-success">
+                    {applicationId || 'Processing...'}
                   </p>
                 </div>
-                <div className="bg-muted p-4 rounded-lg">
-                  <p className="text-sm text-muted-foreground mb-2">Application Reference Number:</p>
-                  <p className="font-mono text-lg font-bold">{applicationId || 'Processing...'}</p>
+
+                <div className="space-y-4">
+                  <div className="rounded-lg border border-border bg-background/80 p-4">
+                    <div className="mb-2 flex items-center gap-2">
+                      <Mail className="h-4 w-4 text-primary" />
+                      <p className="font-semibold">Check your inbox</p>
+                    </div>
+                    <p className="text-sm text-muted-foreground">
+                      We sent a welcome email to <span className="font-medium text-foreground">{submissionDetails?.email}</span> with a verification link and a temporary password. Click the link to verify your email and keep the password handy for your first sign in.
+                    </p>
+                  </div>
+
+                  <div className="rounded-lg border border-border bg-background/80 p-4">
+                    <div className="mb-2 flex items-center gap-2">
+                      <Phone className="h-4 w-4 text-primary" />
+                      <p className="font-semibold">Confirm your mobile number</p>
+                    </div>
+                    <p className="text-sm text-muted-foreground">
+                      A text message is on its way to <span className="font-medium text-foreground">{submissionDetails?.phone}</span> with a thank-you note and your referral link. Reply with <span className="font-semibold text-foreground">VERIFY</span> to mark your phone number as confirmed in your Cashew profile.
+                    </p>
+                  </div>
+
+                  <div className="rounded-lg border border-border bg-background/80 p-4">
+                    <div className="mb-2 flex items-center gap-2">
+                      <Lock className="h-4 w-4 text-primary" />
+                      <p className="font-semibold">First-time login</p>
+                    </div>
+                    <p className="text-sm text-muted-foreground">
+                      Use your email address and temporary password to sign in. We’ll guide you through creating a new secure password before showing your dashboard.
+                    </p>
+                  </div>
                 </div>
-                <Button 
-                  onClick={() => window.location.reload()} 
-                  variant="outline"
-                  className="transition-all duration-300 hover:shadow-soft"
-                >
-                  Submit Another Application
-                </Button>
+
+                <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                  <Button asChild className="w-full sm:w-auto">
+                    <Link to="/auth">Go to sign in</Link>
+                  </Button>
+                  <Button
+                    onClick={() => window.location.reload()}
+                    variant="outline"
+                    className="w-full sm:w-auto"
+                  >
+                    Submit another application
+                  </Button>
+                </div>
               </div>
             )}
 

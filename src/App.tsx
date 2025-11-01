@@ -7,8 +7,6 @@ import Landing from "./pages/Landing";
 import Auth from "./pages/Auth";
 import Dashboard from "./pages/Dashboard";
 import Apply from "./pages/Apply";
-//import LoanApplicationForm from "./components/LoanApplicationForm";
-import Index from "./pages/Index";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -20,11 +18,10 @@ const App = () => (
       <Sonner />
       <BrowserRouter basename="/">
         <Routes>
-          {/* <Route path="/" element={<Landing />} /> */}
-           <Route path="/" element={<Index />} />
+          <Route path="/" element={<Landing />} />
           <Route path="/auth" element={<Auth />} />
           <Route path="/dashboard" element={<Dashboard />} />
-          {/* <Route path="/apply" element={<Apply />} /> */}
+          <Route path="/apply" element={<Apply />} />
           {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
           <Route path="*" element={<NotFound />} />
         </Routes>
