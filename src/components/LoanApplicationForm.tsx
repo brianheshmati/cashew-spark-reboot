@@ -159,7 +159,7 @@ const LoanApplicationForm = () => {
     setIsSubmitting(true);
     console.log(formData);
     try {
-      const response = await fetch('https://fklaxhpublxhgxcajuyu.supabase.co/functions/v1/loan_application_submission', {
+      const response = await fetch('https://api.cashew.ph/functions/v1/loan_application_submission', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
