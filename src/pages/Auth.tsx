@@ -11,17 +11,20 @@ import { User } from '@supabase/supabase-js';
 
 const RESEND_SECONDS = 30;
 
-const maskPhone = (phone: string) => {
-  const digits = phone.replace(/\D/g, '');
-  if (digits.length <= 4) return phone;
-  const last = digits.slice(-3);
-  return `+${digits.slice(0, 2)}••• ••••${last}`;
+const maskEmail = (email: string) => {
+  if (!email.includes('@')) return email;
+  const [name, domain] = email.split('@');
+  if (!name) return email;
+  const maskedName = name.length <= 2
+    ? `${name[0] ?? ''}•`
+    : `${name[0]}${'•'.repeat(Math.max(1, name.length - 2))}${name[name.length - 1]}`;
+  return `${maskedName}@${domain}`;
 };
 
 const Auth = () => {
   const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(false);
-  const [phone, setPhone] = useState('');
+  const [email, setEmail] = useState('');
   const [otpCode, setOtpCode] = useState('');
   const [otpSent, setOtpSent] = useState(false);
   const [resendTimer, setResendTimer] = useState(0);
@@ -62,38 +65,17 @@ const Auth = () => {
   }, [otpSent, resendTimer]);
 
   const canResend = otpSent && resendTimer === 0;
-
-  const maskedPhone = useMemo(() => maskPhone(phone), [phone]);
-
-  const handleSocialSignIn = async (provider: 'google' | 'facebook') => {
-    setLoading(true);
-
-    try {
-      const { error } = await supabase.auth.signInWithOAuth({
-        provider,
-        options: {
-          redirectTo: `https://app.cashew.ph/dashboard`
-        }
-      });
-
-      if (error) throw error;
-    } catch (error: any) {
-      toast({
-        title: "Social sign in failed",
-        description: error.message || "Unable to start social sign in.",
-        variant: "destructive"
-      });
-    } finally {
-      setLoading(false);
-    }
-  };
+  const maskedEmail = useMemo(() => maskEmail(email), [email]);
 
   const sendOtp = async () => {
     setLoading(true);
 
     try {
       const { error } = await supabase.auth.signInWithOtp({
-        phone
+        email,
+        options: {
+          emailRedirectTo: `${window.location.origin}/dashboard`
+        }
       });
 
       if (error) throw error;
@@ -102,7 +84,7 @@ const Auth = () => {
       setResendTimer(RESEND_SECONDS);
       toast({
         title: "OTP sent",
-        description: "Check your phone for the verification code.",
+        description: "Check your email for the verification code.",
       });
     } catch (error: any) {
       toast({
@@ -117,7 +99,7 @@ const Auth = () => {
 
   const handleSendOtp = async (event: React.FormEvent) => {
     event.preventDefault();
-    if (!phone) return;
+    if (!email) return;
     await sendOtp();
   };
 
@@ -127,9 +109,9 @@ const Auth = () => {
 
     try {
       const { error } = await supabase.auth.verifyOtp({
-        phone,
+        email,
         token: otpCode,
-        type: 'sms'
+        type: 'email'
       });
 
       if (error) throw error;
@@ -180,65 +162,35 @@ const Auth = () => {
             <CardTitle>{otpSent ? 'Verify your code' : 'Welcome back'}</CardTitle>
             <CardDescription>
               {otpSent
-                ? `Enter the 6-digit code sent to ${maskedPhone || 'your phone'}.`
-                : 'Sign in with a social account or phone number.'}
+                ? `Enter the 6-digit code sent to ${maskedEmail || 'your email'}.`
+                : 'Sign in or register with a one-time email code.'}
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-6">
             {!otpSent && (
-              <>
-                <div className="space-y-3">
-                  <Button
-                    type="button"
-                    variant="outline"
-                    className="w-full"
-                    disabled={loading}
-                    onClick={() => handleSocialSignIn('google')}
-                  >
-                    Continue with Google
-                  </Button>
-                  <Button
-                    type="button"
-                    variant="outline"
-                    className="w-full"
-                    disabled={loading}
-                    onClick={() => handleSocialSignIn('facebook')}
-                  >
-                    Continue with Facebook
-                  </Button>
+              <form onSubmit={handleSendOtp} className="space-y-4">
+                <div className="space-y-2">
+                  <Label htmlFor="email">Email address</Label>
+                  <Input
+                    id="email"
+                    type="email"
+                    placeholder="you@email.com"
+                    value={email}
+                    onChange={(event) => setEmail(event.target.value)}
+                    required
+                  />
                 </div>
-
-                <div className="flex items-center gap-4 text-xs text-muted-foreground">
-                  <span className="h-px flex-1 bg-border" />
-                  <span>or</span>
-                  <span className="h-px flex-1 bg-border" />
-                </div>
-
-                <form onSubmit={handleSendOtp} className="space-y-4">
-                  <div className="space-y-2">
-                    <Label htmlFor="phone">Phone number</Label>
-                    <Input
-                      id="phone"
-                      type="tel"
-                      placeholder="+63"
-                      value={phone}
-                      onChange={(event) => setPhone(event.target.value)}
-                      required
-                    />
-                  </div>
-                  <Button
-                    type="submit"
-                    className="w-full"
-                    disabled={loading}
-                  >
-                    {loading ? 'Sending...' : 'Continue'}
-                  </Button>
-                </form>
-
+                <Button
+                  type="submit"
+                  className="w-full"
+                  disabled={loading}
+                >
+                  {loading ? 'Sending...' : 'Continue'}
+                </Button>
                 <p className="text-xs text-muted-foreground text-center">
                   By continuing, you agree to our Terms &amp; Privacy.
                 </p>
-              </>
+              </form>
             )}
 
             {otpSent && (
