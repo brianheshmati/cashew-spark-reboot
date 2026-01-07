@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { SidebarProvider } from '@/components/ui/sidebar';
 import { AppSidebar } from '@/components/AppSidebar';
 import { DashboardHeader } from '@/components/DashboardHeader';
+import { OverviewView } from '@/components/dashboard/OverviewView';
 import { ProfileView } from '@/components/dashboard/ProfileView';
 import { LoansView } from '@/components/dashboard/LoansView';
 import { TransactionsView } from '@/components/dashboard/TransactionsView';
@@ -21,6 +22,8 @@ const Dashboard = () => {
   const [loading, setLoading] = useState(true);
   const navigate = useNavigate();
   const { toast } = useToast();
+  const localTestUserId = import.meta.env.VITE_LOCAL_TEST_USER_ID as string | undefined;
+  const overviewUserId = localTestUserId ?? user?.id;
 
   useEffect(() => {
     // Set up auth state listener
@@ -61,7 +64,7 @@ const Dashboard = () => {
         title: "Signed out successfully",
         description: "You have been logged out of your account.",
       });
-      navigate('/');
+      navigate('/auth');
     } catch (error: any) {
       toast({
         title: "Sign out failed",
@@ -73,6 +76,8 @@ const Dashboard = () => {
 
   const renderCurrentView = () => {
     switch (currentView) {
+      case 'overview':
+        return overviewUserId ? <OverviewView userId={overviewUserId} /> : null;
       case 'profile':
         return <ProfileView user={user} />;
       case 'loans':
@@ -84,7 +89,7 @@ const Dashboard = () => {
       case 'apply':
         return <ApplyView />;
       default:
-        return <ProfileView user={user} />;
+        return overviewUserId ? <OverviewView userId={overviewUserId} /> : null;
     }
   };
 
