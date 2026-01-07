@@ -85,15 +85,19 @@ export function OverviewView({ userId }: OverviewViewProps) {
       </div>
 
       <div className="grid gap-6 md:grid-cols-2">
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Next Payment</CardTitle>
-            <Calendar className="h-4 w-4 text-muted-foreground" />
+        <Card variant="highlight">
+          <CardHeader className="space-y-4 pb-2">
+            <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-white/80 shadow-sm">
+              <Calendar className="h-5 w-5 text-orange-700" />
+            </div>
+            <CardTitle className="text-sm font-medium text-muted-foreground">
+              Next Payment
+            </CardTitle>
           </CardHeader>
-          <CardContent>
+          <CardContent className="space-y-1">
             {nextPayment ? (
               <>
-                <div className="text-2xl font-bold">
+                <div className="text-3xl font-bold text-foreground">
                   {formatCurrency(nextPayment.remaining_amount)}
                 </div>
                 <p className="text-sm text-muted-foreground">

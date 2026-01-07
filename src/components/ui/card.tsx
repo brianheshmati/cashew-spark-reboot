@@ -2,14 +2,22 @@ import * as React from "react"
 
 import { cn } from "@/lib/utils"
 
+type CardVariant = "default" | "highlight"
+
+const cardVariants: Record<CardVariant, string> = {
+  default: "rounded-lg border bg-card text-card-foreground shadow-sm",
+  highlight:
+    "relative overflow-hidden rounded-2xl border border-orange-100/80 bg-orange-50/70 text-card-foreground shadow-md before:absolute before:-right-8 before:-top-8 before:h-28 before:w-28 before:rounded-full before:bg-orange-100/70 before:content-['']"
+}
+
 const Card = React.forwardRef<
   HTMLDivElement,
-  React.HTMLAttributes<HTMLDivElement>
->(({ className, ...props }, ref) => (
+  React.HTMLAttributes<HTMLDivElement> & { variant?: CardVariant }
+>(({ className, variant = "default", ...props }, ref) => (
   <div
     ref={ref}
     className={cn(
-      "rounded-lg border bg-card text-card-foreground shadow-sm",
+      cardVariants[variant],
       className
     )}
     {...props}
