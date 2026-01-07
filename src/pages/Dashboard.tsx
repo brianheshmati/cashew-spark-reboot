@@ -22,6 +22,8 @@ const Dashboard = () => {
   const [loading, setLoading] = useState(true);
   const navigate = useNavigate();
   const { toast } = useToast();
+  const localTestUserId = import.meta.env.VITE_LOCAL_TEST_USER_ID as string | undefined;
+  const overviewUserId = localTestUserId ?? user?.id;
 
   useEffect(() => {
     // Set up auth state listener
@@ -75,7 +77,7 @@ const Dashboard = () => {
   const renderCurrentView = () => {
     switch (currentView) {
       case 'overview':
-        return <OverviewView userId={user.id} />;
+        return overviewUserId ? <OverviewView userId={overviewUserId} /> : null;
       case 'profile':
         return <ProfileView user={user} />;
       case 'loans':
@@ -87,7 +89,7 @@ const Dashboard = () => {
       case 'apply':
         return <ApplyView />;
       default:
-        return <OverviewView userId={user.id} />;
+        return overviewUserId ? <OverviewView userId={overviewUserId} /> : null;
     }
   };
 
