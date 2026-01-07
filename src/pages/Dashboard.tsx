@@ -75,7 +75,7 @@ const Dashboard = () => {
   const renderCurrentView = () => {
     switch (currentView) {
       case 'overview':
-        return <OverviewView />;
+        return <OverviewView userId={user.id} />;
       case 'profile':
         return <ProfileView user={user} />;
       case 'loans':
@@ -87,7 +87,7 @@ const Dashboard = () => {
       case 'apply':
         return <ApplyView />;
       default:
-        return <OverviewView />;
+        return <OverviewView userId={user.id} />;
     }
   };
 

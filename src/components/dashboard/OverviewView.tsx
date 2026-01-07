@@ -1,72 +1,59 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Badge } from '@/components/ui/badge';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 import { Calendar, CreditCard } from 'lucide-react';
 import { formatCurrency } from '@/lib/utils';
 
-interface Loan {
-  id: string;
-  current_balance: number;
-  monthly_payment: number;
-  status: string;
-  loan_type: string;
-  origination_date: string | null;
+interface LoanSummary {
+  loan_id: string;
+  loan_amount: number;
+  term_months: number;
+  interest_rate: number;
+  start_date: string | null;
+  end_date: string | null;
+  total_balance: number;
 }
 
-const getStatusColor = (status: string) => {
-  switch (status.toLowerCase()) {
-    case 'active':
-      return 'bg-success/10 text-success';
-    case 'approved':
-      return 'bg-info/10 text-info';
-    case 'pending':
-      return 'bg-warning/10 text-warning';
-    case 'under_review':
-      return 'bg-info/10 text-info';
-    case 'rejected':
-      return 'bg-destructive/10 text-destructive';
-    case 'paid_off':
-      return 'bg-success/10 text-success';
-    default:
-      return 'bg-muted text-muted-foreground';
-  }
-};
+interface NextPayment {
+  loan_id: string;
+  date: string;
+  remaining_amount: number;
+}
 
-const formatStatus = (status: string) => {
-  return status.replace(/_/g, ' ').replace(/\b\w/g, (letter) => letter.toUpperCase());
-};
+interface OverviewViewProps {
+  userId: string;
+}
 
-const getNextPaymentDate = (loan: Loan) => {
-  const now = new Date();
-  const originDate = loan.origination_date ? new Date(loan.origination_date) : now;
-  const paymentDay = originDate.getDate();
-  const tentative = new Date(now.getFullYear(), now.getMonth(), paymentDay);
-
-  if (tentative <= now) {
-    return new Date(now.getFullYear(), now.getMonth() + 1, paymentDay);
-  }
-
-  return tentative;
-};
-
-export function OverviewView() {
-  const [loans, setLoans] = useState<Loan[]>([]);
+export function OverviewView({ userId }: OverviewViewProps) {
+  const [loans, setLoans] = useState<LoanSummary[]>([]);
+  const [nextPayment, setNextPayment] = useState<NextPayment | null>(null);
   const [loading, setLoading] = useState(true);
   const { toast } = useToast();
 
   useEffect(() => {
-    const fetchLoans = async () => {
+    const fetchOverview = async () => {
       try {
-        const { data, error } = await supabase
-          .from('loans')
-          .select('id, current_balance, monthly_payment, status, loan_type, origination_date')
-          .order('created_at', { ascending: false });
+        const [{ data: loansData, error: loansError }, { data: paymentData, error: paymentError }] =
+          await Promise.all([
+            supabase
+              .from('user_loans_summary')
+              .select('loan_id, loan_amount, term_months, interest_rate, start_date, end_date, total_balance')
+              .eq('internal_user_id', userId)
+              .order('end_date', { ascending: false }),
+            supabase
+              .from('outstanding_payment_schedules')
+              .select('loan_id, date, remaining_amount')
+              .eq('internal_user_id', userId)
+              .order('date', { ascending: true })
+              .limit(1)
+          ]);
 
-        if (error) throw error;
+        if (loansError) throw loansError;
+        if (paymentError) throw paymentError;
 
-        setLoans(data || []);
+        setLoans(loansData || []);
+        setNextPayment(paymentData?.[0] ?? null);
       } catch (error: any) {
         toast({
           title: "Error",
@@ -78,16 +65,8 @@ export function OverviewView() {
       }
     };
 
-    fetchLoans();
-  }, [toast]);
-
-  const activeLoans = loans.filter((loan) => loan.status.toLowerCase() === 'active');
-  const nextPayment = useMemo(() => {
-    if (activeLoans.length === 0) return null;
-    return [...activeLoans]
-      .map((loan) => ({ loan, date: getNextPaymentDate(loan) }))
-      .sort((a, b) => a.date.getTime() - b.date.getTime())[0];
-  }, [activeLoans]);
+    fetchOverview();
+  }, [toast, userId]);
 
   if (loading) {
     return (
@@ -115,18 +94,15 @@ export function OverviewView() {
             {nextPayment ? (
               <>
                 <div className="text-2xl font-bold">
-                  {formatCurrency(nextPayment.loan.monthly_payment)}
+                  {formatCurrency(nextPayment.remaining_amount)}
                 </div>
                 <p className="text-sm text-muted-foreground">
-                  Due {nextPayment.date.toLocaleDateString()}
-                </p>
-                <p className="text-xs text-muted-foreground">
-                  {nextPayment.loan.loan_type.charAt(0).toUpperCase() + nextPayment.loan.loan_type.slice(1)} loan
+                  Due {new Date(nextPayment.date).toLocaleDateString()}
                 </p>
               </>
             ) : (
               <p className="text-sm text-muted-foreground">
-                No active loans with upcoming payments.
+                No upcoming payments scheduled.
               </p>
             )}
           </CardContent>
@@ -134,48 +110,57 @@ export function OverviewView() {
 
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Active Loan Balance</CardTitle>
+            <CardTitle className="text-sm font-medium">Outstanding Balance</CardTitle>
             <CreditCard className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold">
-              {formatCurrency(activeLoans.reduce((sum, loan) => sum + loan.current_balance, 0))}
+              {formatCurrency(loans.reduce((sum, loan) => sum + loan.total_balance, 0))}
             </div>
             <p className="text-xs text-muted-foreground">
-              Across {activeLoans.length} active loan{activeLoans.length === 1 ? '' : 's'}
+              Across {loans.length} loan{loans.length === 1 ? '' : 's'}
             </p>
           </CardContent>
         </Card>
       </div>
 
       <div className="space-y-4">
-        <h2 className="text-xl font-semibold text-foreground">Loans & Status</h2>
+        <h2 className="text-xl font-semibold text-foreground">Loans</h2>
         {loans.length > 0 ? (
           <div className="grid gap-4">
             {loans.map((loan) => (
-              <Card key={loan.id}>
+              <Card key={loan.loan_id}>
                 <CardHeader>
                   <div className="flex items-center justify-between">
-                    <CardTitle className="text-lg">
-                      {loan.loan_type.charAt(0).toUpperCase() + loan.loan_type.slice(1)} Loan
-                    </CardTitle>
-                    <Badge className={getStatusColor(loan.status)}>
-                      {formatStatus(loan.status)}
-                    </Badge>
+                    <CardTitle className="text-lg">Loan {loan.loan_id.slice(0, 8)}...</CardTitle>
+                    <CardDescription>
+                      {loan.start_date
+                        ? `Started ${new Date(loan.start_date).toLocaleDateString()}`
+                        : 'Start date unavailable'}
+                    </CardDescription>
                   </div>
-                  <CardDescription>
-                    Loan ID: {loan.id.slice(0, 8)}...
-                  </CardDescription>
                 </CardHeader>
                 <CardContent>
-                  <div className="flex flex-col gap-2 text-sm text-muted-foreground md:flex-row md:items-center md:justify-between">
+                  <div className="grid gap-4 text-sm text-muted-foreground md:grid-cols-2">
                     <div>
                       <span className="font-medium text-foreground">Balance:</span>{' '}
-                      {formatCurrency(loan.current_balance)}
+                      {formatCurrency(loan.total_balance)}
                     </div>
                     <div>
-                      <span className="font-medium text-foreground">Next payment:</span>{' '}
-                      {formatCurrency(loan.monthly_payment)} on {getNextPaymentDate(loan).toLocaleDateString()}
+                      <span className="font-medium text-foreground">Loan amount:</span>{' '}
+                      {formatCurrency(loan.loan_amount)}
+                    </div>
+                    <div>
+                      <span className="font-medium text-foreground">Term:</span>{' '}
+                      {loan.term_months} months
+                    </div>
+                    <div>
+                      <span className="font-medium text-foreground">Interest rate:</span>{' '}
+                      {loan.interest_rate}%
+                    </div>
+                    <div>
+                      <span className="font-medium text-foreground">End date:</span>{' '}
+                      {loan.end_date ? new Date(loan.end_date).toLocaleDateString() : 'Unavailable'}
                     </div>
                   </div>
                 </CardContent>
