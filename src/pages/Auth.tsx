@@ -1,35 +1,41 @@
-import { useState, useEffect } from 'react';
-import { useNavigate, Link } from 'react-router-dom';
+import { useEffect, useMemo, useState } from 'react';
+import { Link, useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useToast } from '@/hooks/use-toast';
 import { supabase } from '@/integrations/supabase/client';
 import cashewLogo from '@/assets/cashew-logo.png';
-import { User, Session } from '@supabase/supabase-js';
+import { User } from '@supabase/supabase-js';
+
+const RESEND_SECONDS = 30;
+
+const maskEmail = (email: string) => {
+  if (!email.includes('@')) return email;
+  const [name, domain] = email.split('@');
+  if (!name) return email;
+  const maskedName = name.length <= 2
+    ? `${name[0] ?? ''}•`
+    : `${name[0]}${'•'.repeat(Math.max(1, name.length - 2))}${name[name.length - 1]}`;
+  return `${maskedName}@${domain}`;
+};
 
 const Auth = () => {
   const [user, setUser] = useState<User | null>(null);
-  const [session, setSession] = useState<Session | null>(null);
   const [loading, setLoading] = useState(false);
-  const [formData, setFormData] = useState({
-    email: '',
-    password: '',
-    firstName: '',
-    lastName: ''
-  });
+  const [email, setEmail] = useState('');
+  const [otpCode, setOtpCode] = useState('');
+  const [otpSent, setOtpSent] = useState(false);
+  const [resendTimer, setResendTimer] = useState(0);
   const { toast } = useToast();
   const navigate = useNavigate();
 
   useEffect(() => {
-    // Set up auth state listener
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
       (event, session) => {
-        setSession(session);
         setUser(session?.user ?? null);
-        
+
         if (session?.user) {
           setTimeout(() => {
             navigate('/dashboard');
@@ -38,11 +44,9 @@ const Auth = () => {
       }
     );
 
-    // Check for existing session
     supabase.auth.getSession().then(({ data: { session } }) => {
-      setSession(session);
       setUser(session?.user ?? null);
-      
+
       if (session?.user) {
         navigate('/dashboard');
       }
@@ -51,52 +55,41 @@ const Auth = () => {
     return () => subscription.unsubscribe();
   }, [navigate]);
 
-  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    setFormData({
-      ...formData,
-      [e.target.name]: e.target.value
-    });
-  };
+  useEffect(() => {
+    if (!otpSent || resendTimer <= 0) return;
+    const timerId = window.setInterval(() => {
+      setResendTimer((value) => Math.max(0, value - 1));
+    }, 1000);
 
-  const handleSignUp = async (e: React.FormEvent) => {
-    e.preventDefault();
+    return () => window.clearInterval(timerId);
+  }, [otpSent, resendTimer]);
+
+  const canResend = otpSent && resendTimer === 0;
+  const maskedEmail = useMemo(() => maskEmail(email), [email]);
+
+  const sendOtp = async () => {
     setLoading(true);
 
     try {
-      const redirectUrl = `${window.location.origin}/dashboard`;
-      
-      const { error } = await supabase.auth.signUp({
-        email: formData.email,
-        password: formData.password,
+      const { error } = await supabase.auth.signInWithOtp({
+        email,
         options: {
-          emailRedirectTo: redirectUrl,
-          data: {
-            first_name: formData.firstName,
-            last_name: formData.lastName
-          }
+          emailRedirectTo: `${window.location.origin}/dashboard`
         }
       });
 
-      if (error) {
-        if (error.message.includes('already registered')) {
-          toast({
-            title: "Account exists",
-            description: "This email is already registered. Please sign in instead.",
-            variant: "destructive"
-          });
-        } else {
-          throw error;
-        }
-      } else {
-        toast({
-          title: "Success!",
-          description: "Account created successfully. Please check your email for verification.",
-        });
-      }
+      if (error) throw error;
+
+      setOtpSent(true);
+      setResendTimer(RESEND_SECONDS);
+      toast({
+        title: "OTP sent",
+        description: "Check your email for the verification code.",
+      });
     } catch (error: any) {
       toast({
-        title: "Sign up failed",
-        description: error.message || "An error occurred during sign up",
+        title: "OTP failed",
+        description: error.message || "Unable to send the OTP.",
         variant: "destructive"
       });
     } finally {
@@ -104,47 +97,57 @@ const Auth = () => {
     }
   };
 
-  const handleSignIn = async (e: React.FormEvent) => {
-    e.preventDefault();
+  const handleSendOtp = async (event: React.FormEvent) => {
+    event.preventDefault();
+    if (!email) return;
+    await sendOtp();
+  };
+
+  const handleVerifyOtp = async (event: React.FormEvent) => {
+    event.preventDefault();
     setLoading(true);
 
     try {
-      const { error } = await supabase.auth.signInWithPassword({
-        email: formData.email,
-        password: formData.password
+      const { error } = await supabase.auth.verifyOtp({
+        email,
+        token: otpCode,
+        type: 'email'
       });
 
-      if (error) {
-        if (error.message.includes('Invalid login credentials')) {
-          toast({
-            title: "Sign in failed",
-            description: "Invalid email or password. Please check your credentials.",
-            variant: "destructive"
-          });
-        } else {
-          throw error;
-        }
-      }
+      if (error) throw error;
+
+      toast({
+        title: "Verification successful",
+        description: "Welcome back!",
+      });
     } catch (error: any) {
       toast({
-        title: "Sign in failed",
-        description: error.message || "An error occurred during sign in",
+        title: "Verification failed",
+        description: error.message || "Unable to verify the OTP.",
         variant: "destructive"
       });
     } finally {
       setLoading(false);
     }
   };
+
+  const handleResend = async () => {
+    if (!canResend) return;
+    await sendOtp();
+  };
+
+  if (user) {
+    return null;
+  }
 
   return (
     <div className="min-h-screen bg-gradient-soft flex items-center justify-center px-4">
       <div className="w-full max-w-md">
-        {/* Logo */}
         <div className="text-center mb-8">
-          <Link to="/" className="inline-flex items-center space-x-3">
-            <img 
-              src={cashewLogo} 
-              alt="Cashew Logo" 
+          <Link to="/home" className="inline-flex items-center space-x-3">
+            <img
+              src={cashewLogo}
+              alt="Cashew Logo"
               className="h-12 w-auto"
             />
             <div>
@@ -156,126 +159,76 @@ const Auth = () => {
 
         <Card className="shadow-medium">
           <CardHeader className="text-center">
-            <CardTitle>Welcome Back</CardTitle>
+            <CardTitle>{otpSent ? 'Verify your code' : 'Welcome back'}</CardTitle>
             <CardDescription>
-              Sign in to your account or create a new one
+              {otpSent
+                ? `Enter the 6-digit code sent to ${maskedEmail || 'your email'}.`
+                : 'Sign in or register with a one-time email code.'}
             </CardDescription>
           </CardHeader>
-          <CardContent>
-            <Tabs defaultValue="signin" className="w-full">
-              <TabsList className="grid w-full grid-cols-2">
-                <TabsTrigger value="signin">Sign In</TabsTrigger>
-                <TabsTrigger value="signup">Sign Up</TabsTrigger>
-              </TabsList>
-              
-              <TabsContent value="signin">
-                <form onSubmit={handleSignIn} className="space-y-4">
-                  <div className="space-y-2">
-                    <Label htmlFor="signin-email">Email</Label>
-                    <Input
-                      id="signin-email"
-                      name="email"
-                      type="email"
-                      placeholder="Enter your email"
-                      value={formData.email}
-                      onChange={handleInputChange}
-                      required
-                    />
-                  </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="signin-password">Password</Label>
-                    <Input
-                      id="signin-password"
-                      name="password"
-                      type="password"
-                      placeholder="Enter your password"
-                      value={formData.password}
-                      onChange={handleInputChange}
-                      required
-                    />
-                  </div>
-                  <Button 
-                    type="submit" 
-                    className="w-full" 
-                    disabled={loading}
-                  >
-                    {loading ? 'Signing In...' : 'Sign In'}
-                  </Button>
-                </form>
-              </TabsContent>
-              
-              <TabsContent value="signup">
-                <form onSubmit={handleSignUp} className="space-y-4">
-                  <div className="grid grid-cols-2 gap-4">
-                    <div className="space-y-2">
-                      <Label htmlFor="firstName">First Name</Label>
-                      <Input
-                        id="firstName"
-                        name="firstName"
-                        placeholder="First name"
-                        value={formData.firstName}
-                        onChange={handleInputChange}
-                        required
-                      />
-                    </div>
-                    <div className="space-y-2">
-                      <Label htmlFor="lastName">Last Name</Label>
-                      <Input
-                        id="lastName"
-                        name="lastName"
-                        placeholder="Last name"
-                        value={formData.lastName}
-                        onChange={handleInputChange}
-                        required
-                      />
-                    </div>
-                  </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="signup-email">Email</Label>
-                    <Input
-                      id="signup-email"
-                      name="email"
-                      type="email"
-                      placeholder="Enter your email"
-                      value={formData.email}
-                      onChange={handleInputChange}
-                      required
-                    />
-                  </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="signup-password">Password</Label>
-                    <Input
-                      id="signup-password"
-                      name="password"
-                      type="password"
-                      placeholder="Create a password"
-                      value={formData.password}
-                      onChange={handleInputChange}
-                      required
-                      minLength={6}
-                    />
-                  </div>
-                  <Button 
-                    type="submit" 
-                    className="w-full" 
-                    disabled={loading}
-                  >
-                    {loading ? 'Creating Account...' : 'Create Account'}
-                  </Button>
-                </form>
-              </TabsContent>
-            </Tabs>
+          <CardContent className="space-y-6">
+            {!otpSent && (
+              <form onSubmit={handleSendOtp} className="space-y-4">
+                <div className="space-y-2">
+                  <Label htmlFor="email">Email address</Label>
+                  <Input
+                    id="email"
+                    type="email"
+                    placeholder="you@email.com"
+                    value={email}
+                    onChange={(event) => setEmail(event.target.value)}
+                    required
+                  />
+                </div>
+                <Button
+                  type="submit"
+                  className="w-full"
+                  disabled={loading}
+                >
+                  {loading ? 'Sending...' : 'Continue'}
+                </Button>
+                <p className="text-xs text-muted-foreground text-center">
+                  By continuing, you agree to our Terms &amp; Privacy.
+                </p>
+              </form>
+            )}
+
+            {otpSent && (
+              <form onSubmit={handleVerifyOtp} className="space-y-4">
+                <div className="space-y-2">
+                  <Label htmlFor="otp">Enter the 6-digit code</Label>
+                  <Input
+                    id="otp"
+                    inputMode="numeric"
+                    autoComplete="one-time-code"
+                    maxLength={6}
+                    placeholder="_ _ _ _ _ _"
+                    value={otpCode}
+                    onChange={(event) => setOtpCode(event.target.value)}
+                    className="text-center tracking-[0.4em] text-lg"
+                    required
+                  />
+                </div>
+                <Button
+                  type="submit"
+                  className="w-full"
+                  disabled={loading}
+                >
+                  {loading ? 'Verifying...' : 'Verify Code'}
+                </Button>
+                <Button
+                  type="button"
+                  variant="ghost"
+                  className="w-full"
+                  disabled={!canResend}
+                  onClick={handleResend}
+                >
+                  {canResend ? 'Resend code' : `Resend code (${resendTimer}s)`}
+                </Button>
+              </form>
+            )}
           </CardContent>
         </Card>
-
-        <div className="mt-6 text-center">
-          <Link 
-            to="/" 
-            className="text-sm text-muted-foreground hover:text-primary transition-colors"
-          >
-            ← Back to Home
-          </Link>
-        </div>
       </div>
     </div>
   );
