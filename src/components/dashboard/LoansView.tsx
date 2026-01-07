@@ -106,6 +106,9 @@ export function LoansView() {
   const totalMonthlyPayment = loans.filter(loan => loan.status === 'active')
     .reduce((sum, loan) => sum + loan.monthly_payment, 0);
 
+  console.log('Loans:', loans);
+  console.log('Applications:', applications);   
+
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
