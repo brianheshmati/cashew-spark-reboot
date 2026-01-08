@@ -1,5 +1,4 @@
 import { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -35,7 +34,6 @@ export function LoansView() {
   const [applications, setApplications] = useState<Application[]>([]);
   const [loading, setLoading] = useState(true);
   const { toast } = useToast();
-  const navigate = useNavigate();
 
   useEffect(() => {
     fetchLoansAndApplications();
@@ -169,49 +167,42 @@ export function LoansView() {
           <h2 className="text-xl font-semibold text-foreground">Active Loans</h2>
           <div className="grid gap-4">
             {loans.map((loan) => (
-              <button
-                key={loan.id}
-                type="button"
-                className="w-full text-left"
-                onClick={() => navigate(`/dashboard/loans/${loan.id}`)}
-              >
-                <Card className="transition hover:-translate-y-0.5 hover:shadow-md">
-                  <CardHeader>
-                    <div className="flex items-center justify-between">
-                      <CardTitle className="flex items-center">
-                        <CreditCard className="h-5 w-5 mr-2" />
-                        {loan.loan_type.charAt(0).toUpperCase() + loan.loan_type.slice(1)} Loan
-                      </CardTitle>
-                      <Badge className={getStatusColor(loan.status)}>
-                        {formatStatus(loan.status)}
-                      </Badge>
+              <Card key={loan.id}>
+                <CardHeader>
+                  <div className="flex items-center justify-between">
+                    <CardTitle className="flex items-center">
+                      <CreditCard className="h-5 w-5 mr-2" />
+                      {loan.loan_type.charAt(0).toUpperCase() + loan.loan_type.slice(1)} Loan
+                    </CardTitle>
+                    <Badge className={getStatusColor(loan.status)}>
+                      {formatStatus(loan.status)}
+                    </Badge>
+                  </div>
+                  <CardDescription>
+                    Loan ID: {loan.id.slice(0, 8)}...
+                  </CardDescription>
+                </CardHeader>
+                <CardContent>
+                  <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-4">
+                    <div>
+                      <p className="text-sm text-muted-foreground">Current Balance</p>
+                      <p className="text-lg font-semibold">{formatCurrency(loan.current_balance)}</p>
                     </div>
-                    <CardDescription>
-                      Loan ID: {loan.id.slice(0, 8)}...
-                    </CardDescription>
-                  </CardHeader>
-                  <CardContent>
-                    <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-4">
-                      <div>
-                        <p className="text-sm text-muted-foreground">Current Balance</p>
-                        <p className="text-lg font-semibold">{formatCurrency(loan.current_balance)}</p>
-                      </div>
-                      <div>
-                        <p className="text-sm text-muted-foreground">Monthly Payment</p>
-                        <p className="text-lg font-semibold">{formatCurrency(loan.monthly_payment)}</p>
-                      </div>
-                      <div>
-                        <p className="text-sm text-muted-foreground">Interest Rate</p>
-                        <p className="text-lg font-semibold">{loan.interest_rate}%</p>
-                      </div>
-                      <div>
-                        <p className="text-sm text-muted-foreground">Term</p>
-                        <p className="text-lg font-semibold">{loan.term_months} months</p>
-                      </div>
+                    <div>
+                      <p className="text-sm text-muted-foreground">Monthly Payment</p>
+                      <p className="text-lg font-semibold">{formatCurrency(loan.monthly_payment)}</p>
                     </div>
-                  </CardContent>
-                </Card>
-              </button>
+                    <div>
+                      <p className="text-sm text-muted-foreground">Interest Rate</p>
+                      <p className="text-lg font-semibold">{loan.interest_rate}%</p>
+                    </div>
+                    <div>
+                      <p className="text-sm text-muted-foreground">Term</p>
+                      <p className="text-lg font-semibold">{loan.term_months} months</p>
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
             ))}
           </div>
         </div>

@@ -7,7 +7,6 @@ import Landing from "./pages/Landing";
 import Auth from "./pages/Auth";
 import Dashboard from "./pages/Dashboard";
 import Apply from "./pages/Apply";
-import LoanDetails from "./pages/LoanDetails";
 //import LoanApplicationForm from "./components/LoanApplicationForm";
 import Index from "./pages/Index";
 import NotFound from "./pages/NotFound";
@@ -26,7 +25,6 @@ const App = () => (
            <Route path="/home" element={<Index />} />
           <Route path="/auth" element={<Auth />} />
           <Route path="/dashboard" element={<Dashboard />} />
-          <Route path="/dashboard/loans/:loanId" element={<LoanDetails />} />
           {/* <Route path="/apply" element={<Apply />} /> */}
           {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
           <Route path="*" element={<NotFound />} />
