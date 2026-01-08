@@ -111,11 +111,15 @@ export function OverviewView({ userId }: OverviewViewProps) {
             )}
           </CardContent>
         </Card>
-
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Outstanding Balance</CardTitle>
-            <CreditCard className="h-4 w-4 text-muted-foreground" />
+        <Card variant="highlight">
+          <CardHeader className="space-y-4 pb-2">
+            <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-white/80 shadow-sm">
+              <Calendar className="h-5 w-5 text-orange-700" />
+            </div>
+            <CardTitle className="text-sm font-medium text-muted-foreground">
+              Next Payment
+            </CardTitle>
+            
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold">
@@ -136,11 +140,9 @@ export function OverviewView({ userId }: OverviewViewProps) {
               <Card key={loan.loan_id}>
                 <CardHeader>
                   <div className="flex items-center justify-between">
-                    <CardTitle className="text-lg">Loan {loan.loan_id.slice(0, 8)}...</CardTitle>
-                    <CardDescription>
-                      {loan.start_date
-                        ? `Started ${new Date(loan.start_date).toLocaleDateString()}`
-                        : 'Start date unavailable'}
+                    <CardTitle className="text-lg">{formatCurrency(loan.loan_amount)}</CardTitle>
+                    <CardDescription> Details
+                      
                     </CardDescription>
                   </div>
                 </CardHeader>
@@ -150,17 +152,21 @@ export function OverviewView({ userId }: OverviewViewProps) {
                       <span className="font-medium text-foreground">Balance:</span>{' '}
                       {formatCurrency(loan.total_balance)}
                     </div>
-                    <div>
-                      <span className="font-medium text-foreground">Loan amount:</span>{' '}
-                      {formatCurrency(loan.loan_amount)}
-                    </div>
+                    
                     <div>
                       <span className="font-medium text-foreground">Term:</span>{' '}
                       {loan.term_months} months
                     </div>
                     <div>
                       <span className="font-medium text-foreground">Interest rate:</span>{' '}
-                      {loan.interest_rate}%
+                      {loan.interest_rate*100}%
+                    </div>
+                    <div/>
+                    <div>
+                      <span className="font-medium text-foreground">Start date:</span>{' '}
+                      {loan.start_date
+                        ? `${new Date(loan.start_date).toLocaleDateString()}`
+                        : 'unavailable'}
                     </div>
                     <div>
                       <span className="font-medium text-foreground">End date:</span>{' '}
