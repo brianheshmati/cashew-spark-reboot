@@ -117,7 +117,7 @@ export function OverviewView({ userId }: OverviewViewProps) {
               <Calendar className="h-5 w-5 text-orange-700" />
             </div>
             <CardTitle className="text-sm font-medium text-muted-foreground">
-              Next Payment
+              Outstanding Balance
             </CardTitle>
             
           </CardHeader>
