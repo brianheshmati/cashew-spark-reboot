@@ -212,28 +212,6 @@ export function OverviewView({ userId }: OverviewViewProps) {
             </CardContent>
           </Card>
         </button>
-            )}
-          </CardContent>
-        </Card>
-        <Card variant="highlight">
-          <CardHeader className="space-y-4 pb-2">
-            <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-white/80 shadow-sm">
-              <Calendar className="h-5 w-5 text-orange-700" />
-            </div>
-            <CardTitle className="text-sm font-medium text-muted-foreground">
-              Outstanding Balance
-            </CardTitle>
-            
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">
-              {formatCurrency(loans.reduce((sum, loan) => sum + loan.total_balance, 0))}
-            </div>
-            <p className="text-xs text-muted-foreground">
-              Across {loans.length} loan{loans.length === 1 ? '' : 's'}
-            </p>
-          </CardContent>
-        </Card>
       </div>
 
       <div className="space-y-4">
