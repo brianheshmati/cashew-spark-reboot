@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useLocation, useNavigate } from 'react-router-dom';
 import { SidebarProvider } from '@/components/ui/sidebar';
 import { AppSidebar } from '@/components/AppSidebar';
 import { DashboardHeader } from '@/components/DashboardHeader';
@@ -21,6 +21,7 @@ const Dashboard = () => {
   const [currentView, setCurrentView] = useState<DashboardView>('overview');
   const [loading, setLoading] = useState(true);
   const navigate = useNavigate();
+  const location = useLocation();
   const { toast } = useToast();
   const localTestUserId = import.meta.env.VITE_LOCAL_TEST_USER_ID as string | undefined;
   const overviewUserId = localTestUserId ?? user?.id;
@@ -54,6 +55,13 @@ const Dashboard = () => {
 
     return () => subscription.unsubscribe();
   }, [navigate]);
+
+  useEffect(() => {
+    const locationView = (location.state as { view?: DashboardView } | null)?.view;
+    if (locationView) {
+      setCurrentView(locationView);
+    }
+  }, [location.state]);
 
   const handleSignOut = async () => {
     try {
