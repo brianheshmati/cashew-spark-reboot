@@ -179,6 +179,33 @@ const LoanDetails = () => {
     );
   }
 
+  if (!loanId) {
+    return (
+      <SidebarProvider>
+        <div className="min-h-screen flex w-full">
+          <AppSidebar
+            currentView="loans"
+            onViewChange={(view: DashboardView) => navigate('/dashboard', { state: { view } })}
+          />
+          <div className="flex-1 flex flex-col">
+            {user ? (
+              <DashboardHeader user={user} onSignOut={async () => supabase.auth.signOut()} />
+            ) : null}
+            <main className="flex-1 p-6 bg-gradient-soft">
+              <div className="mx-auto max-w-2xl space-y-6 text-center">
+                <h1 className="text-2xl font-semibold text-foreground">Loan Details</h1>
+                <p className="text-muted-foreground">We couldn’t find that loan. Return to the dashboard to try again.</p>
+                <Button onClick={() => navigate('/dashboard', { state: { view: 'loans' } })}>
+                  Back to Loans
+                </Button>
+              </div>
+            </main>
+          </div>
+        </div>
+      </SidebarProvider>
+    );
+  }
+
   if (!user || !loan) {
     return null;
   }
