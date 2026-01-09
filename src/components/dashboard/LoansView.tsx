@@ -45,8 +45,10 @@ export function LoansView() {
     try {
       // Fetch active loans
       const { data: loansData, error: loansError } = await supabase
-        .from('loans')
+        .from('user_loans_summary')
         .select('*')
+        .eq('internal_user_id', userId)
+          
         .order('created_at', { ascending: false });
 
       if (loansError) throw loansError;
@@ -55,6 +57,7 @@ export function LoansView() {
       const { data: applicationsData, error: applicationsError } = await supabase
         .from('applications')
         .select('*')
+        .eq('internal_user_id', userId)
         .order('created_at', { ascending: false });
 
       if (applicationsError) throw applicationsError;
