@@ -100,51 +100,6 @@ export function OverviewView({ userId }: OverviewViewProps) {
     const fetchTransactions = async () => {
       try {
         setTransactionsLoading(true);
-        const from = (transactionsPage - 1) * transactionsPageSize;
-        const to = from + transactionsPageSize - 1;
-
-        const { data, error, count } = await supabase
-          .from('loan_transactions')
-          .select('id, loan_id, internal_user_id, date, amount, type, status', { count: 'exact' })
-          .eq('internal_user_id', userId)
-          .order('date', { ascending: false })
-          .order('type', { ascending: false })
-          .range(from, to);
-
-        if (error) throw error;
-
-        setTransactions(data || []);
-        setTransactionsTotal(count ?? 0);
-      } catch (error: any) {
-        toast({
-          title: "Error",
-          description: "Failed to load transaction history.",
-          variant: "destructive"
-        });
-      } finally {
-        setTransactionsLoading(false);
-      }
-    };
-
-    fetchTransactions();
-  }, [toast, userId, transactionsPage]);
-
-  if (loading) {
-    return (
-      <div className="space-y-6">
-        <h1 className="text-3xl font-bold text-foreground">Overview</h1>
-        <div className="text-center text-muted-foreground">Loading overview...</div>
-      </div>
-    );
-  }
-
-  return (
-    <div className="space-y-6">
-      <div>
-        <h1 className="text-3xl font-bold text-foreground">Overview</h1>
-        <p className="text-muted-foreground">Your most important loan information at a glance.</p>
-      </div>
-
       <div className="grid gap-6 md:grid-cols-2">
         <button
           type="button"
@@ -183,6 +138,7 @@ export function OverviewView({ userId }: OverviewViewProps) {
             </CardContent>
           </Card>
         </button>
+
         <button
           type="button"
           className="w-full text-left disabled:cursor-not-allowed"
@@ -212,30 +168,8 @@ export function OverviewView({ userId }: OverviewViewProps) {
             </CardContent>
           </Card>
         </button>
-            )}
-          </CardContent>
-        </Card>
-        <Card variant="highlight">
-          <CardHeader className="space-y-4 pb-2">
-            <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-white/80 shadow-sm">
-              <Calendar className="h-5 w-5 text-orange-700" />
-            </div>
-            <CardTitle className="text-sm font-medium text-muted-foreground">
-              Outstanding Balance
-            </CardTitle>
-            
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">
-              {formatCurrency(loans.reduce((sum, loan) => sum + loan.total_balance, 0))}
-            </div>
-            <p className="text-xs text-muted-foreground">
-              Across {loans.length} loan{loans.length === 1 ? '' : 's'}
-            </p>
-          </CardContent>
-        </Card>
       </div>
-
+  
       <div className="space-y-4">
         <h2 className="text-xl font-semibold text-foreground">Loans</h2>
         {loans.length > 0 ? (
