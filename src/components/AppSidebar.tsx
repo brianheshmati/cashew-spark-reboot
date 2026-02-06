@@ -4,7 +4,8 @@ import {
   History, 
   UserPlus, 
   FileText,
-  Home
+  Home,
+  FolderOpen
 } from 'lucide-react';
 import {
   Sidebar,
@@ -18,7 +19,7 @@ import {
   useSidebar,
 } from '@/components/ui/sidebar';
 
-type DashboardView = 'overview' | 'profile' | 'loans' | 'transactions' | 'invite' | 'apply';
+type DashboardView = 'overview' | 'profile' | 'loans' | 'transactions' | 'invite' | 'apply' | 'documents';
 
 interface AppSidebarProps {
   currentView: DashboardView;
@@ -31,6 +32,7 @@ const menuItems = [
   { id: 'loans' as DashboardView, title: 'My Loans', icon: CreditCard },
   { id: 'transactions' as DashboardView, title: 'Transactions', icon: History },
   { id: 'apply' as DashboardView, title: 'Apply for Loan', icon: FileText },
+  { id: 'documents' as DashboardView, title: 'Documents', icon: FolderOpen },
   { id: 'invite' as DashboardView, title: 'Invite Friends', icon: UserPlus },
 ];
 
