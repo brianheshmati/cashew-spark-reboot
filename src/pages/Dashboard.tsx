@@ -9,11 +9,12 @@ import { LoansView } from '@/components/dashboard/LoansView';
 import { TransactionsView } from '@/components/dashboard/TransactionsView';
 import { InviteView } from '@/components/dashboard/InviteView';
 import { ApplyView } from '@/components/dashboard/ApplyView';
+import { DocumentsView } from '@/components/dashboard/DocumentsView';
 import { supabase } from '@/integrations/supabase/client';
 import { User, Session } from '@supabase/supabase-js';
 import { useToast } from '@/hooks/use-toast';
 
-type DashboardView = 'overview' | 'profile' | 'loans' | 'transactions' | 'invite' | 'apply';
+type DashboardView = 'overview' | 'profile' | 'loans' | 'transactions' | 'invite' | 'apply' | 'documents';
 
 const Dashboard = () => {
   const [user, setUser] = useState<User | null>(null);
@@ -89,13 +90,15 @@ const Dashboard = () => {
       case 'profile':
         return <ProfileView user={user} />;
       case 'loans':
-        return <LoansView />;
+        return overviewUserId ? <LoansView userId={overviewUserId} /> : null;
       case 'transactions':
         return <TransactionsView />;
       case 'invite':
         return <InviteView />;
       case 'apply':
-        return <ApplyView />;
+        return <ApplyView user={user} />;
+      case 'documents':
+        return <DocumentsView user={user} />;
       default:
         return overviewUserId ? <OverviewView userId={overviewUserId} /> : null;
     }
@@ -125,7 +128,7 @@ const Dashboard = () => {
             user={user}
             onSignOut={handleSignOut}
           />
-          <main className="flex-1 p-6 bg-gradient-soft">
+          <main className="flex-1 p-4 md:p-6 bg-gradient-soft">
             {renderCurrentView()}
           </main>
         </div>

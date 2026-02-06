@@ -4,14 +4,18 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Badge } from '@/components/ui/badge';
+import { Textarea } from '@/components/ui/textarea';
 import { supabase } from '@/integrations/supabase/client';
+import { Tables, TablesInsert } from '@/integrations/supabase/types';
 import { useToast } from '@/hooks/use-toast';
 import { User } from '@supabase/supabase-js';
-import { User as UserIcon, Mail, Phone, MapPin, Edit, Save, X } from 'lucide-react';
+import { User as UserIcon, Mail, Phone, MapPin, Edit, Save, X, Briefcase } from 'lucide-react';
 
 interface ProfileViewProps {
   user: User | null;
 }
+
+type ProfileRecord = Tables<'profiles'>;
 
 interface Profile {
   first_name: string;
@@ -19,9 +23,11 @@ interface Profile {
   email: string;
   phone: string | null;
   address: string | null;
-  city: string | null;
-  state: string | null;
-  zip_code: string | null;
+  employer_name: string | null;
+  employer_address: string | null;
+  employer_phone: string | null;
+  position: string | null;
+  years_employed: string | null;
 }
 
 export function ProfileView({ user }: ProfileViewProps) {
@@ -40,39 +46,45 @@ export function ProfileView({ user }: ProfileViewProps) {
 
   const fetchProfile = async () => {
     try {
-      const { data, error } = await supabase
-        .from('profiles')
-        .select('*')
-        .eq('id', user?.id)
-        .maybeSingle();
+      const { data, error } = await supabase.from('profiles').select('*').eq('id', user?.id).maybeSingle();
 
       if (error && error.code !== 'PGRST116') {
         throw error;
       }
 
       if (data) {
-        setProfile(data);
-        setEditedProfile(data);
+        const profileRecord = data as ProfileRecord;
+        const normalized: Profile = {
+          ...profileRecord,
+          employer_name: profileRecord.employer_name ?? null,
+          employer_address: profileRecord.employer_address ?? null,
+          employer_phone: profileRecord.employer_phone ?? null,
+          position: profileRecord.position ?? null,
+          years_employed: profileRecord.years_employed !== null ? String(profileRecord.years_employed) : null,
+        };
+        setProfile(normalized);
+        setEditedProfile(normalized);
       } else {
-        // Create profile from user metadata if it doesn't exist
         const newProfile = {
           first_name: user?.user_metadata?.first_name || '',
           last_name: user?.user_metadata?.last_name || '',
           email: user?.email || '',
           phone: null,
           address: null,
-          city: null,
-          state: null,
-          zip_code: null
+          employer_name: null,
+          employer_address: null,
+          employer_phone: null,
+          position: null,
+          years_employed: null,
         };
         setProfile(newProfile);
         setEditedProfile(newProfile);
       }
-    } catch (error: any) {
+    } catch {
       toast({
-        title: "Error",
-        description: "Failed to load profile data",
-        variant: "destructive"
+        title: 'Error',
+        description: 'Failed to load profile data',
+        variant: 'destructive',
       });
     } finally {
       setLoading(false);
@@ -84,26 +96,27 @@ export function ProfileView({ user }: ProfileViewProps) {
 
     setSaving(true);
     try {
-      const { error } = await supabase
-        .from('profiles')
-        .upsert({
-          id: user.id,
-          ...editedProfile
-        });
+      const payload: TablesInsert<'profiles'> = {
+        id: user.id,
+        ...editedProfile,
+        years_employed: editedProfile.years_employed ? Number(editedProfile.years_employed) : null,
+      };
+
+      const { error } = await supabase.from('profiles').upsert(payload);
 
       if (error) throw error;
 
       setProfile(editedProfile);
       setIsEditing(false);
       toast({
-        title: "Success",
-        description: "Profile updated successfully",
+        title: 'Success',
+        description: 'Profile updated successfully',
       });
-    } catch (error: any) {
+    } catch {
       toast({
-        title: "Error",
-        description: "Failed to update profile",
-        variant: "destructive"
+        title: 'Error',
+        description: 'Failed to update profile',
+        variant: 'destructive',
       });
     } finally {
       setSaving(false);
@@ -119,7 +132,7 @@ export function ProfileView({ user }: ProfileViewProps) {
     if (editedProfile) {
       setEditedProfile({
         ...editedProfile,
-        [field]: value || null
+        [field]: value || null,
       });
     }
   };
@@ -127,7 +140,7 @@ export function ProfileView({ user }: ProfileViewProps) {
   if (loading) {
     return (
       <div className="space-y-6">
-        <div className="flex items-center justify-between">
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
           <h1 className="text-3xl font-bold text-foreground">Profile</h1>
         </div>
         <div className="text-center text-muted-foreground">Loading profile...</div>
@@ -137,7 +150,7 @@ export function ProfileView({ user }: ProfileViewProps) {
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <h1 className="text-3xl font-bold text-foreground">Profile</h1>
         {!isEditing ? (
           <Button onClick={() => setIsEditing(true)} variant="outline">
@@ -145,7 +158,7 @@ export function ProfileView({ user }: ProfileViewProps) {
             Edit Profile
           </Button>
         ) : (
-          <div className="flex space-x-2">
+          <div className="flex flex-col gap-2 sm:flex-row sm:space-x-2">
             <Button onClick={handleSave} disabled={saving}>
               <Save className="h-4 w-4 mr-2" />
               {saving ? 'Saving...' : 'Save'}
@@ -159,16 +172,13 @@ export function ProfileView({ user }: ProfileViewProps) {
       </div>
 
       <div className="grid md:grid-cols-2 gap-6">
-        {/* Personal Information */}
         <Card>
           <CardHeader>
             <CardTitle className="flex items-center">
               <UserIcon className="h-5 w-5 mr-2" />
               Personal Information
             </CardTitle>
-            <CardDescription>
-              Your basic personal details
-            </CardDescription>
+            <CardDescription>Your basic personal details</CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
             <div className="grid grid-cols-2 gap-4">
@@ -181,9 +191,7 @@ export function ProfileView({ user }: ProfileViewProps) {
                     placeholder="First name"
                   />
                 ) : (
-                  <div className="p-3 bg-muted rounded-md">
-                    {profile?.first_name || 'Not provided'}
-                  </div>
+                  <div className="p-3 bg-muted rounded-md">{profile?.first_name || 'Not provided'}</div>
                 )}
               </div>
               <div className="space-y-2">
@@ -195,13 +203,11 @@ export function ProfileView({ user }: ProfileViewProps) {
                     placeholder="Last name"
                   />
                 ) : (
-                  <div className="p-3 bg-muted rounded-md">
-                    {profile?.last_name || 'Not provided'}
-                  </div>
+                  <div className="p-3 bg-muted rounded-md">{profile?.last_name || 'Not provided'}</div>
                 )}
               </div>
             </div>
-            
+
             <div className="space-y-2">
               <Label className="flex items-center">
                 <Mail className="h-4 w-4 mr-2" />
@@ -226,84 +232,89 @@ export function ProfileView({ user }: ProfileViewProps) {
                   type="tel"
                 />
               ) : (
-                <div className="p-3 bg-muted rounded-md">
-                  {profile?.phone || 'Not provided'}
-                </div>
+                <div className="p-3 bg-muted rounded-md">{profile?.phone || 'Not provided'}</div>
               )}
             </div>
           </CardContent>
         </Card>
 
-        {/* Address Information */}
         <Card>
           <CardHeader>
             <CardTitle className="flex items-center">
               <MapPin className="h-5 w-5 mr-2" />
               Address Information
             </CardTitle>
-            <CardDescription>
-              Your current address details
-            </CardDescription>
+            <CardDescription>Your current address details</CardDescription>
           </CardHeader>
-          <CardContent className="space-y-4">
+          <CardContent>
             <div className="space-y-2">
-              <Label>Street Address</Label>
+              <Label>Address (3 lines)</Label>
               {isEditing ? (
-                <Input
+                <Textarea
                   value={editedProfile?.address || ''}
                   onChange={(e) => handleInputChange('address', e.target.value)}
-                  placeholder="Street address"
+                  placeholder={'Street Address\nBarangay/City\nProvince/Postal'}
+                  rows={3}
                 />
               ) : (
-                <div className="p-3 bg-muted rounded-md">
-                  {profile?.address || 'Not provided'}
-                </div>
+                <div className="p-3 bg-muted rounded-md whitespace-pre-line">{profile?.address || 'Not provided'}</div>
               )}
             </div>
+          </CardContent>
+        </Card>
 
-            <div className="grid grid-cols-2 gap-4">
-              <div className="space-y-2">
-                <Label>City</Label>
-                {isEditing ? (
-                  <Input
-                    value={editedProfile?.city || ''}
-                    onChange={(e) => handleInputChange('city', e.target.value)}
-                    placeholder="City"
-                  />
-                ) : (
-                  <div className="p-3 bg-muted rounded-md">
-                    {profile?.city || 'Not provided'}
-                  </div>
-                )}
-              </div>
-              <div className="space-y-2">
-                <Label>State</Label>
-                {isEditing ? (
-                  <Input
-                    value={editedProfile?.state || ''}
-                    onChange={(e) => handleInputChange('state', e.target.value)}
-                    placeholder="State"
-                  />
-                ) : (
-                  <div className="p-3 bg-muted rounded-md">
-                    {profile?.state || 'Not provided'}
-                  </div>
-                )}
-              </div>
-            </div>
-
+        <Card className="md:col-span-2">
+          <CardHeader>
+            <CardTitle className="flex items-center">
+              <Briefcase className="h-5 w-5 mr-2" />
+              Employment
+            </CardTitle>
+            <CardDescription>Your employer and position details</CardDescription>
+          </CardHeader>
+          <CardContent className="grid md:grid-cols-2 gap-4">
             <div className="space-y-2">
-              <Label>ZIP Code</Label>
+              <Label>Employer&apos;s Name</Label>
+              {isEditing ? (
+                <Input value={editedProfile?.employer_name || ''} onChange={(e) => handleInputChange('employer_name', e.target.value)} />
+              ) : (
+                <div className="p-3 bg-muted rounded-md">{profile?.employer_name || 'Not provided'}</div>
+              )}
+            </div>
+            <div className="space-y-2">
+              <Label>Employer&apos;s Phone Number</Label>
+              {isEditing ? (
+                <Input value={editedProfile?.employer_phone || ''} onChange={(e) => handleInputChange('employer_phone', e.target.value)} type="tel" />
+              ) : (
+                <div className="p-3 bg-muted rounded-md">{profile?.employer_phone || 'Not provided'}</div>
+              )}
+            </div>
+            <div className="space-y-2 md:col-span-2">
+              <Label>Employer&apos;s Address</Label>
+              {isEditing ? (
+                <Textarea value={editedProfile?.employer_address || ''} onChange={(e) => handleInputChange('employer_address', e.target.value)} rows={3} />
+              ) : (
+                <div className="p-3 bg-muted rounded-md whitespace-pre-line">{profile?.employer_address || 'Not provided'}</div>
+              )}
+            </div>
+            <div className="space-y-2">
+              <Label>Position</Label>
+              {isEditing ? (
+                <Input value={editedProfile?.position || ''} onChange={(e) => handleInputChange('position', e.target.value)} />
+              ) : (
+                <div className="p-3 bg-muted rounded-md">{profile?.position || 'Not provided'}</div>
+              )}
+            </div>
+            <div className="space-y-2">
+              <Label>Years Employed</Label>
               {isEditing ? (
                 <Input
-                  value={editedProfile?.zip_code || ''}
-                  onChange={(e) => handleInputChange('zip_code', e.target.value)}
-                  placeholder="ZIP code"
+                  value={editedProfile?.years_employed || ''}
+                  onChange={(e) => handleInputChange('years_employed', e.target.value)}
+                  type="number"
+                  min="0"
                 />
               ) : (
-                <div className="p-3 bg-muted rounded-md">
-                  {profile?.zip_code || 'Not provided'}
-                </div>
+                <div className="p-3 bg-muted rounded-md">{profile?.years_employed || 'Not provided'}</div>
               )}
             </div>
           </CardContent>
