@@ -340,12 +340,17 @@ export type Database = {
           city: string | null
           created_at: string | null
           email: string
+          employer_address: string | null
+          employer_name: string | null
+          employer_phone: string | null
           first_name: string
           id: string
           last_name: string
           phone: string | null
+          position: string | null
           state: string | null
           updated_at: string | null
+          years_employed: number | null
           zip_code: string | null
         }
         Insert: {
@@ -353,12 +358,17 @@ export type Database = {
           city?: string | null
           created_at?: string | null
           email: string
+          employer_address?: string | null
+          employer_name?: string | null
+          employer_phone?: string | null
           first_name: string
           id: string
           last_name: string
           phone?: string | null
+          position?: string | null
           state?: string | null
           updated_at?: string | null
+          years_employed?: number | null
           zip_code?: string | null
         }
         Update: {
@@ -366,12 +376,17 @@ export type Database = {
           city?: string | null
           created_at?: string | null
           email?: string
+          employer_address?: string | null
+          employer_name?: string | null
+          employer_phone?: string | null
           first_name?: string
           id?: string
           last_name?: string
           phone?: string | null
+          position?: string | null
           state?: string | null
           updated_at?: string | null
+          years_employed?: number | null
           zip_code?: string | null
         }
         Relationships: []
