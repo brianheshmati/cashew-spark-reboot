@@ -166,6 +166,7 @@ export function DocumentsView({ user }: DocumentsViewProps) {
           {loading ? (
             <div className="text-muted-foreground">Loading documents...</div>
           ) : (
+            <div className="w-full overflow-x-auto">
             <Table>
               <TableHeader>
                 <TableRow>
@@ -196,6 +197,7 @@ export function DocumentsView({ user }: DocumentsViewProps) {
                 )}
               </TableBody>
             </Table>
+            </div>
           )}
         </CardContent>
       </Card>

@@ -140,7 +140,7 @@ export function ProfileView({ user }: ProfileViewProps) {
   if (loading) {
     return (
       <div className="space-y-6">
-        <div className="flex items-center justify-between">
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
           <h1 className="text-3xl font-bold text-foreground">Profile</h1>
         </div>
         <div className="text-center text-muted-foreground">Loading profile...</div>
@@ -150,7 +150,7 @@ export function ProfileView({ user }: ProfileViewProps) {
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <h1 className="text-3xl font-bold text-foreground">Profile</h1>
         {!isEditing ? (
           <Button onClick={() => setIsEditing(true)} variant="outline">
@@ -158,7 +158,7 @@ export function ProfileView({ user }: ProfileViewProps) {
             Edit Profile
           </Button>
         ) : (
-          <div className="flex space-x-2">
+          <div className="flex flex-col gap-2 sm:flex-row sm:space-x-2">
             <Button onClick={handleSave} disabled={saving}>
               <Save className="h-4 w-4 mr-2" />
               {saving ? 'Saving...' : 'Save'}

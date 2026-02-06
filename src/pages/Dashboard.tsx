@@ -90,7 +90,7 @@ const Dashboard = () => {
       case 'profile':
         return <ProfileView user={user} />;
       case 'loans':
-        return <LoansView />;
+        return overviewUserId ? <LoansView userId={overviewUserId} /> : null;
       case 'transactions':
         return <TransactionsView />;
       case 'invite':
@@ -128,7 +128,7 @@ const Dashboard = () => {
             user={user}
             onSignOut={handleSignOut}
           />
-          <main className="flex-1 p-6 bg-gradient-soft">
+          <main className="flex-1 p-4 md:p-6 bg-gradient-soft">
             {renderCurrentView()}
           </main>
         </div>

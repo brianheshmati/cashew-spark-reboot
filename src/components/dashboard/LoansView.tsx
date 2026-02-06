@@ -22,6 +22,8 @@ interface Loan {
 }
 
 interface Application {
+  internal_user_id: string;
+
   id: string;
   loan_amount: number;
   loan_type: string;
@@ -30,7 +32,11 @@ interface Application {
   created_at: string;
 }
 
-export function LoansView() {
+interface LoansViewProps {
+  userId: string;
+}
+
+export function LoansView({ userId }: LoansViewProps) {
   const [loans, setLoans] = useState<Loan[]>([]);
   const [applications, setApplications] = useState<Application[]>([]);
   const [loading, setLoading] = useState(true);
@@ -39,7 +45,7 @@ export function LoansView() {
 
   useEffect(() => {
     fetchLoansAndApplications();
-  }, []);
+  }, [userId]);
 
   const fetchLoansAndApplications = async () => {
     try {
@@ -64,7 +70,7 @@ export function LoansView() {
 
       setLoans(loansData || []);
       setApplications(applicationsData || []);
-    } catch (error: any) {
+    } catch {
       toast({
         title: "Error",
         description: "Failed to load loans data",
@@ -111,21 +117,19 @@ export function LoansView() {
   const totalMonthlyPayment = loans.filter(loan => loan.status === 'active')
     .reduce((sum, loan) => sum + loan.monthly_payment, 0);
 
-  console.log('Loans:', loans);
-  console.log('Applications:', applications);   
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <h1 className="text-3xl font-bold text-foreground">My Loans</h1>
-        <Button>
+        <Button className="w-full sm:w-auto" onClick={() => navigate('/dashboard', { state: { view: 'apply' } })}>
           <Plus className="h-4 w-4 mr-2" />
           Apply for New Loan
         </Button>
       </div>
 
       {/* Summary Cards */}
-      <div className="grid md:grid-cols-3 gap-6">
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-4 md:gap-6">
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium">Total Balance</CardTitle>
@@ -180,7 +184,7 @@ export function LoansView() {
               >
                 <Card className="transition hover:-translate-y-0.5 hover:shadow-md">
                   <CardHeader>
-                    <div className="flex items-center justify-between">
+                    <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
                       <CardTitle className="flex items-center">
                         <CreditCard className="h-5 w-5 mr-2" />
                         {loan.loan_type.charAt(0).toUpperCase() + loan.loan_type.slice(1)} Loan
@@ -228,7 +232,7 @@ export function LoansView() {
             {applications.map((application) => (
               <Card key={application.id}>
                 <CardHeader>
-                  <div className="flex items-center justify-between">
+                  <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                     <CardTitle className="text-lg">
                       {application.loan_type.charAt(0).toUpperCase() + application.loan_type.slice(1)} Loan Application
                     </CardTitle>
@@ -241,7 +245,7 @@ export function LoansView() {
                   </CardDescription>
                 </CardHeader>
                 <CardContent>
-                  <div className="flex items-center justify-between">
+                  <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                     <div>
                       <p className="text-sm text-muted-foreground">Requested Amount</p>
                       <p className="text-lg font-semibold">{formatCurrency(application.loan_amount)}</p>
@@ -259,7 +263,7 @@ export function LoansView() {
           <Card>
             <CardContent className="text-center py-8">
               <p className="text-muted-foreground">No loan applications found.</p>
-              <Button className="mt-4">
+              <Button className="mt-4 w-full sm:w-auto" onClick={() => navigate('/dashboard', { state: { view: 'apply' } })}>
                 <Plus className="h-4 w-4 mr-2" />
                 Apply for Your First Loan
               </Button>
