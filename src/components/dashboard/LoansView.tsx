@@ -9,7 +9,8 @@ import { CreditCard, DollarSign, Calendar, TrendingUp, Plus } from 'lucide-react
 import { formatCurrency } from '@/lib/utils';
 
 interface Loan {
-  id: string;
+  loan_id: string;
+  promo_code: string | null;
   principal_amount: number;
   current_balance: number;
   interest_rate: number;
@@ -19,12 +20,14 @@ interface Loan {
   loan_type: string;
   origination_date: string | null;
   maturity_date: string | null;
+  created_at: string;
 }
 
 interface Application {
   internal_user_id: string;
-
+  promo_code: string | null;
   id: string;
+  loan_id: string;
   loan_amount: number;
   loan_type: string;
   status: string;
@@ -54,10 +57,9 @@ export function LoansView({ userId }: LoansViewProps) {
         .from('user_loans_summary')
         .select('*')
         .eq('internal_user_id', userId)
-          
         .order('created_at', { ascending: false });
 
-      if (loansError) throw loansError;
+      if (loansError) {console.log(loansError)};
 
       // Fetch loan applications
       const { data: applicationsData, error: applicationsError } = await supabase
@@ -177,7 +179,7 @@ export function LoansView({ userId }: LoansViewProps) {
           <div className="grid gap-4">
             {loans.map((loan) => (
               <button
-                key={loan.id}
+                key={loan.loan_id}
                 type="button"
                 className="w-full text-left"
                 onClick={() => navigate(`/dashboard/loans/${loan.id}`)}
@@ -187,14 +189,16 @@ export function LoansView({ userId }: LoansViewProps) {
                     <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
                       <CardTitle className="flex items-center">
                         <CreditCard className="h-5 w-5 mr-2" />
-                        {loan.loan_type.charAt(0).toUpperCase() + loan.loan_type.slice(1)} Loan
+                        {loan.loan_type
+                          ? loan.loan_type.charAt(0).toUpperCase() + loan.loan_type.slice(1)
+                          : 'Loan'} 
                       </CardTitle>
                       <Badge className={getStatusColor(loan.status)}>
                         {formatStatus(loan.status)}
                       </Badge>
                     </div>
                     <CardDescription>
-                      Loan ID: {loan.id.slice(0, 8)}...
+                      Loan ID: {loan.loan_id.slice(0, 8)}...
                     </CardDescription>
                   </CardHeader>
                   <CardContent>
@@ -234,7 +238,7 @@ export function LoansView({ userId }: LoansViewProps) {
                 <CardHeader>
                   <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                     <CardTitle className="text-lg">
-                      {application.loan_type.charAt(0).toUpperCase() + application.loan_type.slice(1)} Loan Application
+                      {application.promo_code ?? 'Standard'} Loan Application
                     </CardTitle>
                     <Badge className={getStatusColor(application.status)}>
                       {formatStatus(application.status)}
