@@ -30,7 +30,7 @@ const LoanApplicationForm = ({ user }: LoanApplicationFormProps) => {
       const { data, error } = await supabase
         .from('loans')
         .select('id')
-        .eq('user_id', user.id)
+        .eq('internal_user_id', user.id)
         .eq('status', 'paid_off')
         .limit(1);
 
@@ -53,6 +53,7 @@ const LoanApplicationForm = ({ user }: LoanApplicationFormProps) => {
 
   const submitApplication = async () => {
     const amount = Number(loanAmount);
+
     if (!amount || amount <= 0 || !loanTerm || !loanPurpose.trim()) {
       toast({
         title: 'Missing required fields',
@@ -63,25 +64,50 @@ const LoanApplicationForm = ({ user }: LoanApplicationFormProps) => {
     }
 
     setSubmitting(true);
+
     try {
       const payload = {
-        loanInfo: {
-          loanAmount: amount,
-          loanTerm: Number(loanTerm),
-          loanPurpose: loanPurpose.trim(),
+        personalInfo: {
+          firstName: user?.user_metadata?.first_name || '',
+          middleName: user?.user_metadata?.middle_name || '',
+          lastName: user?.user_metadata?.last_name || '',
+          email: user?.email || '',
+          phone: '',
+          address: '',
+          promoCode: '',
+          dateOfBirth: '',
+          referralCode: '',
         },
-        userId: user?.id,
+
+        employmentInfo: {
+          monthlyIncome: '',
+          monthlyExpense: '',
+          employmentLength: '',
+          employmentStatus: '',
+          company: '',
+          employer_phone: '',
+          employer_address: '',
+          position: '',
+        },
+
+        loanInfo: {
+          loanAmount: amount ? String(amount) : '',
+          loanTerm: loanTerm ? String(loanTerm) : '',
+          loanPurpose: loanPurpose.trim() || '',
+        },
       };
 
-      const response = await fetch('https://api.cashew.ph/functions/v1/loan_application_submission', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization:
-            'Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImZrbGF4aHB1Ymx4aGd4Y2FqdXl1Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3MzEwNDcyODAsImV4cCI6MjA0NjYyMzI4MH0.8c7FWSRsw0PfrZmq9dzVEq5wTl668AG0ww7jf9tYIAo',
-        },
-        body: JSON.stringify(payload),
-      });
+      const response = await fetch(
+        'https://api.cashew.ph/functions/v1/loan_application_submission',
+        {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            Authorization: `Bearer ${import.meta.env.VITE_SUPABASE_ANON_KEY}`,
+          },
+          body: JSON.stringify(payload),
+        }
+      );
 
       if (!response.ok) {
         const data = await response.json().catch(() => ({}));
@@ -92,20 +118,21 @@ const LoanApplicationForm = ({ user }: LoanApplicationFormProps) => {
         title: 'Application submitted',
         description: 'Your loan application was submitted successfully.',
       });
+
       setLoanAmount('');
       setLoanTerm('');
       setLoanPurpose('');
     } catch (error: unknown) {
       toast({
         title: 'Submission failed',
-        description: error instanceof Error ? error.message : 'Please try again.',
+        description:
+          error instanceof Error ? error.message : 'Please try again.',
         variant: 'destructive',
       });
     } finally {
       setSubmitting(false);
     }
   };
-
   return (
     <Card className="max-w-2xl mx-auto">
       <CardHeader>
