@@ -67,6 +67,7 @@ const LoanApplicationForm = ({ user }: LoanApplicationFormProps) => {
 
     try {
       const payload = {
+        user_id:user?.id || '',
         personalInfo: {
           firstName: user?.user_metadata?.first_name || '',
           middleName: user?.user_metadata?.middle_name || '',
@@ -78,7 +79,6 @@ const LoanApplicationForm = ({ user }: LoanApplicationFormProps) => {
           dateOfBirth: '',
           referralCode: '',
         },
-
         employmentInfo: {
           monthlyIncome: '',
           monthlyExpense: '',
@@ -89,29 +89,20 @@ const LoanApplicationForm = ({ user }: LoanApplicationFormProps) => {
           employer_address: '',
           position: '',
         },
-
         loanInfo: {
-          loanAmount: amount ? String(amount) : '',
-          loanTerm: loanTerm ? String(loanTerm) : '',
-          loanPurpose: loanPurpose.trim() || '',
+          loanAmount: String(amount),
+          loanTerm: String(loanTerm),
+          loanPurpose: loanPurpose.trim(),
         },
       };
 
-      const response = await fetch(
-        'https://api.cashew.ph/functions/v1/loan_application_submission',
-        {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            Authorization: `Bearer ${import.meta.env.VITE_SUPABASE_ANON_KEY}`,
-          },
-          body: JSON.stringify(payload),
-        }
+      const { data, error } = await supabase.functions.invoke(
+        'loan_application_submission',
+        { body: payload }
       );
 
-      if (!response.ok) {
-        const data = await response.json().catch(() => ({}));
-        throw new Error(data?.error || 'Submission failed');
+      if (error) {
+        throw new Error(error.message);
       }
 
       toast({
