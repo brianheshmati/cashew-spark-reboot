@@ -29,11 +29,13 @@ interface Loan {
 interface Application {
   internal_user_id: string;
   promo_code: string | null;
-  id: string;
+  id: string; // keep if DB still has uuid id
+  app_id: number | null;   // ← ADD THIS
   amount: number | null;
   term: number | null;
   status: string;
   created_at: string;
+  loan_purpose: string | null; // ← ADD THIS
 }
 
 interface LoansViewProps {
@@ -280,7 +282,7 @@ export function LoansView({ userId }: LoansViewProps) {
                           Interest Rate
                         </p>
                         <p className="text-lg font-semibold">
-                          {loan.interest_rate ?? 0}%
+                          {loan.interest_rate*100 ?? 0}%
                         </p>
                       </div>
 
@@ -314,7 +316,7 @@ export function LoansView({ userId }: LoansViewProps) {
 
               return (
                 <Card
-                  key={app.id}
+                  key={app.app_id ?? app.id}
                   className={`transition ${
                     active
                       ? 'bg-warning/10 border border-warning/30'
@@ -340,7 +342,7 @@ export function LoansView({ userId }: LoansViewProps) {
                   </CardHeader>
 
                   <CardContent>
-                    <div className="flex justify-between items-center">
+                    <div className="grid md:grid-cols-3 gap-4 items-center">
                       <div>
                         <p className="text-sm text-muted-foreground">
                           Requested Amount
@@ -352,10 +354,19 @@ export function LoansView({ userId }: LoansViewProps) {
 
                       <div>
                         <p className="text-sm text-muted-foreground">
+                          Loan Purpose
+                        </p>
+                        <p className="text-sm">
+                          {app.loan_purpose || 'Not specified'}
+                        </p>
+                      </div>
+
+                      <div>
+                        <p className="text-sm text-muted-foreground">
                           Application ID
                         </p>
                         <p className="text-sm font-mono">
-                          {app.id.slice(0, 8)}...
+                          {app.app_id ?? '—'}
                         </p>
                       </div>
                     </div>
