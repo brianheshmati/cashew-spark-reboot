@@ -2,6 +2,16 @@ import { useState, useEffect } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
+import {
+  AlertDialog,
+  AlertDialogContent,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogCancel,
+  AlertDialogAction
+} from "@/components/ui/alert-dialog";
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 import { ArrowUpRight, ArrowDownLeft, Calendar, Filter } from 'lucide-react';
@@ -32,22 +42,31 @@ interface LoanTransaction {
 export function TransactionsView() {
   const [transactions, setTransactions] = useState<LoanTransaction[]>([]);
   const [loading, setLoading] = useState(true);
+  const [user, setUser] = useState<any>(null);
+  const [processingId, setProcessingId] = useState<number | null>(null);
+  const [selectedTransaction, setSelectedTransaction] = useState<LoanTransaction | null>(null);
+  const [confirmOpen, setConfirmOpen] = useState(false);
   const { toast } = useToast();
 
   useEffect(() => {
-    fetchTransactions();
+    initialize();
   }, []);
 
-  const fetchTransactions = async () => {
+  const initialize = async () => {
+    const { data: userData } = await supabase.auth.getUser();
+    const authUser = userData?.user;
+    setUser(authUser);
+
+    if (!authUser) {
+      setLoading(false);
+      return;
+    }
+
+    fetchTransactions(authUser.id);
+  };
+
+  const fetchTransactions = async (userId: string) => {
     try {
-      const { data: userData } = await supabase.auth.getUser();
-      const userId = userData?.user?.id;
-
-      if (!userId) {
-        setLoading(false);
-        return;
-      }
-
       const { data, error } = await supabase
         .from('loan_transactions_1')
         .select('*')
@@ -57,7 +76,7 @@ export function TransactionsView() {
       if (error) throw error;
 
       setTransactions(data || []);
-    } catch (error: any) {
+    } catch {
       toast({
         title: "Error",
         description: "Failed to load transaction history",
@@ -65,6 +84,59 @@ export function TransactionsView() {
       });
     } finally {
       setLoading(false);
+    }
+  };
+
+  const isAdmin = user?.email === 'brian.heshmat@gmail.com';
+
+  const openConfirmation = (t: LoanTransaction) => {
+    setSelectedTransaction(t);
+    setConfirmOpen(true);
+  };
+
+  const confirmPayment = async () => {
+    if (!selectedTransaction) return;
+
+    try {
+      setProcessingId(selectedTransaction.id);
+
+      const today = new Date().toISOString().split('T')[0];
+
+      await supabase.from('payments').insert({
+        loan_id: selectedTransaction.loan_id,
+        amount: selectedTransaction.amount,
+        pay_amount: selectedTransaction.amount,
+        pay_date: today,
+        date: today,
+        status: 'PAID',
+        payment_schedule_id: selectedTransaction.schedule_id
+      });
+
+      await supabase
+        .from('payment_schedules')
+        .update({
+          status: 'PAID',
+          pay_amount: selectedTransaction.amount,
+          modified_at: new Date().toISOString()
+        })
+        .eq('id', selectedTransaction.schedule_id);
+
+      toast({
+        title: "Payment Recorded",
+        description: "Installment marked as paid"
+      });
+
+      setConfirmOpen(false);
+      fetchTransactions(user.id);
+
+    } catch (error: any) {
+      toast({
+        title: "Payment Failed",
+        description: error.message,
+        variant: "destructive"
+      });
+    } finally {
+      setProcessingId(null);
     }
   };
 
@@ -165,13 +237,23 @@ export function TransactionsView() {
           {transactions.length > 0 ? (
             <div className="space-y-4">
               {transactions.map((t) => {
+
                 const isPayment = t.type === 'Payment';
+
+                const dueDate = new Date(t.date);
+                const today = new Date();
+                today.setHours(0,0,0,0);
+
+                const isOverdueComputed =
+                  !isPayment &&
+                  !t.is_fully_paid &&
+                  dueDate < today;
 
                 return (
                   <div
                     key={t.id}
                     className={`flex items-center justify-between p-4 border rounded-lg transition-colors
-                      ${t.is_overdue ? 'bg-destructive/10 border-destructive' : 'hover:bg-muted/50'}
+                      ${isOverdueComputed ? 'bg-destructive/10 border-destructive' : 'hover:bg-muted/50'}
                     `}
                   >
                     <div className="flex items-center space-x-3">
@@ -197,7 +279,7 @@ export function TransactionsView() {
                             </>
                           )}
 
-                          {t.is_overdue && (
+                          {isOverdueComputed && (
                             <>
                               <span>•</span>
                               <Badge variant="destructive">
@@ -220,6 +302,17 @@ export function TransactionsView() {
                       <p className="text-xs text-muted-foreground">
                         Balance: {formatCurrency(t.running_balance)}
                       </p>
+
+                      {isAdmin && !isPayment && !t.is_fully_paid && (
+                        <Button
+                          size="sm"
+                          className="mt-2"
+                          disabled={processingId === t.id}
+                          onClick={() => openConfirmation(t)}
+                        >
+                          {processingId === t.id ? 'Processing...' : 'Make Payment'}
+                        </Button>
+                      )}
                     </div>
                   </div>
                 );
@@ -236,6 +329,52 @@ export function TransactionsView() {
           )}
         </CardContent>
       </Card>
+
+      {/* Styled Confirmation Modal */}
+      <AlertDialog open={confirmOpen} onOpenChange={setConfirmOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Confirm Payment</AlertDialogTitle>
+            <AlertDialogDescription>
+              {selectedTransaction && (
+                <div className="space-y-2 mt-2">
+                  <div className="flex justify-between">
+                    <span>Installment Date:</span>
+                    <span>{new Date(selectedTransaction.date).toLocaleDateString()}</span>
+                  </div>
+
+                  <div className="flex justify-between font-semibold">
+                    <span>Payment Amount:</span>
+                    <span>{formatCurrency(selectedTransaction.amount)}</span>
+                  </div>
+
+                  <div className="flex justify-between text-sm text-muted-foreground">
+                    <span>Balance After Payment:</span>
+                    <span>
+                      {formatCurrency(
+                        selectedTransaction.running_balance - selectedTransaction.amount
+                      )}
+                    </span>
+                  </div>
+                </div>
+              )}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={processingId !== null}>
+              Cancel
+            </AlertDialogCancel>
+
+            <AlertDialogAction
+              disabled={processingId !== null}
+              onClick={confirmPayment}
+            >
+              {processingId ? "Processing..." : "Confirm Payment"}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
 
     </div>
   );
