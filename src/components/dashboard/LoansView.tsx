@@ -9,7 +9,6 @@ import { Button } from '@/components/ui/button';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 import {
-  CreditCard,
   DollarSign,
   Calendar,
   TrendingUp,
@@ -18,6 +17,7 @@ import {
 
 interface Loan {
   loan_id: string;
+  loan_amount: number | null; // ← added
   current_balance: number | null;
   interest_rate: number | null;
   term_months: number | null;
@@ -39,6 +39,13 @@ interface Application {
   internal_user_id: string;
 }
 
+interface NextPayment {
+  loan_id: string;
+  amount: number;
+  date: string;
+  schedule_id: string | null;
+}
+
 interface LoansViewProps {
   userId: string;
 }
@@ -46,7 +53,9 @@ interface LoansViewProps {
 export function LoansView({ userId }: LoansViewProps) {
   const [loans, setLoans] = useState<Loan[]>([]);
   const [applications, setApplications] = useState<Application[]>([]);
+  const [nextPayment, setNextPayment] = useState<NextPayment | null>(null);
   const [loading, setLoading] = useState(true);
+
   const { toast } = useToast();
   const navigate = useNavigate();
 
@@ -67,6 +76,27 @@ export function LoansView({ userId }: LoansViewProps) {
         .select('*')
         .eq('internal_user_id', userId)
         .order('created_at', { ascending: false });
+
+      // Pull next unpaid installment (same logic source as TransactionsView)
+      const { data: nextDue } = await supabase
+        .from('loan_transactions_1')
+        .select('*')
+        .eq('internal_user_id', userId)
+        .eq('type', 'Installment')
+        .eq('is_fully_paid', false)
+        .order('date', { ascending: true })
+        .limit(1);
+
+      if (nextDue && nextDue.length > 0) {
+        setNextPayment({
+          loan_id: nextDue[0].loan_id,
+          amount: nextDue[0].amount,
+          date: nextDue[0].date,
+          schedule_id: nextDue[0].schedule_id
+        });
+      } else {
+        setNextPayment(null);
+      }
 
       setLoans(loansData || []);
       setApplications(applicationsData || []);
@@ -112,11 +142,6 @@ export function LoansView({ userId }: LoansViewProps) {
     0
   );
 
-  const totalMonthlyPayment = activeLoans.reduce(
-    (sum, loan) => sum + Number(loan.monthly_payment ?? 0),
-    0
-  );
-
   return (
     <div className="space-y-8">
 
@@ -141,6 +166,7 @@ export function LoansView({ userId }: LoansViewProps) {
       {/* SUMMARY CARDS */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
 
+        {/* Active Balance */}
         <Card className="rounded-2xl shadow-sm border">
           <CardContent className="p-6 flex justify-between items-center">
             <div>
@@ -160,25 +186,43 @@ export function LoansView({ userId }: LoansViewProps) {
           </CardContent>
         </Card>
 
+        {/* NEXT PAYMENT CARD */}
         <Card className="rounded-2xl shadow-sm border">
-          <CardContent className="p-6 flex justify-between items-center">
-            <div>
-              <p className="text-xs text-muted-foreground uppercase">
-                Monthly Payment
+          <CardContent className="p-6">
+            <p className="text-xs text-muted-foreground uppercase">
+              Next Payment
+            </p>
+
+            {nextPayment ? (
+              <>
+                <p className="text-3xl font-semibold mt-2">
+                  {formatCurrency(nextPayment.amount)}
+                </p>
+
+                <p className="text-sm text-muted-foreground mt-1">
+                  Due on {new Date(nextPayment.date).toLocaleDateString()}
+                </p>
+
+                <Button
+                  className="mt-4"
+                  size="sm"
+                  onClick={() =>
+                    navigate('/dashboard', { state: { view: 'transactions' } })
+                  }
+                >
+                  <Calendar className="h-4 w-4 mr-2" />
+                  Pay Now
+                </Button>
+              </>
+            ) : (
+              <p className="text-muted-foreground mt-2">
+                No upcoming payments
               </p>
-              <p className="text-3xl font-semibold mt-2">
-                {formatCurrency(totalMonthlyPayment)}
-              </p>
-              <p className="text-sm text-muted-foreground mt-1">
-                Combined active payments
-              </p>
-            </div>
-            <div className="p-3 rounded-xl bg-blue-100">
-              <Calendar className="h-6 w-6 text-blue-600" />
-            </div>
+            )}
           </CardContent>
         </Card>
 
+        {/* Applications */}
         <Card className="rounded-2xl shadow-sm border">
           <CardContent className="p-6 flex justify-between items-center">
             <div>
@@ -232,7 +276,11 @@ export function LoansView({ userId }: LoansViewProps) {
                   </Badge>
                 </div>
 
-                <div className="grid md:grid-cols-4 gap-6">
+                <div className="grid md:grid-cols-5 gap-6">
+                  <InfoBlock
+                    label="Loan Amount"
+                    value={formatCurrency(loan.loan_amount)}
+                  />
                   <InfoBlock
                     label="Current Balance"
                     value={formatCurrency(loan.current_balance)}
@@ -256,58 +304,6 @@ export function LoansView({ userId }: LoansViewProps) {
         </div>
       )}
 
-      {/* APPLICATIONS */}
-      <div className="space-y-4">
-        <h2 className="text-xl font-semibold">
-          Recent Applications
-        </h2>
-
-        {applications.map((app) => {
-          const active = isActiveApplication(app);
-
-          return (
-            <div
-              key={app.app_id ?? app.id}
-              className={`rounded-2xl p-6 border transition shadow-sm ${
-                active
-                  ? 'border-yellow-400 bg-yellow-50'
-                  : 'bg-white'
-              }`}
-            >
-              <div className="flex justify-between items-center mb-4">
-                <div>
-                  <p className="text-lg font-semibold">
-                    Loan Application
-                  </p>
-                  <p className="text-sm text-muted-foreground">
-                    Applied on{' '}
-                    {new Date(
-                      app.created_at
-                    ).toLocaleDateString()}
-                  </p>
-                </div>
-
-                <Badge>{formatStatus(app.status)}</Badge>
-              </div>
-
-              <div className="grid md:grid-cols-3 gap-6">
-                <InfoBlock
-                  label="Requested Amount"
-                  value={formatCurrency(app.amount)}
-                />
-                <InfoBlock
-                  label="Loan Purpose"
-                  value={app.loan_purpose || '—'}
-                />
-                <InfoBlock
-                  label="Application ID"
-                  value={`${app.app_id ?? '—'}`}
-                />
-              </div>
-            </div>
-          );
-        })}
-      </div>
     </div>
   );
 }

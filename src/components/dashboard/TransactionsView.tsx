@@ -24,7 +24,7 @@ interface LoanTransaction {
   loan_amount: number;
   loan_status: string;
   current_balance: number;
-  is_fully_paid: boolean;
+  is_fully_paid: boolean; // LOAN-level in your view
   next_due_date: string | null;
   is_next_due: boolean;
   schedule_id: string | null;
@@ -33,11 +33,13 @@ interface LoanTransaction {
   amount: number;
   remaining_amount: number;
   type: 'Installment' | 'Payment';
-  status: string;
+  status: string; // installment status: paid/partial/outstanding
   is_overdue: boolean;
   days_overdue: number;
   running_balance: number;
 }
+
+const normalize = (v: unknown) => String(v ?? '').trim().toLowerCase();
 
 export function TransactionsView() {
   const [transactions, setTransactions] = useState<LoanTransaction[]>([]);
@@ -75,7 +77,7 @@ export function TransactionsView() {
 
       if (error) throw error;
 
-      setTransactions(data || []);
+      setTransactions((data as LoanTransaction[]) || []);
     } catch {
       toast({
         title: "Error",
@@ -141,7 +143,7 @@ export function TransactionsView() {
   };
 
   const payments = transactions.filter(t => t.type === 'Payment');
-  const totalPaid = payments.reduce((sum, t) => sum + t.amount, 0);
+  const totalPaid = payments.reduce((sum, t) => sum + Number(t.amount ?? 0), 0);
 
   const now = new Date();
   const thisMonthPayments = payments.filter(t => {
@@ -150,14 +152,14 @@ export function TransactionsView() {
            d.getFullYear() === now.getFullYear();
   });
 
-  const thisMonthTotal = thisMonthPayments.reduce((sum, t) => sum + t.amount, 0);
+  const thisMonthTotal = thisMonthPayments.reduce((sum, t) => sum + Number(t.amount ?? 0), 0);
 
   const latestBalance = transactions.length > 0
-    ? transactions[0].running_balance
+    ? Number(transactions[0].running_balance ?? 0)
     : 0;
 
   const isFullyPaid = transactions.length > 0
-    ? transactions[0].is_fully_paid
+    ? Boolean(transactions[0].is_fully_paid)
     : false;
 
   if (loading) {
@@ -238,6 +240,15 @@ export function TransactionsView() {
             <div className="space-y-4">
               {transactions.map((t) => {
 
+                // ✅ REAL FIX: hide installments that are already paid (installment-level)
+                const isInstallment = t.type === 'Installment';
+                const installmentStatus = normalize(t.status); // 'paid' | 'partial' | 'outstanding'
+                const remaining = Number(t.remaining_amount ?? 0);
+
+                if (isInstallment && (installmentStatus === 'paid' || remaining <= 0)) {
+                  return null;
+                }
+
                 const isPayment = t.type === 'Payment';
 
                 const dueDate = new Date(t.date);
@@ -245,9 +256,9 @@ export function TransactionsView() {
                 today.setHours(0,0,0,0);
 
                 const isOverdueComputed =
-                  !isPayment &&
-                  !t.is_fully_paid &&
-                  dueDate < today;
+                  isInstallment &&
+                  dueDate < today &&
+                  remaining > 0;
 
                 return (
                   <div
@@ -287,6 +298,14 @@ export function TransactionsView() {
                               </Badge>
                             </>
                           )}
+
+                          {/* Optional: show partial badge */}
+                          {isInstallment && installmentStatus === 'partial' && (
+                            <>
+                              <span>•</span>
+                              <Badge variant="secondary">Partial</Badge>
+                            </>
+                          )}
                         </div>
                       </div>
                     </div>
@@ -303,7 +322,7 @@ export function TransactionsView() {
                         Balance: {formatCurrency(t.running_balance)}
                       </p>
 
-                      {isAdmin && !isPayment && !t.is_fully_paid && (
+                      {isAdmin && isInstallment && remaining > 0 && (
                         <Button
                           size="sm"
                           className="mt-2"
@@ -330,7 +349,6 @@ export function TransactionsView() {
         </CardContent>
       </Card>
 
-      {/* Styled Confirmation Modal */}
       <AlertDialog open={confirmOpen} onOpenChange={setConfirmOpen}>
         <AlertDialogContent>
           <AlertDialogHeader>
@@ -352,7 +370,7 @@ export function TransactionsView() {
                     <span>Balance After Payment:</span>
                     <span>
                       {formatCurrency(
-                        selectedTransaction.running_balance - selectedTransaction.amount
+                        Number(selectedTransaction.running_balance ?? 0) - Number(selectedTransaction.amount ?? 0)
                       )}
                     </span>
                   </div>
