@@ -154,13 +154,9 @@ export function TransactionsView() {
 
   const thisMonthTotal = thisMonthPayments.reduce((sum, t) => sum + Number(t.amount ?? 0), 0);
 
-  const latestBalance = transactions.length > 0
-    ? Number(transactions[0].running_balance ?? 0)
-    : 0;
+  const latestBalance = transactions[0]?.current_balance ?? 0;
 
-  const isFullyPaid = transactions.length > 0
-    ? Boolean(transactions[0].is_fully_paid)
-    : false;
+  const isFullyPaid = transactions[0]?.is_fully_paid ?? false;
 
   if (loading) {
     return (
