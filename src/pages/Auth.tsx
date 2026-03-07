@@ -1,176 +1,319 @@
-import { useEffect, useMemo, useState } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
-import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { useToast } from '@/hooks/use-toast';
-import { supabase } from '@/integrations/supabase/client';
-import cashewLogo from '@/assets/cashew-logo.png';
-import { User } from '@supabase/supabase-js';
+import { useEffect, useMemo, useState } from 'react'
+import { Link, useNavigate } from 'react-router-dom'
+import { Button } from '@/components/ui/button'
+import { Input } from '@/components/ui/input'
+import { Label } from '@/components/ui/label'
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
+import { useToast } from '@/hooks/use-toast'
+import { supabase } from '@/integrations/supabase/client'
+import cashewLogo from '@/assets/cashew-logo.png'
+import { User } from '@supabase/supabase-js'
 
-const RESEND_SECONDS = 30;
+const RESEND_SECONDS = 30
 
 const maskEmail = (email: string) => {
-  if (!email.includes('@')) return email;
-  const [name, domain] = email.split('@');
-  if (!name) return email;
-  const maskedName = name.length <= 2
-    ? `${name[0] ?? ''}•`
-    : `${name[0]}${'•'.repeat(Math.max(1, name.length - 2))}${name[name.length - 1]}`;
-  return `${maskedName}@${domain}`;
-};
+  if (!email.includes('@')) return email
+
+  const [name, domain] = email.split('@')
+
+  if (!name) return email
+
+  const maskedName =
+    name.length <= 2
+      ? `${name[0] ?? ''}•`
+      : `${name[0]}${'•'.repeat(Math.max(1, name.length - 2))}${name[name.length - 1]}`
+
+  return `${maskedName}@${domain}`
+}
 
 const Auth = () => {
-  const [user, setUser] = useState<User | null>(null);
-  const [loading, setLoading] = useState(false);
-  const [email, setEmail] = useState('');
-  const [otpCode, setOtpCode] = useState('');
-  const [otpSent, setOtpSent] = useState(false);
-  const [resendTimer, setResendTimer] = useState(0);
-  const { toast } = useToast();
-  const navigate = useNavigate();
 
-  useEffect(() => {
-    const { data: { subscription } } = supabase.auth.onAuthStateChange(
-      (event, session) => {
-        setUser(session?.user ?? null);
+  const [user, setUser] = useState<User | null>(null)
+  const [loading, setLoading] = useState(false)
 
-        if (session?.user) {
-          setTimeout(() => {
-            navigate('/dashboard');
-          }, 0);
-        }
-      }
-    );
+  const [email, setEmail] = useState('')
+  const [otpCode, setOtpCode] = useState('')
 
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      setUser(session?.user ?? null);
+  const [otpSent, setOtpSent] = useState(false)
+  const [resendTimer, setResendTimer] = useState(0)
 
-      if (session?.user) {
-        navigate('/dashboard');
-      }
-    });
+  const { toast } = useToast()
+  const navigate = useNavigate()
 
-    return () => subscription.unsubscribe();
-  }, [navigate]);
-
-  useEffect(() => {
-    if (!otpSent || resendTimer <= 0) return;
-    const timerId = window.setInterval(() => {
-      setResendTimer((value) => Math.max(0, value - 1));
-    }, 1000);
-
-    return () => window.clearInterval(timerId);
-  }, [otpSent, resendTimer]);
-
-  const canResend = otpSent && resendTimer === 0;
-  const maskedEmail = useMemo(() => maskEmail(email), [email]);
-
-  const sendOtp = async () => {
-    setLoading(true);
+  /**
+   * Apply referral code stored in localStorage
+   */
+  const applyReferralIfExists = async (authUser: User) => {
 
     try {
+
+      const referral = localStorage.getItem("cashew_referral")
+
+      if (!referral) return
+
+      const referralId = Number(referral)
+
+      if (!referralId) return
+
+      const { data: profile, error } = await supabase
+        .from("userProfiles")
+        .select("user_id, referral")
+        .eq("internal_user_id", authUser.id)
+        .limit(1)
+
+      if (error || !profile || profile.length === 0) return
+
+      const currentProfile = profile[0]
+
+      if (currentProfile.referral) {
+        localStorage.removeItem("cashew_referral")
+        return
+      }
+
+      await supabase
+        .from("userProfiles")
+        .update({ referral: referralId })
+        .eq("user_id", currentProfile.user_id)
+
+      localStorage.removeItem("cashew_referral")
+
+    } catch (err) {
+
+      console.error("Referral update failed:", err)
+
+    }
+
+  }
+
+  /**
+   * Auth state listener
+   */
+  useEffect(() => {
+
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(
+      async (_event, session) => {
+
+        const currentUser = session?.user ?? null
+
+        setUser(currentUser)
+
+        if (currentUser) {
+
+          try {
+            await applyReferralIfExists(currentUser)
+          } catch (e) {
+            console.warn("Referral processing skipped:", e)
+          }
+
+          navigate('/dashboard')
+
+        }
+
+      }
+    )
+
+    supabase.auth.getSession()
+      .then(async ({ data: { session } }) => {
+
+        const currentUser = session?.user ?? null
+
+        setUser(currentUser)
+
+        if (currentUser) {
+
+          try {
+            await applyReferralIfExists(currentUser)
+          } catch (e) {
+            console.warn("Referral processing skipped:", e)
+          }
+
+          navigate('/dashboard')
+
+        }
+
+      })
+      .catch((err) => {
+        console.warn("Session load warning:", err)
+      })
+
+    return () => subscription.unsubscribe()
+
+  }, [navigate])
+
+  /**
+   * OTP resend timer
+   */
+  useEffect(() => {
+
+    if (!otpSent || resendTimer <= 0) return
+
+    const timerId = window.setInterval(() => {
+      setResendTimer((value) => Math.max(0, value - 1))
+    }, 1000)
+
+    return () => window.clearInterval(timerId)
+
+  }, [otpSent, resendTimer])
+
+  const canResend = otpSent && resendTimer === 0
+
+  const maskedEmail = useMemo(() => maskEmail(email), [email])
+
+  /**
+   * Send OTP
+   */
+  const sendOtp = async () => {
+
+    setLoading(true)
+
+    try {
+
       const { error } = await supabase.auth.signInWithOtp({
         email,
         options: {
           emailRedirectTo: `${window.location.origin}/dashboard`
         }
-      });
+      })
 
-      if (error) throw error;
+      if (error) throw error
 
-      setOtpSent(true);
-      setResendTimer(RESEND_SECONDS);
+      setOtpSent(true)
+      setResendTimer(RESEND_SECONDS)
+
       toast({
         title: "OTP sent",
         description: "Check your email for the verification code.",
-      });
+      })
+
     } catch (error: any) {
+
       toast({
         title: "OTP failed",
         description: error.message || "Unable to send the OTP.",
         variant: "destructive"
-      });
+      })
+
     } finally {
-      setLoading(false);
+
+      setLoading(false)
+
     }
-  };
+
+  }
 
   const handleSendOtp = async (event: React.FormEvent) => {
-    event.preventDefault();
-    if (!email) return;
-    await sendOtp();
-  };
 
+    event.preventDefault()
+
+    if (!email) return
+
+    await sendOtp()
+
+  }
+
+  /**
+   * Verify OTP
+   */
   const handleVerifyOtp = async (event: React.FormEvent) => {
-    event.preventDefault();
-    setLoading(true);
+
+    event.preventDefault()
+
+    setLoading(true)
 
     try {
+
       const { error } = await supabase.auth.verifyOtp({
         email,
         token: otpCode,
         type: 'email'
-      });
+      })
 
-      if (error) throw error;
+      if (error) throw error
 
       toast({
         title: "Verification successful",
         description: "Welcome back!",
-      });
+      })
+
     } catch (error: any) {
+
       toast({
         title: "Verification failed",
         description: error.message || "Unable to verify the OTP.",
         variant: "destructive"
-      });
+      })
+
     } finally {
-      setLoading(false);
+
+      setLoading(false)
+
     }
-  };
 
-  const handleResend = async () => {
-    if (!canResend) return;
-    await sendOtp();
-  };
-
-  if (user) {
-    return null;
   }
 
+  const handleResend = async () => {
+
+    if (!canResend) return
+
+    await sendOtp()
+
+  }
+
+  if (user) return null
+
   return (
+
     <div className="min-h-screen bg-gradient-soft flex items-center justify-center px-4">
+
       <div className="w-full max-w-md">
+
         <div className="text-center mb-8">
+
           <Link to="/home" className="inline-flex items-center space-x-3">
+
             <img
               src={cashewLogo}
               alt="Cashew Logo"
               className="h-12 w-auto"
             />
+
             <div>
               <div className="font-bold text-xl text-foreground">Cashew</div>
-              <div className="text-sm text-muted-foreground">Make Your Dream Come True!</div>
+              <div className="text-sm text-muted-foreground">
+                Make Your Dream Come True!
+              </div>
             </div>
+
           </Link>
+
         </div>
 
         <Card className="shadow-medium">
+
           <CardHeader className="text-center">
-            <CardTitle>{otpSent ? 'Verify your code' : 'Welcome back'}</CardTitle>
+
+            <CardTitle>
+              {otpSent ? 'Verify your code' : 'Welcome back'}
+            </CardTitle>
+
             <CardDescription>
               {otpSent
                 ? `Enter the 6-digit code sent to ${maskedEmail || 'your email'}.`
                 : 'Sign in or register with a one-time email code.'}
             </CardDescription>
+
           </CardHeader>
+
           <CardContent className="space-y-6">
+
             {!otpSent && (
+
               <form onSubmit={handleSendOtp} className="space-y-4">
+
                 <div className="space-y-2">
+
                   <Label htmlFor="email">Email address</Label>
+
                   <Input
                     id="email"
                     type="email"
@@ -179,7 +322,9 @@ const Auth = () => {
                     onChange={(event) => setEmail(event.target.value)}
                     required
                   />
+
                 </div>
+
                 <Button
                   type="submit"
                   className="w-full"
@@ -187,16 +332,23 @@ const Auth = () => {
                 >
                   {loading ? 'Sending...' : 'Continue'}
                 </Button>
+
                 <p className="text-xs text-muted-foreground text-center">
-                  By continuing, you agree to our Terms &amp; Privacy.
+                  By continuing, you agree to our Terms & Privacy.
                 </p>
+
               </form>
+
             )}
 
             {otpSent && (
+
               <form onSubmit={handleVerifyOtp} className="space-y-4">
+
                 <div className="space-y-2">
+
                   <Label htmlFor="otp">Enter the 6-digit code</Label>
+
                   <Input
                     id="otp"
                     inputMode="numeric"
@@ -208,7 +360,9 @@ const Auth = () => {
                     className="text-center tracking-[0.4em] text-lg"
                     required
                   />
+
                 </div>
+
                 <Button
                   type="submit"
                   className="w-full"
@@ -216,6 +370,7 @@ const Auth = () => {
                 >
                   {loading ? 'Verifying...' : 'Verify Code'}
                 </Button>
+
                 <Button
                   type="button"
                   variant="ghost"
@@ -223,15 +378,25 @@ const Auth = () => {
                   disabled={!canResend}
                   onClick={handleResend}
                 >
-                  {canResend ? 'Resend code' : `Resend code (${resendTimer}s)`}
+                  {canResend
+                    ? 'Resend code'
+                    : `Resend code (${resendTimer}s)`}
                 </Button>
-              </form>
-            )}
-          </CardContent>
-        </Card>
-      </div>
-    </div>
-  );
-};
 
-export default Auth;
+              </form>
+
+            )}
+
+          </CardContent>
+
+        </Card>
+
+      </div>
+
+    </div>
+
+  )
+
+}
+
+export default Auth

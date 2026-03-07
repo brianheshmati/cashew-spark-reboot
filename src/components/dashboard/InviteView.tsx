@@ -41,11 +41,11 @@ export function InviteView() {
       .from("userProfiles")
       .select("user_id")
       .eq("internal_user_id", auth.user.id)
-      .single()
+      .limit(1)
 
-    if (!profile) return
+    if (!profile || profile.length === 0) return
 
-    const uid = profile.user_id
+    const uid = profile[0].user_id
 
     setUserId(uid)
 

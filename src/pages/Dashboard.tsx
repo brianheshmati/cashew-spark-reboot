@@ -65,23 +65,26 @@ const Dashboard = () => {
   }, [location.state]);
 
   const handleSignOut = async () => {
+
     try {
-      const { error } = await supabase.auth.signOut();
-      if (error) throw error;
-      
-      toast({
-        title: "Signed out successfully",
-        description: "You have been logged out of your account.",
-      });
-      navigate('/auth');
-    } catch (error: any) {
-      toast({
-        title: "Sign out failed",
-        description: error.message || "An error occurred during sign out",
-        variant: "destructive"
-      });
+
+      const { error } = await supabase.auth.signOut()
+
+      if (error && error.message !== "Auth session missing") {
+        console.error(error)
+      }
+
+    } catch (err) {
+
+      console.warn("Logout warning:", err)
+
+    } finally {
+
+      navigate("/")
+
     }
-  };
+
+  }
 
   const renderCurrentView = () => {
     switch (currentView) {
