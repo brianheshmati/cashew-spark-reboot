@@ -33,7 +33,7 @@ const menuItems = [
   { id: 'transactions' as DashboardView, title: 'Transactions', icon: History },
   { id: 'apply' as DashboardView, title: 'Apply for Loan', icon: FileText },
   { id: 'documents' as DashboardView, title: 'Documents', icon: FolderOpen },
-  { id: 'invite' as DashboardView, title: 'Invite Friends', icon: UserPlus },
+  // { id: 'invite' as DashboardView, title: 'Invite Friends', icon: UserPlus },
 ];
 
 export function AppSidebar({ currentView, onViewChange }: AppSidebarProps) {
