@@ -10,7 +10,7 @@ import { useToast } from '@/hooks/use-toast'
 import { supabase } from '@/integrations/supabase/client'
 import { Wallet, FileText, Tag } from 'lucide-react'
 
-interface LoanApplicationFormProps {
+interface Props {
   user?: User | null
 }
 
@@ -22,53 +22,45 @@ interface LoanCalculation {
   periods: number
 }
 
-/*
-Loan Calculation Logic
-*/
-function calculateLoanPayment(
-  amount: number,
-  termMonths: number,
-  loanType: string
-): LoanCalculation | null {
+function calculateLoan(amount: number, months: number, type: string): LoanCalculation | null {
 
-  if (!amount || !termMonths) return null
+  if (!amount || !months) return null
 
-  // EMERGENCY LOAN
-  if (loanType === 'emergency') {
+  if (type === 'emergency') {
 
     const days = 30
-    const dailyRate = 0.004
-
-    const interest = amount * dailyRate * days
+    const interest = amount * 0.004 * days
     const total = amount + interest
-    const payment = total / days
 
     return {
       interest,
       total,
-      payment,
+      payment: total / days,
       frequency: 'daily',
       periods: days
     }
+
   }
 
-  // CONVENTIONAL LOAN
-
-  const interest = amount * 0.10 * termMonths
+  const interest = amount * 0.10 * months
   const total = amount + interest
-  const periods = termMonths * 2
-  const payment = total / periods
+  const periods = months * 2
 
   return {
     interest,
     total,
-    payment,
+    payment: total / periods,
     frequency: 'semi-monthly',
     periods
   }
+
 }
 
-const LoanApplicationForm = ({ user }: LoanApplicationFormProps) => {
+export default function LoanApplicationForm({ user }: Props) {
+
+  const { toast } = useToast()
+
+  const [profile, setProfile] = useState<any>(null)
 
   const [loanAmount, setLoanAmount] = useState('')
   const [loanTerm, setLoanTerm] = useState('')
@@ -77,21 +69,41 @@ const LoanApplicationForm = ({ user }: LoanApplicationFormProps) => {
   const [promoCode, setPromoCode] = useState('')
 
   const [hasPaidOffLoan, setHasPaidOffLoan] = useState(false)
-  const [loadingEligibility, setLoadingEligibility] = useState(false)
   const [submitting, setSubmitting] = useState(false)
 
-  const { toast } = useToast()
-
   /*
-  Check eligibility
+  Load profile
   */
+
   useEffect(() => {
 
-    const checkEligibility = async () => {
+    const loadProfile = async () => {
 
       if (!user) return
 
-      setLoadingEligibility(true)
+      const { data } = await supabase
+        .from('userProfiles')
+        .select('*')
+        .eq('internal_user_id', user.id)
+        .single()
+
+      if (data) setProfile(data)
+
+    }
+
+    loadProfile()
+
+  }, [user])
+
+  /*
+  Check loan eligibility
+  */
+
+  useEffect(() => {
+
+    const checkLoans = async () => {
+
+      if (!user) return
 
       const { data } = await supabase
         .from('loans')
@@ -102,18 +114,17 @@ const LoanApplicationForm = ({ user }: LoanApplicationFormProps) => {
 
       setHasPaidOffLoan((data?.length || 0) > 0)
 
-      setLoadingEligibility(false)
     }
 
-    checkEligibility()
+    checkLoans()
 
   }, [user])
 
-
   /*
-  Available terms
+  Term options
   */
-  const availableTerms = useMemo(() => {
+
+  const terms = useMemo(() => {
 
     if (loanType === 'emergency') return ['1']
 
@@ -121,34 +132,34 @@ const LoanApplicationForm = ({ user }: LoanApplicationFormProps) => {
 
   }, [loanType, hasPaidOffLoan])
 
-
   /*
   Loan calculation
   */
-  const loanCalculation = useMemo(() => {
+
+  const calculation = useMemo(() => {
 
     const amount = Number(loanAmount)
     const term = Number(loanTerm)
 
     if (!amount || !term || !loanType) return null
 
-    return calculateLoanPayment(amount, term, loanType)
+    return calculateLoan(amount, term, loanType)
 
   }, [loanAmount, loanTerm, loanType])
 
-
   /*
-  Submit
+  Submit application
   */
+
   const submitApplication = async () => {
 
     const amount = Number(loanAmount)
 
-    if (!amount || !loanTerm || !loanPurpose.trim() || !loanType) {
+    if (!amount || !loanTerm || !loanPurpose || !loanType) {
 
       toast({
         title: 'Missing required fields',
-        description: 'Amount, term, loan type, and purpose are required.',
+        description: 'Please fill all required fields.',
         variant: 'destructive'
       })
 
@@ -160,20 +171,49 @@ const LoanApplicationForm = ({ user }: LoanApplicationFormProps) => {
     try {
 
       const payload = {
+
         user_id: user?.id || '',
+
         personalInfo: {
-          firstName: user?.user_metadata?.first_name || '',
-          middleName: user?.user_metadata?.middle_name || '',
-          lastName: user?.user_metadata?.last_name || '',
-          email: user?.email || '',
-          promoCode: promoCode || ''
+
+          firstName: profile?.first_name || user?.user_metadata?.first_name || '',
+          middleName: profile?.middle_name || user?.user_metadata?.middle_name || '',
+          lastName: profile?.last_name || user?.user_metadata?.last_name || '',
+
+          email: profile?.email || user?.email || '',
+          phone: profile?.phone || '',
+          address: profile?.address || '',
+
+          promoCode: promoCode || '',
+          dateOfBirth: profile?.dob || '',
+          referralCode: profile?.referral || ''
+
         },
+
         loanInfo: {
-          loanAmount,
-          loanTerm,
+
+          loanAmount: String(loanAmount),
+          loanTerm: String(loanTerm),
           loanPurpose: loanPurpose.trim(),
-          loanType
+          loanType: loanType
+
+        },
+
+        employmentInfo: {
+
+          monthlyIncome: String(profile?.income || 0),
+          monthlyExpense: String(profile?.expense || 0),
+
+          employmentLength: profile?.years_employed || '',
+          employmentStatus: profile?.employment_status || '',
+
+          company: profile?.employer || '',
+          employer_phone: profile?.employer_phone || '',
+          employer_address: profile?.employer_address || '',
+          position: profile?.job_title || ''
+
         }
+
       }
 
       const { error } = await supabase.functions.invoke(
@@ -185,14 +225,14 @@ const LoanApplicationForm = ({ user }: LoanApplicationFormProps) => {
 
       toast({
         title: 'Application submitted',
-        description: 'Your loan request has been received.'
+        description: 'Your application has been sent successfully.'
       })
 
       setLoanAmount('')
       setLoanTerm('')
       setLoanPurpose('')
-      setLoanType('')
       setPromoCode('')
+      setLoanType('')
 
     } catch (err: any) {
 
@@ -208,240 +248,192 @@ const LoanApplicationForm = ({ user }: LoanApplicationFormProps) => {
 
   }
 
-
   return (
 
-    <div className="max-w-5xl mx-auto">
+    <div className="max-w-5xl mx-auto grid md:grid-cols-2 gap-6">
 
-      <div className="grid md:grid-cols-2 gap-6">
+      {/* Loan Form */}
 
-        {/* LEFT PANEL */}
+      <Card>
 
-        <Card>
+        <CardHeader>
+          <CardTitle>Loan Details</CardTitle>
+        </CardHeader>
 
-          <CardHeader>
-            <CardTitle>Loan Details</CardTitle>
-          </CardHeader>
+        <CardContent className="space-y-6">
 
-          <CardContent className="space-y-6">
+          <div>
 
-            {/* Loan Type */}
+            <Label>Loan Type</Label>
 
-            <div className="space-y-2">
+            <Select
+              value={loanType}
+              onValueChange={(value) => {
 
-              <Label>Loan Type</Label>
+                setLoanType(value)
 
-              <Select
-                value={loanType}
-                onValueChange={(value) => {
+                if (value === 'emergency') {
+                  setLoanTerm('1')
+                }
 
-                  setLoanType(value)
-
-                  if (value === 'emergency') {
-                    setLoanTerm('1')
-                  }
-
-                }}
-              >
-
-                <SelectTrigger>
-                  <SelectValue placeholder="Select loan type" />
-                </SelectTrigger>
-
-                <SelectContent>
-                  <SelectItem value="conventional">Conventional</SelectItem>
-                  <SelectItem value="emergency">Emergency</SelectItem>
-                </SelectContent>
-
-              </Select>
-
-            </div>
-
-
-            {/* Amount */}
-
-            <div className="space-y-2">
-
-              <Label>Amount</Label>
-
-              <div className="flex items-center gap-2">
-
-                <Wallet className="w-4 h-4 text-muted-foreground" />
-
-                <Input
-                  type="number"
-                  value={loanAmount}
-                  onChange={(e) => setLoanAmount(e.target.value)}
-                  placeholder="5000"
-                />
-
-              </div>
-
-            </div>
-
-
-            {/* Term */}
-
-            <div className="space-y-2">
-
-              <Label>Term</Label>
-
-              <Select
-                value={loanTerm}
-                onValueChange={setLoanTerm}
-                disabled={loanType === 'emergency'}
-              >
-
-                <SelectTrigger>
-                  <SelectValue
-                    placeholder={
-                      loadingEligibility
-                        ? 'Checking eligibility...'
-                        : 'Select term'
-                    }
-                  />
-                </SelectTrigger>
-
-                <SelectContent>
-
-                  {availableTerms.map((term) => (
-                    <SelectItem key={term} value={term}>
-                      {term} month
-                    </SelectItem>
-                  ))}
-
-                </SelectContent>
-
-              </Select>
-
-              <p className="text-xs text-muted-foreground">
-
-                {loanType === 'emergency'
-                  ? 'Emergency loans are limited to 30 days.'
-                  : hasPaidOffLoan
-                    ? 'Returning borrowers can apply up to 3 months.'
-                    : 'New borrowers may apply for 1–2 months.'}
-
-              </p>
-
-            </div>
-
-
-            {/* Purpose */}
-
-            <div className="space-y-2">
-
-              <Label>Purpose</Label>
-
-              <div className="flex items-start gap-2">
-
-                <FileText className="w-4 h-4 mt-2 text-muted-foreground" />
-
-                <Textarea
-                  value={loanPurpose}
-                  onChange={(e) => setLoanPurpose(e.target.value)}
-                  placeholder="Briefly describe how you will use the loan"
-                  rows={4}
-                />
-
-              </div>
-
-            </div>
-
-
-            {/* Promo Code */}
-
-            <div className="space-y-2">
-
-              <Label>Promo Code (optional)</Label>
-
-              <div className="flex items-center gap-2">
-
-                <Tag className="w-4 h-4 text-muted-foreground" />
-
-                <Input
-                  value={promoCode}
-                  onChange={(e) => setPromoCode(e.target.value)}
-                  placeholder="Enter referral or promo code"
-                />
-
-              </div>
-
-            </div>
-
-          </CardContent>
-
-        </Card>
-
-
-        {/* SUMMARY PANEL */}
-
-        <Card className="bg-muted/40 border-dashed">
-
-          <CardHeader>
-            <CardTitle>Loan Summary</CardTitle>
-          </CardHeader>
-
-          <CardContent className="space-y-6">
-
-            <div className="flex justify-between text-sm">
-              <span>Loan Type</span>
-              <span className="font-semibold">{loanType || '-'}</span>
-            </div>
-
-            <div className="flex justify-between text-sm">
-              <span>Loan Amount</span>
-              <span className="font-semibold">₱{loanAmount || '0'}</span>
-            </div>
-
-            <div className="flex justify-between text-sm">
-              <span>Term</span>
-              <span className="font-semibold">
-                {loanTerm || '-'} month
-              </span>
-            </div>
-
-            <div className="flex justify-between text-sm">
-              <span>Total Repayment</span>
-              <span className="font-semibold">
-                {loanCalculation
-                  ? `₱${loanCalculation.total.toFixed(0)}`
-                  : '-'}
-              </span>
-            </div>
-
-            <div className="flex justify-between text-sm">
-
-              <span>
-                {loanCalculation?.frequency === 'daily'
-                  ? 'Daily Payment'
-                  : 'Payment (15 days)'}
-              </span>
-
-              <span className="font-semibold">
-                {loanCalculation
-                  ? `₱${loanCalculation.payment.toFixed(0)}`
-                  : '-'}
-              </span>
-
-            </div>
-
-            <Button
-              className="w-full h-12 text-lg"
-              onClick={submitApplication}
-              disabled={submitting}
+              }}
             >
-              {submitting ? 'Submitting...' : 'Submit Application'}
-            </Button>
 
-          </CardContent>
+              <SelectTrigger>
+                <SelectValue placeholder="Select loan type" />
+              </SelectTrigger>
 
-        </Card>
+              <SelectContent>
+                <SelectItem value="conventional">Conventional</SelectItem>
+                <SelectItem value="emergency">Emergency</SelectItem>
+              </SelectContent>
 
-      </div>
+            </Select>
+
+          </div>
+
+          <div>
+
+            <Label>Amount</Label>
+
+            <div className="flex gap-2 items-center">
+
+              <Wallet size={16} />
+
+              <Input
+                type="number"
+                value={loanAmount}
+                onChange={(e) => setLoanAmount(e.target.value)}
+                placeholder="5000"
+              />
+
+            </div>
+
+          </div>
+
+          <div>
+
+            <Label>Term</Label>
+
+            <Select
+              value={loanTerm}
+              onValueChange={setLoanTerm}
+              disabled={loanType === 'emergency'}
+            >
+
+              <SelectTrigger>
+                <SelectValue placeholder="Select term" />
+              </SelectTrigger>
+
+              <SelectContent>
+
+                {terms.map(t => (
+                  <SelectItem key={t} value={t}>
+                    {t} month
+                  </SelectItem>
+                ))}
+
+              </SelectContent>
+
+            </Select>
+
+          </div>
+
+          <div>
+
+            <Label>Purpose</Label>
+
+            <div className="flex gap-2">
+
+              <FileText size={16} />
+
+              <Textarea
+                rows={4}
+                value={loanPurpose}
+                onChange={(e) => setLoanPurpose(e.target.value)}
+              />
+
+            </div>
+
+          </div>
+
+          <div>
+
+            <Label>Promo Code</Label>
+
+            <div className="flex gap-2">
+
+              <Tag size={16} />
+
+              <Input
+                value={promoCode}
+                onChange={(e) => setPromoCode(e.target.value)}
+              />
+
+            </div>
+
+          </div>
+
+        </CardContent>
+
+      </Card>
+
+      {/* Summary */}
+
+      <Card className="bg-muted/40 border-dashed">
+
+        <CardHeader>
+          <CardTitle>Loan Summary</CardTitle>
+        </CardHeader>
+
+        <CardContent className="space-y-4">
+
+          <div className="flex justify-between">
+            <span>Loan Type</span>
+            <span>{loanType || '-'}</span>
+          </div>
+
+          <div className="flex justify-between">
+            <span>Amount</span>
+            <span>₱{loanAmount || '0'}</span>
+          </div>
+
+          <div className="flex justify-between">
+            <span>Total Repayment</span>
+            <span>
+              {calculation ? `₱${calculation.total.toFixed(0)}` : '-'}
+            </span>
+          </div>
+
+          <div className="flex justify-between">
+            <span>
+              {calculation?.frequency === 'daily'
+                ? 'Daily Payment'
+                : 'Payment (15 days)'}
+            </span>
+
+            <span>
+              {calculation
+                ? `₱${calculation.payment.toFixed(0)}`
+                : '-'}
+            </span>
+          </div>
+
+          <Button
+            className="w-full h-12 text-lg"
+            disabled={submitting}
+            onClick={submitApplication}
+          >
+
+            {submitting ? 'Submitting...' : 'Submit Application'}
+
+          </Button>
+
+        </CardContent>
+
+      </Card>
 
     </div>
   )
-}
 
-export default LoanApplicationForm
+}

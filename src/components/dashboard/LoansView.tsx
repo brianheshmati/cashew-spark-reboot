@@ -8,6 +8,7 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
+
 import {
   DollarSign,
   Calendar,
@@ -17,7 +18,7 @@ import {
 
 interface Loan {
   loan_id: string;
-  loan_amount: number | null; // ← added
+  loan_amount: number | null;
   current_balance: number | null;
   interest_rate: number | null;
   term_months: number | null;
@@ -51,6 +52,7 @@ interface LoansViewProps {
 }
 
 export function LoansView({ userId }: LoansViewProps) {
+
   const [loans, setLoans] = useState<Loan[]>([]);
   const [applications, setApplications] = useState<Application[]>([]);
   const [nextPayment, setNextPayment] = useState<NextPayment | null>(null);
@@ -64,7 +66,9 @@ export function LoansView({ userId }: LoansViewProps) {
   }, [userId]);
 
   const fetchData = async () => {
+
     try {
+
       const { data: loansData } = await supabase
         .from('user_loans_summary')
         .select('*')
@@ -77,7 +81,6 @@ export function LoansView({ userId }: LoansViewProps) {
         .eq('internal_user_id', userId)
         .order('created_at', { ascending: false });
 
-      // Pull next unpaid installment (same logic source as TransactionsView)
       const { data: nextDue } = await supabase
         .from('loan_transactions_1')
         .select('*')
@@ -88,31 +91,38 @@ export function LoansView({ userId }: LoansViewProps) {
         .limit(1);
 
       if (nextDue && nextDue.length > 0) {
+
         setNextPayment({
           loan_id: nextDue[0].loan_id,
           amount: nextDue[0].amount,
           date: nextDue[0].date,
           schedule_id: nextDue[0].schedule_id
         });
+
       } else {
         setNextPayment(null);
       }
 
       setLoans(loansData || []);
       setApplications(applicationsData || []);
+
     } catch (err) {
+
       toast({
         title: 'Error',
         description: 'Failed to load loans data',
         variant: 'destructive'
       });
+
     } finally {
       setLoading(false);
     }
   };
 
   const formatCurrency = (value: number | null | undefined) => {
+
     const safe = Number(value ?? 0);
+
     return `₱${safe.toLocaleString('en-PH', {
       minimumFractionDigits: 2,
       maximumFractionDigits: 2
@@ -126,7 +136,7 @@ export function LoansView({ userId }: LoansViewProps) {
     normalize(loan.status) === 'active';
 
   const isActiveApplication = (app: Application) =>
-    normalize(app.status) !== 'closed';
+    !['closed', 'rejected', 'cancelled'].includes(normalize(app.status));
 
   const formatStatus = (status: string) =>
     status.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase());
@@ -146,10 +156,17 @@ export function LoansView({ userId }: LoansViewProps) {
     <div className="space-y-8">
 
       {/* HEADER */}
+
       <div className="flex justify-between items-center">
+
         <div>
-          <p className="text-sm text-muted-foreground">Dashboard</p>
-          <h1 className="text-3xl font-bold">My Loans</h1>
+          <p className="text-sm text-muted-foreground">
+            Dashboard
+          </p>
+
+          <h1 className="text-3xl font-bold">
+            My Loans
+          </h1>
         </div>
 
         <Button
@@ -161,34 +178,44 @@ export function LoansView({ userId }: LoansViewProps) {
           <Plus className="h-4 w-4 mr-2" />
           Apply for New Loan
         </Button>
+
       </div>
 
       {/* SUMMARY CARDS */}
+
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
 
         {/* Active Balance */}
+
         <Card className="rounded-2xl shadow-sm border">
           <CardContent className="p-6 flex justify-between items-center">
+
             <div>
               <p className="text-xs text-muted-foreground uppercase">
                 Active Balance
               </p>
+
               <p className="text-3xl font-semibold mt-2">
                 {formatCurrency(totalBalance)}
               </p>
+
               <p className="text-sm text-muted-foreground mt-1">
                 Across {activeLoans.length} active loans
               </p>
             </div>
+
             <div className="p-3 rounded-xl bg-primary/10">
               <DollarSign className="h-6 w-6 text-primary" />
             </div>
+
           </CardContent>
         </Card>
 
-        {/* NEXT PAYMENT CARD */}
+        {/* NEXT PAYMENT */}
+
         <Card className="rounded-2xl shadow-sm border">
           <CardContent className="p-6">
+
             <p className="text-xs text-muted-foreground uppercase">
               Next Payment
             </p>
@@ -219,40 +246,127 @@ export function LoansView({ userId }: LoansViewProps) {
                 No upcoming payments
               </p>
             )}
+
           </CardContent>
         </Card>
 
-        {/* Applications */}
+        {/* APPLICATION COUNT */}
+
         <Card className="rounded-2xl shadow-sm border">
           <CardContent className="p-6 flex justify-between items-center">
+
             <div>
+
               <p className="text-xs text-muted-foreground uppercase">
                 Applications
               </p>
+
               <p className="text-3xl font-semibold mt-2">
                 {applications.length}
               </p>
+
               <p className="text-sm text-muted-foreground mt-1">
                 Total submitted
               </p>
+
             </div>
+
             <div className="p-3 rounded-xl bg-green-100">
               <TrendingUp className="h-6 w-6 text-green-600" />
             </div>
+
           </CardContent>
         </Card>
 
       </div>
 
-      {/* LOANS SECTION */}
-      {loans.length > 0 && (
+      {/* APPLICATIONS SECTION */}
+
+      {applications.length > 0 && (
+
         <div className="space-y-4">
-          <h2 className="text-xl font-semibold">Loans</h2>
+
+          <h2 className="text-xl font-semibold">
+            Applications
+          </h2>
+
+          {applications.map((app) => {
+
+            const active = isActiveApplication(app);
+
+            return (
+
+              <div
+                key={app.id}
+                className={`rounded-2xl p-6 border transition shadow-sm ${
+                  active
+                    ? 'border-green-400 bg-green-50'
+                    : 'bg-white'
+                }`}
+              >
+
+                <div className="flex justify-between items-center mb-4">
+
+                  <div>
+
+                    <p className="text-lg font-semibold">
+                      Application #{app.app_id}
+                    </p>
+
+                    <p className="text-sm text-muted-foreground">
+                      Submitted {new Date(app.created_at).toLocaleDateString()}
+                    </p>
+
+                  </div>
+
+                  <Badge>
+                    {formatStatus(app.status)}
+                  </Badge>
+
+                </div>
+
+                <div className="grid md:grid-cols-3 gap-6">
+
+                  <InfoBlock
+                    label="Requested Amount"
+                    value={formatCurrency(app.amount)}
+                  />
+
+                  <InfoBlock
+                    label="Purpose"
+                    value={app.loan_purpose || '—'}
+                  />
+
+                  <InfoBlock
+                    label="Promo Code"
+                    value={app.promo_code || '—'}
+                  />
+
+                </div>
+
+              </div>
+            );
+          })}
+
+        </div>
+      )}
+
+      {/* LOANS SECTION */}
+
+      {loans.length > 0 && (
+
+        <div className="space-y-4">
+
+          <h2 className="text-xl font-semibold">
+            Loans
+          </h2>
 
           {loans.map((loan) => {
+
             const active = isActiveLoan(loan);
 
             return (
+
               <div
                 key={loan.loan_id}
                 className={`rounded-2xl p-6 border transition shadow-sm ${
@@ -261,46 +375,60 @@ export function LoansView({ userId }: LoansViewProps) {
                     : 'bg-white'
                 }`}
               >
+
                 <div className="flex justify-between items-center mb-4">
+
                   <div>
+
                     <p className="text-lg font-semibold">
                       {loan.loan_type || 'Regular'}
                     </p>
+
                     <p className="text-sm text-muted-foreground">
                       ID: {loan.loan_id.slice(0, 8)}...
                     </p>
+
                   </div>
 
                   <Badge>
                     {formatStatus(loan.status)}
                   </Badge>
+
                 </div>
 
                 <div className="grid md:grid-cols-5 gap-6">
+
                   <InfoBlock
                     label="Loan Amount"
                     value={formatCurrency(loan.loan_amount)}
                   />
+
                   <InfoBlock
                     label="Current Balance"
                     value={formatCurrency(loan.current_balance)}
                   />
+
                   <InfoBlock
                     label="Monthly Payment"
                     value={formatCurrency(loan.monthly_payment)}
                   />
+
                   <InfoBlock
                     label="Interest Rate"
                     value={`${Number(loan.interest_rate ?? 0) * 100}%`}
                   />
+
                   <InfoBlock
                     label="Term"
                     value={`${loan.term_months ?? 0} months`}
                   />
+
                 </div>
+
               </div>
             );
           })}
+
         </div>
       )}
 
@@ -315,14 +443,18 @@ function InfoBlock({
   label: string;
   value: string;
 }) {
+
   return (
     <div>
+
       <p className="text-xs text-muted-foreground uppercase">
         {label}
       </p>
+
       <p className="text-lg font-semibold mt-1">
         {value}
       </p>
+
     </div>
   );
 }
