@@ -71,6 +71,29 @@ export default function LoanApplicationForm({ user }: Props) {
   const [hasPaidOffLoan, setHasPaidOffLoan] = useState(false)
   const [submitting, setSubmitting] = useState(false)
 
+  const requiredProfileFields = useMemo(() => {
+    return [
+      { label: 'First name', value: profile?.first_name || user?.user_metadata?.first_name || '' },
+      { label: 'Last name', value: profile?.last_name || user?.user_metadata?.last_name || '' },
+      { label: 'Email', value: profile?.email || user?.email || '' },
+      { label: 'Phone', value: profile?.phone || '' },
+      { label: 'Address', value: profile?.address || '' },
+      { label: "Employer's name", value: profile?.employer_name || profile?.employer || '' },
+      { label: "Employer's phone", value: profile?.employer_phone || '' },
+      { label: "Employer's address", value: profile?.employer_address || '' },
+      { label: 'Position', value: profile?.position || profile?.job_title || profile?.occupation || '' },
+      { label: 'Years employed', value: profile?.years_employed ?? '' }
+    ]
+  }, [profile, user])
+
+  const missingProfileFields = useMemo(() => {
+    return requiredProfileFields
+      .filter(({ value }) => String(value).trim().length === 0)
+      .map(({ label }) => label)
+  }, [requiredProfileFields])
+
+  const isProfileComplete = missingProfileFields.length === 0
+
   /*
   Load profile
   */
@@ -166,6 +189,17 @@ export default function LoanApplicationForm({ user }: Props) {
       return
     }
 
+    if (!isProfileComplete) {
+
+      toast({
+        title: 'Complete your profile first',
+        description: `Missing: ${missingProfileFields.join(', ')}`,
+        variant: 'destructive'
+      })
+
+      return
+    }
+
     setSubmitting(true)
 
     try {
@@ -207,10 +241,10 @@ export default function LoanApplicationForm({ user }: Props) {
           employmentLength: profile?.years_employed || '',
           employmentStatus: profile?.employment_status || '',
 
-          company: profile?.employer || '',
+          company: profile?.employer_name || profile?.employer || '',
           employer_phone: profile?.employer_phone || '',
           employer_address: profile?.employer_address || '',
-          position: profile?.job_title || ''
+          position: profile?.position || profile?.job_title || profile?.occupation || ''
 
         }
 
@@ -388,6 +422,12 @@ export default function LoanApplicationForm({ user }: Props) {
 
         <CardContent className="space-y-4">
 
+          {!isProfileComplete && (
+            <div className="rounded-md border border-destructive/40 bg-destructive/10 p-3 text-sm text-destructive">
+              Complete your profile before submitting. Missing: {missingProfileFields.join(', ')}
+            </div>
+          )}
+
           <div className="flex justify-between">
             <span>Loan Type</span>
             <span>{loanType || '-'}</span>
@@ -421,7 +461,7 @@ export default function LoanApplicationForm({ user }: Props) {
 
           <Button
             className="w-full h-12 text-lg"
-            disabled={submitting}
+            disabled={submitting || !isProfileComplete}
             onClick={submitApplication}
           >
 
