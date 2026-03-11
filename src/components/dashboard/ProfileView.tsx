@@ -23,6 +23,9 @@ import {
   Save,
   X,
   Briefcase,
+  CalendarDays,
+  Landmark,
+  PiggyBank,
 } from "lucide-react";
 
 interface Profile {
@@ -36,6 +39,13 @@ interface Profile {
   employer_phone: string | null;
   position: string | null;
   years_employed: string | null;
+  dob: string | null;
+  facebook_profile: string | null;
+  bank_name: string | null;
+  bank_account_number: string | null;
+  income: string | null;
+  expense: string | null;
+  pay_schedule: string | null;
 }
 
 export function ProfileView(): JSX.Element {
@@ -85,6 +95,19 @@ export function ProfileView(): JSX.Element {
         data?.years_employed !== null && data?.years_employed !== undefined
           ? String(data.years_employed)
           : null,
+      dob: data?.dob ?? null,
+      facebook_profile: data?.facebook_profile ?? null,
+      bank_name: data?.bank_name ?? null,
+      bank_account_number: data?.bank_account_number ?? null,
+      income:
+        data?.income !== null && data?.income !== undefined
+          ? String(data.income)
+          : null,
+      expense:
+        data?.expense !== null && data?.expense !== undefined
+          ? String(data.expense)
+          : null,
+      pay_schedule: data?.pay_schedule ?? null,
     };
 
     setProfile(normalized);
@@ -111,6 +134,13 @@ export function ProfileView(): JSX.Element {
       years_employed: editedProfile.years_employed
         ? Number(editedProfile.years_employed)
         : null,
+      dob: editedProfile.dob,
+      facebook_profile: editedProfile.facebook_profile,
+      bank_name: editedProfile.bank_name,
+      bank_account_number: editedProfile.bank_account_number,
+      income: editedProfile.income ? Number(editedProfile.income) : null,
+      expense: editedProfile.expense ? Number(editedProfile.expense) : null,
+      pay_schedule: editedProfile.pay_schedule,
     };
 
     const { error } = await supabase.from("userProfiles").upsert(payload);
@@ -274,6 +304,44 @@ export function ProfileView(): JSX.Element {
                 </div>
               )}
             </div>
+
+            <div className="space-y-2">
+              <Label className="flex items-center">
+                <CalendarDays className="h-4 w-4 mr-2" />
+                Date of Birth
+              </Label>
+              {isEditing ? (
+                <Input
+                  value={editedProfile?.dob ?? ""}
+                  onChange={(e) =>
+                    handleInputChange("dob", e.target.value)
+                  }
+                  type="date"
+                />
+              ) : (
+                <div className="p-3 bg-muted rounded-md">
+                  {profile?.dob || "Not provided"}
+                </div>
+              )}
+            </div>
+
+            <div className="space-y-2">
+              <Label>Facebook Profile Link</Label>
+              {isEditing ? (
+                <Input
+                  value={editedProfile?.facebook_profile ?? ""}
+                  onChange={(e) =>
+                    handleInputChange("facebook_profile", e.target.value)
+                  }
+                  type="url"
+                  placeholder="https://facebook.com/your-profile"
+                />
+              ) : (
+                <div className="p-3 bg-muted rounded-md break-all">
+                  {profile?.facebook_profile || "Not provided"}
+                </div>
+              )}
+            </div>
           </CardContent>
         </Card>
 
@@ -408,6 +476,109 @@ export function ProfileView(): JSX.Element {
               ) : (
                 <div className="p-3 bg-muted rounded-md">
                   {profile?.years_employed || "Not provided"}
+                </div>
+              )}
+            </div>
+          </CardContent>
+        </Card>
+
+        {/* Financial Information */}
+        <Card className="md:col-span-2">
+          <CardHeader>
+            <CardTitle className="flex items-center">
+              <Landmark className="h-5 w-5 mr-2" />
+              Financial Information
+            </CardTitle>
+            <CardDescription>
+              Your banking and cash flow details
+            </CardDescription>
+          </CardHeader>
+
+          <CardContent className="grid md:grid-cols-2 gap-4">
+            <div className="space-y-2">
+              <Label>The name of your bank</Label>
+              {isEditing ? (
+                <Input
+                  value={editedProfile?.bank_name ?? ""}
+                  onChange={(e) =>
+                    handleInputChange("bank_name", e.target.value)
+                  }
+                />
+              ) : (
+                <div className="p-3 bg-muted rounded-md">
+                  {profile?.bank_name || "Not provided"}
+                </div>
+              )}
+            </div>
+
+            <div className="space-y-2">
+              <Label>Your bank account number (to deposit the funds)</Label>
+              {isEditing ? (
+                <Input
+                  value={editedProfile?.bank_account_number ?? ""}
+                  onChange={(e) =>
+                    handleInputChange("bank_account_number", e.target.value)
+                  }
+                />
+              ) : (
+                <div className="p-3 bg-muted rounded-md">
+                  {profile?.bank_account_number || "Not provided"}
+                </div>
+              )}
+            </div>
+
+            <div className="space-y-2">
+              <Label className="flex items-center">
+                <PiggyBank className="h-4 w-4 mr-2" />
+                Monthly income
+              </Label>
+              {isEditing ? (
+                <Input
+                  value={editedProfile?.income ?? ""}
+                  onChange={(e) =>
+                    handleInputChange("income", e.target.value)
+                  }
+                  type="number"
+                  min="0"
+                />
+              ) : (
+                <div className="p-3 bg-muted rounded-md">
+                  {profile?.income || "Not provided"}
+                </div>
+              )}
+            </div>
+
+            <div className="space-y-2">
+              <Label>Estimated monthly expense</Label>
+              {isEditing ? (
+                <Input
+                  value={editedProfile?.expense ?? ""}
+                  onChange={(e) =>
+                    handleInputChange("expense", e.target.value)
+                  }
+                  type="number"
+                  min="0"
+                />
+              ) : (
+                <div className="p-3 bg-muted rounded-md">
+                  {profile?.expense || "Not provided"}
+                </div>
+              )}
+            </div>
+
+            <div className="space-y-2 md:col-span-2">
+              <Label>Pay schedule (days you get your pay)</Label>
+              {isEditing ? (
+                <Textarea
+                  value={editedProfile?.pay_schedule ?? ""}
+                  onChange={(e) =>
+                    handleInputChange("pay_schedule", e.target.value)
+                  }
+                  rows={2}
+                />
+              ) : (
+                <div className="p-3 bg-muted rounded-md whitespace-pre-line">
+                  {profile?.pay_schedule || "Not provided"}
                 </div>
               )}
             </div>
