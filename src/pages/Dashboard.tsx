@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { SidebarProvider } from '@/components/ui/sidebar';
 import { AppSidebar } from '@/components/AppSidebar';
@@ -27,6 +27,43 @@ const Dashboard = () => {
   const localTestUserId = import.meta.env.VITE_LOCAL_TEST_USER_ID as string | undefined;
   const overviewUserId = localTestUserId ?? user?.id;
 
+  const isProfileComplete = useCallback(async (currentUser: User): Promise<boolean> => {
+    const { data } = await supabase
+      .from('userProfiles')
+      .select('*')
+      .eq('id', currentUser.id)
+      .maybeSingle();
+
+    const requiredValues = [
+      data?.first_name || currentUser.user_metadata?.first_name || '',
+      data?.last_name || currentUser.user_metadata?.last_name || '',
+      data?.email || currentUser.email || '',
+      data?.phone || '',
+      data?.address || '',
+      data?.employer_name || data?.employer || '',
+      data?.employer_phone || '',
+      data?.employer_address || '',
+      data?.position || data?.occupation || '',
+      data?.years_employed ?? '',
+      data?.dob || '',
+      data?.facebook_profile || '',
+      data?.bank_name || '',
+      data?.bank_account_number || '',
+      data?.income ?? '',
+      data?.expense ?? '',
+      data?.pay_schedule || '',
+    ];
+
+    return requiredValues.every((value) => String(value).trim().length > 0);
+  }, []);
+
+  const redirectToProfileIfIncomplete = useCallback(async (currentUser: User): Promise<void> => {
+    const complete = await isProfileComplete(currentUser);
+    if (!complete) {
+      setCurrentView('profile');
+    }
+  }, [isProfileComplete]);
+
   useEffect(() => {
     // Set up auth state listener
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
@@ -38,6 +75,8 @@ const Dashboard = () => {
           setTimeout(() => {
             navigate('/auth');
           }, 0);
+        } else {
+          void redirectToProfileIfIncomplete(session.user);
         }
         setLoading(false);
       }
@@ -50,12 +89,14 @@ const Dashboard = () => {
       
       if (!session?.user) {
         navigate('/auth');
+      } else {
+        void redirectToProfileIfIncomplete(session.user);
       }
       setLoading(false);
     });
 
     return () => subscription.unsubscribe();
-  }, [navigate]);
+  }, [navigate, redirectToProfileIfIncomplete]);
 
   useEffect(() => {
     const locationView = (location.state as { view?: DashboardView } | null)?.view;
