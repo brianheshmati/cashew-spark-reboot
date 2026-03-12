@@ -108,7 +108,9 @@ export default function LoanApplicationForm({ user }: Props) {
         .from('userProfiles')
         .select('*')
         .eq('internal_user_id', user.id)
-        .single()
+        .order("created_at", { ascending: false })
+        .limit(1)
+        .single();
 
       if (data) setProfile(data)
 

@@ -40,7 +40,7 @@ interface Profile {
   position: string | null;
   years_employed: string | null;
   dob: string | null;
-  facebook_profile: string | null;
+  facebook: string | null;
   bank_name: string | null;
   bank_account_number: string | null;
   income: string | null;
@@ -78,36 +78,46 @@ export function ProfileView(): JSX.Element {
     const { data } = await supabase
       .from("userProfiles")
       .select("*")
-      .eq("id", user.id)
-      .maybeSingle();
+      .eq("internal_user_id", user.id)
+      .order("created_at", { ascending: false })
+      .limit(1)
+      .single();
 
     const normalized: Profile = {
-      first_name: data?.first_name ?? user.user_metadata?.first_name ?? "",
-      last_name: data?.last_name ?? user.user_metadata?.last_name ?? "",
+      first_name: data?.first_name ?? "",
+      last_name: data?.last_name ?? "",
       email: data?.email ?? user.email ?? "",
-      phone: data?.phone ?? null,
-      address: data?.address ?? null,
-      employer_name: data?.employer ?? null,
-      employer_address: data?.employer_address ?? null,
-      employer_phone: data?.employer_phone ?? null,
-      position: data?.occupation ?? null,
+      phone: data?.phone || null,
+      address: data?.address || null,
+
+      employer_name: data?.employer || null,
+      employer_address: data?.employer_address || null,
+      employer_phone: data?.employer_phone || null,
+
+      position: data?.occupation || null,
+
       years_employed:
         data?.years_employed !== null && data?.years_employed !== undefined
           ? String(data.years_employed)
           : null,
-      dob: data?.dob ?? null,
-      facebook_profile: data?.facebook_profile ?? null,
-      bank_name: data?.bank_name ?? null,
-      bank_account_number: data?.bank_account_number ?? null,
+
+      dob: data?.dob || null,
+      facebook: data?.facebook || null,
+
+      bank_name: data?.bank_name || null,
+      bank_account_number: data?.bank_account || null,
+
       income:
         data?.income !== null && data?.income !== undefined
           ? String(data.income)
           : null,
+
       expense:
         data?.expense !== null && data?.expense !== undefined
           ? String(data.expense)
           : null,
-      pay_schedule: data?.pay_schedule ?? null,
+
+      pay_schedule: data?.pay_schedule || null,
     };
 
     setProfile(normalized);
@@ -121,7 +131,7 @@ export function ProfileView(): JSX.Element {
     setSaving(true);
 
     const payload = {
-      id: authUser.id,
+      internal_user_id: authUser.id,
       first_name: editedProfile.first_name,
       last_name: editedProfile.last_name,
       email: editedProfile.email,
@@ -135,9 +145,9 @@ export function ProfileView(): JSX.Element {
         ? Number(editedProfile.years_employed)
         : null,
       dob: editedProfile.dob,
-      facebook_profile: editedProfile.facebook_profile,
+      facebook: editedProfile.facebook,
       bank_name: editedProfile.bank_name,
-      bank_account_number: editedProfile.bank_account_number,
+      bank_account: editedProfile.bank_account_number,
       income: editedProfile.income ? Number(editedProfile.income) : null,
       expense: editedProfile.expense ? Number(editedProfile.expense) : null,
       pay_schedule: editedProfile.pay_schedule,
@@ -329,16 +339,16 @@ export function ProfileView(): JSX.Element {
               <Label>Facebook Profile Link</Label>
               {isEditing ? (
                 <Input
-                  value={editedProfile?.facebook_profile ?? ""}
+                  value={editedProfile?.facebook ?? ""}
                   onChange={(e) =>
-                    handleInputChange("facebook_profile", e.target.value)
+                    handleInputChange("facebook", e.target.value)
                   }
                   type="url"
                   placeholder="https://facebook.com/your-profile"
                 />
               ) : (
                 <div className="p-3 bg-muted rounded-md break-all">
-                  {profile?.facebook_profile || "Not provided"}
+                  {profile?.facebook || "Not provided"}
                 </div>
               )}
             </div>
