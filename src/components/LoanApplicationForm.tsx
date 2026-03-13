@@ -107,7 +107,7 @@ export default function LoanApplicationForm({ user }: Props) {
       const { data } = await supabase
         .from('userProfiles')
         .select('*')
-        .eq('internal_user_id', user.id)
+        .eq('id', user.id)
         .order("created_at", { ascending: false })
         .limit(1)
         .single();
