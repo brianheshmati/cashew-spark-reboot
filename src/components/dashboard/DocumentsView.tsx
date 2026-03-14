@@ -1,34 +1,47 @@
-import { FormEvent, useEffect, useMemo, useState } from 'react';
-import { User } from '@supabase/supabase-js';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { supabase } from '@/integrations/supabase/client';
-import { useToast } from '@/hooks/use-toast';
+import { FormEvent, useEffect, useMemo, useState } from 'react'
+import { User } from '@supabase/supabase-js'
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
+import { Button } from '@/components/ui/button'
+import { Input } from '@/components/ui/input'
+import { Label } from '@/components/ui/label'
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
+import { supabase } from '@/integrations/supabase/client'
+import { useToast } from '@/hooks/use-toast'
 
-const BUCKET = 'clients_documents';
+const BUCKET = 'clients_documents'
+
+const DOCUMENT_TYPES = [
+  { value: 'payslip', label: 'Payslip' },
+  { value: 'certificate_employment', label: 'Certificate of Employment' },
+  { value: 'government_id', label: 'Government ID' },
+  { value: 'bank_statement', label: 'Bank Statement' }
+]
 
 type DocumentRow = {
-  name: string;
-  path: string;
-  createdAt: string;
-};
+  name: string
+  type: string
+  path: string
+  createdAt: string
+}
 
 interface DocumentsViewProps {
-  user: User | null;
+  user: User | null
 }
 
 export function DocumentsView({ user }: DocumentsViewProps) {
-  const [documents, setDocuments] = useState<DocumentRow[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [uploading, setUploading] = useState(false);
-  const [docName, setDocName] = useState('');
-  const [file, setFile] = useState<File | null>(null);
-  const { toast } = useToast();
 
-  const folderPath = user ? user.id : null;
+  const [documents, setDocuments] = useState<DocumentRow[]>([])
+  const [loading, setLoading] = useState(true)
+  const [uploading, setUploading] = useState(false)
+
+  const [docType, setDocType] = useState('')
+  const [docName, setDocName] = useState('')
+  const [file, setFile] = useState<File | null>(null)
+
+  const { toast } = useToast()
+
+  const folderPath = user ? user.id : null
 
   const sortedDocuments = useMemo(
     () =>
@@ -38,276 +51,305 @@ export function DocumentsView({ user }: DocumentsViewProps) {
           new Date(a.createdAt).getTime()
       ),
     [documents]
-  );
+  )
 
   const fetchDocuments = async () => {
-    if (!user || !folderPath) return;
 
-    setLoading(true);
+    if (!user || !folderPath) return
+
+    setLoading(true)
 
     try {
+
       const { data, error } = await supabase.storage
         .from(BUCKET)
-        .list(folderPath, {
-          sortBy: { column: 'created_at', order: 'desc' },
-        });
+        .list(folderPath)
 
-      if (error) throw error;
+      if (error) throw error
 
       const rows: DocumentRow[] = (data ?? [])
         .filter((item) => item.name)
         .map((item) => {
-          const [_, rawName] = item.name.split('__');
-          return {
-            name: rawName || item.name,
-            path: `${folderPath}/${item.name}`,
-            createdAt:
-              item.created_at || new Date().toISOString(),
-          };
-        });
 
-      setDocuments(rows);
-    } catch (error: unknown) {
+          const parts = item.name.split('__')
+
+          const type = parts[1] || 'unknown'
+          const rawName = parts[2] || item.name
+
+          return {
+            type,
+            name: rawName.replace(/\.[^/.]+$/, ''),
+            path: `${folderPath}/${item.name}`,
+            createdAt: item.created_at || new Date().toISOString()
+          }
+
+        })
+
+      setDocuments(rows)
+
+    } catch (error: any) {
+
       toast({
         title: 'Unable to load documents',
-        description:
-          error instanceof Error
-            ? error.message
-            : 'Please try again later.',
-        variant: 'destructive',
-      });
+        description: error.message,
+        variant: 'destructive'
+      })
+
     } finally {
-      setLoading(false);
+      setLoading(false)
     }
-  };
+
+  }
 
   useEffect(() => {
-    fetchDocuments();
-  }, [user]);
+    fetchDocuments()
+  }, [user])
 
   const uploadDocument = async (event: FormEvent) => {
-    event.preventDefault();
 
-    if (!user || !file || !docName.trim() || !folderPath) return;
+    event.preventDefault()
 
-    setUploading(true);
+    if (!user || !file || !docName.trim() || !docType || !folderPath) return
+
+    setUploading(true)
 
     try {
+
       const sanitizedName = docName
         .trim()
         .replace(/[^a-zA-Z0-9-_ ]/g, '')
-        .replace(/\s+/g, '-');
+        .replace(/\s+/g, '-')
 
-      const fileExt = file.name.split('.').pop();
-      const timestamp = new Date().toISOString();
+      const fileExt = file.name.split('.').pop()
 
-      const fileName = `${timestamp}__${sanitizedName}.${fileExt}`;
-      const fullPath = `${folderPath}/${fileName}`;
+      const timestamp = new Date().toISOString()
+
+      const fileName =
+        `${timestamp}__${docType}__${sanitizedName}.${fileExt}`
+
+      const fullPath = `${folderPath}/${fileName}`
 
       const { error } = await supabase.storage
         .from(BUCKET)
-        .upload(fullPath, file, {
-          upsert: false,
-        });
+        .upload(fullPath, file)
 
-      if (error) throw error;
+      if (error) throw error
 
       toast({
         title: 'Document uploaded',
-        description:
-          'Your file is now available in Documents.',
-      });
+        description: 'Your file has been saved.'
+      })
 
-      setDocName('');
-      setFile(null);
+      setDocName('')
+      setFile(null)
+      setDocType('')
 
-      await fetchDocuments();
-    } catch (error: unknown) {
+      await fetchDocuments()
+
+    } catch (error: any) {
+
       toast({
         title: 'Upload failed',
-        description:
-          error instanceof Error
-            ? error.message
-            : 'Please check your file and try again.',
-        variant: 'destructive',
-      });
+        description: error.message,
+        variant: 'destructive'
+      })
+
     } finally {
-      setUploading(false);
+      setUploading(false)
     }
-  };
+
+  }
 
   const openDocument = async (path: string) => {
+
     const { data, error } = await supabase.storage
       .from(BUCKET)
-      .createSignedUrl(path, 60);
+      .createSignedUrl(path, 60)
 
     if (error || !data?.signedUrl) {
+
       toast({
         title: 'Unable to open file',
-        description:
-          error?.message ||
-          'Try again in a few moments.',
-        variant: 'destructive',
-      });
-      return;
+        description: error?.message || 'Try again later',
+        variant: 'destructive'
+      })
+
+      return
     }
 
-    window.open(
-      data.signedUrl,
-      '_blank',
-      'noopener,noreferrer'
-    );
-  };
+    window.open(data.signedUrl, '_blank')
+
+  }
 
   return (
+
     <div className="space-y-6">
+
       <div>
-        <h1 className="text-3xl font-bold text-foreground">
-          Documents
-        </h1>
+        <h1 className="text-3xl font-bold">Documents</h1>
         <p className="text-muted-foreground">
-          Manage your uploaded files.
+          Upload the documents required for your loan application.
         </p>
       </div>
 
       <Card>
+
         <CardHeader>
-          <CardTitle>Upload document</CardTitle>
+          <CardTitle>Upload Document</CardTitle>
           <CardDescription>
-            Upload one file at a time to secure storage.
+            Select the document type before uploading.
           </CardDescription>
         </CardHeader>
 
         <CardContent>
+
           <form
-            className="grid gap-4 md:grid-cols-3"
+            className="grid gap-4 md:grid-cols-4"
             onSubmit={uploadDocument}
           >
+
             <div className="space-y-2">
-              <Label htmlFor="docName">
-                Document name
-              </Label>
-              <Input
-                id="docName"
-                value={docName}
-                onChange={(e) =>
-                  setDocName(e.target.value)
-                }
-                placeholder="Government ID"
-                required
-              />
+              <Label>Document Type</Label>
+
+              <Select
+                value={docType}
+                onValueChange={setDocType}
+              >
+
+                <SelectTrigger>
+                  <SelectValue placeholder="Select type" />
+                </SelectTrigger>
+
+                <SelectContent>
+                  {DOCUMENT_TYPES.map(t => (
+                    <SelectItem key={t.value} value={t.value}>
+                      {t.label}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+
+              </Select>
+
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="docFile">
-                File
-              </Label>
+              <Label>Document name</Label>
+
               <Input
-                id="docFile"
+                value={docName}
+                onChange={(e) => setDocName(e.target.value)}
+                placeholder="March Payroll"
+                required
+              />
+
+            </div>
+
+            <div className="space-y-2">
+              <Label>File</Label>
+
+              <Input
                 type="file"
                 onChange={(e) =>
-                  setFile(
-                    e.target.files?.[0] ?? null
-                  )
+                  setFile(e.target.files?.[0] ?? null)
                 }
                 required
               />
+
             </div>
 
             <div className="flex items-end">
+
               <Button
                 type="submit"
-                disabled={
-                  uploading ||
-                  !file ||
-                  !docName.trim()
-                }
                 className="w-full"
+                disabled={uploading || !docType || !file}
               >
-                {uploading
-                  ? 'Uploading...'
-                  : 'Upload'}
+                {uploading ? 'Uploading...' : 'Upload'}
               </Button>
+
             </div>
+
           </form>
+
         </CardContent>
+
       </Card>
 
       <Card>
+
         <CardHeader>
-          <CardTitle>All documents</CardTitle>
+          <CardTitle>All Documents</CardTitle>
           <CardDescription>
-            Sorted by newest first.
+            Newest files first
           </CardDescription>
         </CardHeader>
 
         <CardContent>
-          {loading ? (
-            <div className="text-muted-foreground">
-              Loading documents...
-            </div>
-          ) : (
-            <div className="w-full overflow-x-auto">
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>Date</TableHead>
-                    <TableHead>
-                      Document Name
-                    </TableHead>
-                    <TableHead className="text-right">
-                      File
-                    </TableHead>
-                  </TableRow>
-                </TableHeader>
 
-                <TableBody>
-                  {sortedDocuments.length ===
-                  0 ? (
-                    <TableRow>
-                      <TableCell
-                        colSpan={3}
-                        className="text-muted-foreground"
+          {loading ? (
+            <div>Loading documents...</div>
+          ) : (
+
+            <Table>
+
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Date</TableHead>
+                  <TableHead>Type</TableHead>
+                  <TableHead>Name</TableHead>
+                  <TableHead className="text-right">
+                    File
+                  </TableHead>
+                </TableRow>
+              </TableHeader>
+
+              <TableBody>
+
+                {sortedDocuments.length === 0 && (
+                  <TableRow>
+                    <TableCell colSpan={4}>
+                      No documents uploaded
+                    </TableCell>
+                  </TableRow>
+                )}
+
+                {sortedDocuments.map((doc) => (
+
+                  <TableRow key={doc.path}>
+
+                    <TableCell>
+                      {new Date(doc.createdAt).toLocaleDateString()}
+                    </TableCell>
+
+                    <TableCell>{doc.type}</TableCell>
+
+                    <TableCell>{doc.name}</TableCell>
+
+                    <TableCell className="text-right">
+                      <Button
+                        variant="link"
+                        onClick={() => openDocument(doc.path)}
                       >
-                        No documents uploaded yet.
-                      </TableCell>
-                    </TableRow>
-                  ) : (
-                    sortedDocuments.map(
-                      (document) => (
-                        <TableRow
-                          key={document.path}
-                        >
-                          <TableCell>
-                            {new Date(
-                              document.createdAt
-                            ).toLocaleDateString()}
-                          </TableCell>
-                          <TableCell>
-                            {document.name}
-                          </TableCell>
-                          <TableCell className="text-right">
-                            <Button
-                              variant="link"
-                              onClick={() =>
-                                openDocument(
-                                  document.path
-                                )
-                              }
-                            >
-                              Open
-                            </Button>
-                          </TableCell>
-                        </TableRow>
-                      )
-                    )
-                  )}
-                </TableBody>
-              </Table>
-            </div>
+                        Open
+                      </Button>
+                    </TableCell>
+
+                  </TableRow>
+
+                ))}
+
+              </TableBody>
+
+            </Table>
+
           )}
+
         </CardContent>
+
       </Card>
+
     </div>
-  );
+
+  )
+
 }

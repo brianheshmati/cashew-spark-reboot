@@ -38,6 +38,7 @@ interface Application {
   loan_purpose: string | null;
   promo_code: string | null;
   internal_user_id: string;
+  remarks: string | null;
 }
 
 interface NextPayment {
@@ -343,6 +344,19 @@ export function LoansView({ userId }: LoansViewProps) {
                   />
 
                 </div>
+
+                {/* Remarks */}
+
+                {app.remarks && (
+                  <div className="mt-4 p-4 rounded-xl bg-muted/40 border">
+                    <p className="text-xs text-muted-foreground uppercase mb-1">
+                      Application Notes
+                    </p>
+                    <p className="text-sm">
+                      {app.remarks}
+                    </p>
+                  </div>
+                )}
 
               </div>
             );

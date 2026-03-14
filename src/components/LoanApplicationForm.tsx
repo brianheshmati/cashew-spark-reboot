@@ -71,8 +71,90 @@ export default function LoanApplicationForm({ user }: Props) {
   const [hasPaidOffLoan, setHasPaidOffLoan] = useState(false)
   const [submitting, setSubmitting] = useState(false)
 
+  /*
+  DOCUMENT VALIDATION
+  */
+
+  const validateRequiredDocuments = async () => {
+
+    if (!user) {
+      return { valid: false, message: 'User not found' }
+    }
+
+    const { data, error } = await supabase.storage
+      .from('clients_documents')
+      .list(user.id)
+
+    if (error) {
+      return {
+        valid: false,
+        message: 'Unable to verify uploaded documents'
+      }
+    }
+
+    const now = new Date()
+    const thirtyDaysAgo = new Date()
+    thirtyDaysAgo.setDate(now.getDate() - 30)
+
+    let validPayslip = false
+    let validCertificate = false
+
+    for (const file of data || []) {
+
+      const parts = file.name.split('__')
+      const type = parts[1] || ''
+
+      const created = new Date(file.created_at || '')
+
+      if (created < thirtyDaysAgo) continue
+
+      if (type === 'payslip') validPayslip = true
+      if (type === 'certificate_employment') validCertificate = true
+
+    }
+
+    if (!validPayslip && !validCertificate) {
+
+      return {
+        valid: false,
+        message:
+          'Upload a recent payslip and Certificate of Employment (both within the last 30 days).'
+      }
+
+    }
+
+    if (!validPayslip) {
+
+      return {
+        valid: false,
+        message:
+          'Please upload a recent payslip (within the last 30 days).'
+      }
+
+    }
+
+    if (!validCertificate) {
+
+      return {
+        valid: false,
+        message:
+          'Please upload a Certificate of Employment issued within the last 30 days.'
+      }
+
+    }
+
+    return { valid: true }
+
+  }
+
+  /*
+  PROFILE FIELDS
+  */
+
   const requiredProfileFields = useMemo(() => {
+
     return [
+
       { label: 'First name', value: profile?.first_name || user?.user_metadata?.first_name || '' },
       { label: 'Last name', value: profile?.last_name || user?.user_metadata?.last_name || '' },
       { label: 'Email', value: profile?.email || user?.email || '' },
@@ -83,19 +165,23 @@ export default function LoanApplicationForm({ user }: Props) {
       { label: "Employer's address", value: profile?.employer_address || '' },
       { label: 'Position', value: profile?.position || profile?.job_title || profile?.occupation || '' },
       { label: 'Years employed', value: profile?.years_employed ?? '' }
+
     ]
+
   }, [profile, user])
 
   const missingProfileFields = useMemo(() => {
+
     return requiredProfileFields
       .filter(({ value }) => String(value).trim().length === 0)
       .map(({ label }) => label)
+
   }, [requiredProfileFields])
 
   const isProfileComplete = missingProfileFields.length === 0
 
   /*
-  Load profile
+  LOAD PROFILE
   */
 
   useEffect(() => {
@@ -110,7 +196,7 @@ export default function LoanApplicationForm({ user }: Props) {
         .eq('id', user.id)
         .order("created_at", { ascending: false })
         .limit(1)
-        .single();
+        .single()
 
       if (data) setProfile(data)
 
@@ -121,7 +207,7 @@ export default function LoanApplicationForm({ user }: Props) {
   }, [user])
 
   /*
-  Check loan eligibility
+  CHECK ELIGIBILITY
   */
 
   useEffect(() => {
@@ -146,7 +232,7 @@ export default function LoanApplicationForm({ user }: Props) {
   }, [user])
 
   /*
-  Term options
+  TERM OPTIONS
   */
 
   const terms = useMemo(() => {
@@ -158,7 +244,7 @@ export default function LoanApplicationForm({ user }: Props) {
   }, [loanType, hasPaidOffLoan])
 
   /*
-  Loan calculation
+  CALCULATION
   */
 
   const calculation = useMemo(() => {
@@ -173,7 +259,7 @@ export default function LoanApplicationForm({ user }: Props) {
   }, [loanAmount, loanTerm, loanType])
 
   /*
-  Submit application
+  SUBMIT
   */
 
   const submitApplication = async () => {
@@ -202,6 +288,24 @@ export default function LoanApplicationForm({ user }: Props) {
       return
     }
 
+    /*
+    DOCUMENT VALIDATION
+    */
+
+    const docCheck = await validateRequiredDocuments()
+
+    if (!docCheck.valid) {
+
+      toast({
+        title: 'Missing required documents',
+        description: docCheck.message,
+        variant: 'destructive'
+      })
+
+      return
+
+    }
+
     setSubmitting(true)
 
     try {
@@ -212,14 +316,12 @@ export default function LoanApplicationForm({ user }: Props) {
 
         personalInfo: {
 
-          firstName: profile?.first_name || user?.user_metadata?.first_name || '',
-          middleName: profile?.middle_name || user?.user_metadata?.middle_name || '',
-          lastName: profile?.last_name || user?.user_metadata?.last_name || '',
-
-          email: profile?.email || user?.email || '',
+          firstName: profile?.first_name || '',
+          middleName: profile?.middle_name || '',
+          lastName: profile?.last_name || '',
+          email: profile?.email || '',
           phone: profile?.phone || '',
           address: profile?.address || '',
-
           promoCode: promoCode || '',
           dateOfBirth: profile?.dob || '',
           referralCode: profile?.referral || ''
@@ -239,14 +341,12 @@ export default function LoanApplicationForm({ user }: Props) {
 
           monthlyIncome: String(profile?.income || 0),
           monthlyExpense: String(profile?.expense || 0),
-
           employmentLength: profile?.years_employed || '',
           employmentStatus: profile?.employment_status || '',
-
           company: profile?.employer_name || profile?.employer || '',
           employer_phone: profile?.employer_phone || '',
           employer_address: profile?.employer_address || '',
-          position: profile?.position || profile?.job_title || profile?.occupation || ''
+          position: profile?.position || profile?.occupation || ''
 
         }
 
@@ -287,8 +387,6 @@ export default function LoanApplicationForm({ user }: Props) {
   return (
 
     <div className="max-w-5xl mx-auto grid md:grid-cols-2 gap-6">
-
-      {/* Loan Form */}
 
       <Card>
 
@@ -414,8 +512,6 @@ export default function LoanApplicationForm({ user }: Props) {
 
       </Card>
 
-      {/* Summary */}
-
       <Card className="bg-muted/40 border-dashed">
 
         <CardHeader>
@@ -466,9 +562,7 @@ export default function LoanApplicationForm({ user }: Props) {
             disabled={submitting || !isProfileComplete}
             onClick={submitApplication}
           >
-
             {submitting ? 'Submitting...' : 'Submit Application'}
-
           </Button>
 
         </CardContent>
@@ -476,6 +570,7 @@ export default function LoanApplicationForm({ user }: Props) {
       </Card>
 
     </div>
+
   )
 
 }
