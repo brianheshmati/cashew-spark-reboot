@@ -5,6 +5,24 @@ This document outlines the first implementation steps for the new repository:
 - **Repo:** `https://github.com/brianheshmati/cashew-spark-backoffice.git`
 - **Goal:** Build a backoffice app for application review, underwriting, approval/rejection, loan creation, and payment scheduling.
 
+## Repository connection status
+
+The local git remote has been pointed to the new repository:
+
+```bash
+git remote add origin https://github.com/brianheshmati/cashew-spark-backoffice.git
+git remote -v
+```
+
+Expected remote output:
+
+```text
+origin  https://github.com/brianheshmati/cashew-spark-backoffice.git (fetch)
+origin  https://github.com/brianheshmati/cashew-spark-backoffice.git (push)
+```
+
+If your environment blocks outbound GitHub access, run the same commands from your local machine and then push this branch.
+
 ## 1) Recommended stack for the new repo
 
 Use the same proven frontend baseline from this project for rapid delivery:
