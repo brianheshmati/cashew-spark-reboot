@@ -337,18 +337,22 @@ export default function LoanApplicationForm({ user }: Props) {
 
         },
 
-        employmentInfo: {
+      employmentInfo: {
+        employmentLength: profile?.years_employed || '',
+        employmentStatus: profile?.employment_status || '',
+        company: profile?.employer_name || profile?.employer || '',
+        employer_phone: profile?.employer_phone || '',
+        employer_address: profile?.employer_address || '',
+        position: profile?.position || profile?.occupation || ''
+      },
 
-          monthlyIncome: String(profile?.income || 0),
-          monthlyExpense: String(profile?.expense || 0),
-          employmentLength: profile?.years_employed || '',
-          employmentStatus: profile?.employment_status || '',
-          company: profile?.employer_name || profile?.employer || '',
-          employer_phone: profile?.employer_phone || '',
-          employer_address: profile?.employer_address || '',
-          position: profile?.position || profile?.occupation || ''
-
-        }
+      financialInfo: {
+        bank_name: profile?.bank_name || '',
+        bank_account: profile?.bank_account || '',
+        monthly_income: String(profile?.income || 0),
+        monthly_expense: String(profile?.expense || 0),
+        pay_schedule: profile?.pay_schedule || ''
+      }
 
       }
 
