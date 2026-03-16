@@ -78,9 +78,7 @@ export function ProfileView(): JSX.Element {
     const { data } = await supabase
       .from("userProfiles")
       .select("*")
-      .eq("id", user.id)
-      .order("created_at", { ascending: false })
-      .limit(1)
+      .eq("internal_user_id", user.id)
       .single();
 
     const normalized: Profile = {
@@ -153,8 +151,10 @@ export function ProfileView(): JSX.Element {
       pay_schedule: editedProfile.pay_schedule,
     };
 
-    const { error } = await supabase.from("userProfiles").upsert(payload);
-
+    const { error } = await supabase
+      .from("userProfiles")
+      .upsert(payload, { onConflict: "internal_user_id" });
+      
     if (error) {
       toast({
         title: "Error",
