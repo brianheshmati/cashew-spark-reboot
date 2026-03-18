@@ -27,9 +27,10 @@ type DocumentRow = {
 
 interface DocumentsViewProps {
   user: User | null
+  internalUserId?: string
 }
 
-export function DocumentsView({ user }: DocumentsViewProps) {
+export function DocumentsView({ user, internalUserId }: DocumentsViewProps) {
 
   const [documents, setDocuments] = useState<DocumentRow[]>([])
   const [loading, setLoading] = useState(true)
@@ -41,7 +42,7 @@ export function DocumentsView({ user }: DocumentsViewProps) {
 
   const { toast } = useToast()
 
-  const folderPath = user ? user.id : null
+  const folderPath = internalUserId ?? user?.id ?? null
 
   const sortedDocuments = useMemo(
     () =>

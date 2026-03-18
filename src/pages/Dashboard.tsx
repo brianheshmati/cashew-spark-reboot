@@ -13,6 +13,7 @@ import { DocumentsView } from '@/components/dashboard/DocumentsView';
 import { supabase } from '@/integrations/supabase/client';
 import { User, Session } from '@supabase/supabase-js';
 import { useToast } from '@/hooks/use-toast';
+import { resolveInternalUserId } from '@/lib/internal-user';
 
 type DashboardView = 'overview' | 'profile' | 'loans' | 'transactions' | 'invite' | 'apply' | 'documents';
 
@@ -25,7 +26,11 @@ const Dashboard = () => {
   const location = useLocation();
   const { toast } = useToast();
   const localTestUserId = import.meta.env.VITE_LOCAL_TEST_USER_ID as string | undefined;
-  const overviewUserId = localTestUserId ?? user?.id;
+  const { effectiveUserId: overviewUserId, impersonatedUserId } = resolveInternalUserId({
+    authenticatedUserId: user?.id,
+    localTestUserId,
+    search: location.search
+  });
 
   const isProfileComplete = useCallback(async (currentUser: User): Promise<boolean> => {
     const { data } = await supabase
@@ -105,6 +110,15 @@ const Dashboard = () => {
     }
   }, [location.state]);
 
+  useEffect(() => {
+    if (impersonatedUserId) {
+      toast({
+        title: 'Impersonation active',
+        description: `Viewing data for uid: ${impersonatedUserId}`
+      });
+    }
+  }, [impersonatedUserId, toast]);
+
   const handleSignOut = async () => {
 
     try {
@@ -132,17 +146,17 @@ const Dashboard = () => {
       case 'overview':
         return overviewUserId ? <OverviewView userId={overviewUserId} /> : null;
       case 'profile':
-        return <ProfileView user={user} />;
+        return <ProfileView internalUserId={overviewUserId} />;
       case 'loans':
         return overviewUserId ? <LoansView userId={overviewUserId} /> : null;
       case 'transactions':
-        return <TransactionsView />;
+        return <TransactionsView internalUserId={overviewUserId} />;
       case 'invite':
-        return <InviteView />;
+        return <InviteView internalUserId={overviewUserId} />;
       case 'apply':
-        return <ApplyView user={user} />;
+        return <ApplyView user={user} internalUserId={overviewUserId} />;
       case 'documents':
-        return <DocumentsView user={user} />;
+        return <DocumentsView user={user} internalUserId={overviewUserId} />;
       default:
         return overviewUserId ? <OverviewView userId={overviewUserId} /> : null;
     }

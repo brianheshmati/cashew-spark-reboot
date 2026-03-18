@@ -15,7 +15,11 @@ interface ReferralUser {
   created_at: string
 }
 
-export function InviteView() {
+interface InviteViewProps {
+  internalUserId?: string;
+}
+
+export function InviteView({ internalUserId }: InviteViewProps) {
 
   const { toast } = useToast()
 
@@ -29,7 +33,7 @@ export function InviteView() {
 
   useEffect(() => {
     loadUser()
-  }, [])
+  }, [internalUserId])
 
   async function loadUser() {
 
@@ -37,10 +41,12 @@ export function InviteView() {
 
     if (!auth.user) return
 
+    const targetUserId = internalUserId ?? auth.user.id
+
     const { data: profile } = await supabase
       .from("userProfiles")
       .select("user_id")
-      .eq("internal_user_id", auth.user.id)
+      .eq("internal_user_id", targetUserId)
       .limit(1)
 
     if (!profile || profile.length === 0) return
