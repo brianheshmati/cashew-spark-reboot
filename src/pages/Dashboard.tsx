@@ -16,11 +16,25 @@ import { useToast } from '@/hooks/use-toast';
 import { resolveInternalUserId } from '@/lib/internal-user';
 
 type DashboardView = 'overview' | 'profile' | 'loans' | 'transactions' | 'invite' | 'apply' | 'documents';
+const DASHBOARD_LAST_VIEW_KEY = 'dashboard:last-view';
+const profileEntryKey = (userId: string) => `dashboard:profile-defaulted:${userId}`;
+
+const isDashboardView = (value: string | null): value is DashboardView =>
+  value === 'overview' ||
+  value === 'profile' ||
+  value === 'loans' ||
+  value === 'transactions' ||
+  value === 'invite' ||
+  value === 'apply' ||
+  value === 'documents';
 
 const Dashboard = () => {
   const [user, setUser] = useState<User | null>(null);
   const [session, setSession] = useState<Session | null>(null);
-  const [currentView, setCurrentView] = useState<DashboardView>('overview');
+  const [currentView, setCurrentView] = useState<DashboardView>(() => {
+    const savedView = localStorage.getItem(DASHBOARD_LAST_VIEW_KEY);
+    return isDashboardView(savedView) ? savedView : 'overview';
+  });
   const [loading, setLoading] = useState(true);
   const navigate = useNavigate();
   const location = useLocation();
@@ -64,8 +78,12 @@ const Dashboard = () => {
 
   const redirectToProfileIfIncomplete = useCallback(async (currentUser: User): Promise<void> => {
     const complete = await isProfileComplete(currentUser);
-    if (!complete) {
+    const entryKey = profileEntryKey(currentUser.id);
+    const hasDefaultedProfile = localStorage.getItem(entryKey) === 'true';
+
+    if (!complete && !hasDefaultedProfile) {
       setCurrentView('profile');
+      localStorage.setItem(entryKey, 'true');
     }
   }, [isProfileComplete]);
 
@@ -109,6 +127,10 @@ const Dashboard = () => {
       setCurrentView(locationView);
     }
   }, [location.state]);
+
+  useEffect(() => {
+    localStorage.setItem(DASHBOARD_LAST_VIEW_KEY, currentView);
+  }, [currentView]);
 
   useEffect(() => {
     if (impersonatedUserId) {
