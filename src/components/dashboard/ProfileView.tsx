@@ -48,7 +48,11 @@ interface Profile {
   pay_schedule: string | null;
 }
 
-export function ProfileView(): JSX.Element {
+interface ProfileViewProps {
+  internalUserId?: string;
+}
+
+export function ProfileView({ internalUserId }: ProfileViewProps): JSX.Element {
   const [authUser, setAuthUser] = useState<SupabaseUser | null>(null);
   const [profile, setProfile] = useState<Profile | null>(null);
   const [editedProfile, setEditedProfile] = useState<Profile | null>(null);
@@ -75,10 +79,12 @@ export function ProfileView(): JSX.Element {
 
     setAuthUser(user);
 
+    const targetUserId = internalUserId ?? user.id;
+
     const { data } = await supabase
       .from("userProfiles")
       .select("*")
-      .eq("internal_user_id", user.id)
+      .eq("internal_user_id", targetUserId)
       .single();
 
     const normalized: Profile = {
@@ -126,10 +132,12 @@ export function ProfileView(): JSX.Element {
   const handleSave = async (): Promise<void> => {
     if (!editedProfile || !authUser) return;
 
+    const targetUserId = internalUserId ?? authUser.id;
+
     setSaving(true);
 
     const payload = {
-      internal_user_id: authUser.id,
+      internal_user_id: targetUserId,
       first_name: editedProfile.first_name,
       last_name: editedProfile.last_name,
       email: editedProfile.email,
