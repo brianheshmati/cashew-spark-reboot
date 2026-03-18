@@ -50,9 +50,10 @@ interface NextPayment {
 
 interface LoansViewProps {
   userId: string;
+  userEmail?: string;
 }
 
-export function LoansView({ userId }: LoansViewProps) {
+export function LoansView({ userId, userEmail }: LoansViewProps) {
 
   const [loans, setLoans] = useState<Loan[]>([]);
   const [applications, setApplications] = useState<Application[]>([]);
@@ -64,7 +65,7 @@ export function LoansView({ userId }: LoansViewProps) {
 
   useEffect(() => {
     fetchData();
-  }, [userId]);
+  }, [userEmail, userId]);
 
   const fetchData = async () => {
 
@@ -76,11 +77,13 @@ export function LoansView({ userId }: LoansViewProps) {
         .eq('internal_user_id', userId)
         .order('created_at', { ascending: false });
 
-      const { data: applicationsData } = await supabase
-        .from('applications')
-        .select('*')
-        .eq('internal_user_id', userId)
-        .order('created_at', { ascending: false });
+      const { data: applicationsData } = userEmail
+        ? await supabase
+            .from('applications')
+            .select('*')
+            .ilike('email', userEmail)
+            .order('created_at', { ascending: false })
+        : { data: [] };
 
       const { data: nextDue } = await supabase
         .from('loan_transactions_1')

@@ -48,7 +48,12 @@ interface Profile {
   pay_schedule: string | null;
 }
 
-export function ProfileView(): JSX.Element {
+interface ProfileViewProps {
+  internalUserId?: string;
+  internalUserEmail?: string;
+}
+
+export function ProfileView({ internalUserId, internalUserEmail }: ProfileViewProps): JSX.Element {
   const [authUser, setAuthUser] = useState<SupabaseUser | null>(null);
   const [profile, setProfile] = useState<Profile | null>(null);
   const [editedProfile, setEditedProfile] = useState<Profile | null>(null);
@@ -59,7 +64,7 @@ export function ProfileView(): JSX.Element {
 
   useEffect(() => {
     void initialize();
-  }, []);
+  }, [internalUserEmail, internalUserId]);
 
   const initialize = async (): Promise<void> => {
     setLoading(true);
@@ -75,10 +80,16 @@ export function ProfileView(): JSX.Element {
 
     setAuthUser(user);
 
+    const lookupEmail = internalUserEmail ?? user.email;
+    if (!lookupEmail) {
+      setLoading(false);
+      return;
+    }
+
     const { data } = await supabase
       .from("userProfiles")
       .select("*")
-      .eq("internal_user_id", user.id)
+      .ilike("email", lookupEmail)
       .single();
 
     const normalized: Profile = {
@@ -126,10 +137,12 @@ export function ProfileView(): JSX.Element {
   const handleSave = async (): Promise<void> => {
     if (!editedProfile || !authUser) return;
 
+    const lookupEmail = internalUserEmail ?? authUser.email ?? editedProfile.email;
+
     setSaving(true);
 
     const payload = {
-      internal_user_id: authUser.id,
+      internal_user_id: internalUserId ?? authUser.id,
       first_name: editedProfile.first_name,
       last_name: editedProfile.last_name,
       email: editedProfile.email,
@@ -151,9 +164,14 @@ export function ProfileView(): JSX.Element {
       pay_schedule: editedProfile.pay_schedule,
     };
 
+    if (!lookupEmail) {
+      setSaving(false);
+      return;
+    }
+
     const { error } = await supabase
       .from("userProfiles")
-      .upsert(payload, { onConflict: "internal_user_id" });
+      .upsert({ ...payload, email: lookupEmail }, { onConflict: "email" });
       
     if (error) {
       toast({

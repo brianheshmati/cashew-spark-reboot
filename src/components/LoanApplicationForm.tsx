@@ -12,6 +12,8 @@ import { Wallet, FileText, Tag } from 'lucide-react'
 
 interface Props {
   user?: User | null
+  internalUserId?: string
+  internalUserEmail?: string
 }
 
 interface LoanCalculation {
@@ -56,7 +58,7 @@ function calculateLoan(amount: number, months: number, type: string): LoanCalcul
 
 }
 
-export default function LoanApplicationForm({ user }: Props) {
+export default function LoanApplicationForm({ user, internalUserId, internalUserEmail }: Props) {
 
   const { toast } = useToast()
 
@@ -77,13 +79,15 @@ export default function LoanApplicationForm({ user }: Props) {
 
   const validateRequiredDocuments = async () => {
 
-    if (!user) {
+    const targetUserId = internalUserId ?? user?.id
+
+    if (!targetUserId) {
       return { valid: false, message: 'User not found' }
     }
 
     const { data, error } = await supabase.storage
       .from('clients_documents')
-      .list(user.id)
+      .list(targetUserId)
 
     if (error) {
       return {
@@ -188,12 +192,17 @@ export default function LoanApplicationForm({ user }: Props) {
 
     const loadProfile = async () => {
 
-      if (!user) return
+      const targetUserId = internalUserId ?? user?.id
+
+      if (!targetUserId) return
+
+      const lookupEmail = internalUserEmail ?? user?.email
+      if (!lookupEmail) return
 
       const { data } = await supabase
         .from('userProfiles')
         .select('*')
-        .eq('internal_user_id', user.id)
+        .ilike('email', lookupEmail)
         .order("created_at", { ascending: false })
         .limit(1)
         .single()
@@ -204,7 +213,7 @@ export default function LoanApplicationForm({ user }: Props) {
 
     loadProfile()
 
-  }, [user])
+  }, [internalUserEmail, internalUserId, user])
 
   /*
   CHECK ELIGIBILITY
@@ -214,12 +223,14 @@ export default function LoanApplicationForm({ user }: Props) {
 
     const checkLoans = async () => {
 
-      if (!user) return
+      const targetUserId = internalUserId ?? user?.id
+
+      if (!targetUserId) return
 
       const { data } = await supabase
         .from('loans')
         .select('id')
-        .eq('internal_user_id', user.id)
+        .eq('internal_user_id', targetUserId)
         .eq('status', 'paid_off')
         .limit(1)
 
@@ -229,7 +240,7 @@ export default function LoanApplicationForm({ user }: Props) {
 
     checkLoans()
 
-  }, [user])
+  }, [internalUserId, user])
 
   /*
   TERM OPTIONS
@@ -312,7 +323,7 @@ export default function LoanApplicationForm({ user }: Props) {
 
       const payload = {
 
-        user_id: user?.id || '',
+        user_id: internalUserId ?? user?.id ?? '',
 
         personalInfo: {
 

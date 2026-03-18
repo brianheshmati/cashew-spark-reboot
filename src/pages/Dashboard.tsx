@@ -13,25 +13,60 @@ import { DocumentsView } from '@/components/dashboard/DocumentsView';
 import { supabase } from '@/integrations/supabase/client';
 import { User, Session } from '@supabase/supabase-js';
 import { useToast } from '@/hooks/use-toast';
+import { getInternalUserEmailFromSearch, resolveInternalUserId } from '@/lib/internal-user';
 
 type DashboardView = 'overview' | 'profile' | 'loans' | 'transactions' | 'invite' | 'apply' | 'documents';
+const DASHBOARD_LAST_VIEW_KEY = 'dashboard:last-view';
+const profileEntryKey = (userId: string) => `dashboard:profile-defaulted:${userId}`;
+
+const isDashboardView = (value: string | null): value is DashboardView =>
+  value === 'overview' ||
+  value === 'profile' ||
+  value === 'loans' ||
+  value === 'transactions' ||
+  value === 'invite' ||
+  value === 'apply' ||
+  value === 'documents';
 
 const Dashboard = () => {
   const [user, setUser] = useState<User | null>(null);
   const [session, setSession] = useState<Session | null>(null);
-  const [currentView, setCurrentView] = useState<DashboardView>('overview');
+  const [lookupEmail, setLookupEmail] = useState<string | null>(null);
+  const [currentView, setCurrentView] = useState<DashboardView>(() => {
+    const savedView = localStorage.getItem(DASHBOARD_LAST_VIEW_KEY);
+    return isDashboardView(savedView) ? savedView : 'overview';
+  });
   const [loading, setLoading] = useState(true);
   const navigate = useNavigate();
   const location = useLocation();
   const { toast } = useToast();
   const localTestUserId = import.meta.env.VITE_LOCAL_TEST_USER_ID as string | undefined;
-  const overviewUserId = localTestUserId ?? user?.id;
+  const { effectiveUserId: overviewUserId, impersonatedUserId } = resolveInternalUserId({
+    authenticatedUserId: user?.id,
+    localTestUserId,
+    search: location.search
+  });
+  const urlLookupEmail = getInternalUserEmailFromSearch(location.search);
+
+  useEffect(() => {
+    if (urlLookupEmail) {
+      setLookupEmail(urlLookupEmail);
+      return;
+    }
+
+    setLookupEmail(user?.email ?? null);
+  }, [urlLookupEmail, user]);
 
   const isProfileComplete = useCallback(async (currentUser: User): Promise<boolean> => {
+    const emailForLookup = lookupEmail ?? currentUser.email ?? '';
+    if (!emailForLookup) {
+      return false;
+    }
+
     const { data } = await supabase
       .from('userProfiles')
       .select('*')
-      .eq('id', currentUser.id)
+      .ilike('email', emailForLookup)
       .maybeSingle();
 
     const requiredValues = [
@@ -55,12 +90,16 @@ const Dashboard = () => {
     ];
 
     return requiredValues.every((value) => String(value).trim().length > 0);
-  }, []);
+  }, [lookupEmail]);
 
   const redirectToProfileIfIncomplete = useCallback(async (currentUser: User): Promise<void> => {
     const complete = await isProfileComplete(currentUser);
-    if (!complete) {
+    const entryKey = profileEntryKey(currentUser.id);
+    const hasDefaultedProfile = localStorage.getItem(entryKey) === 'true';
+
+    if (!complete && !hasDefaultedProfile) {
       setCurrentView('profile');
+      localStorage.setItem(entryKey, 'true');
     }
   }, [isProfileComplete]);
 
@@ -105,6 +144,19 @@ const Dashboard = () => {
     }
   }, [location.state]);
 
+  useEffect(() => {
+    localStorage.setItem(DASHBOARD_LAST_VIEW_KEY, currentView);
+  }, [currentView]);
+
+  useEffect(() => {
+    if (impersonatedUserId) {
+      toast({
+        title: 'Impersonation active',
+        description: `Viewing data for uid: ${impersonatedUserId}`
+      });
+    }
+  }, [impersonatedUserId, toast]);
+
   const handleSignOut = async () => {
 
     try {
@@ -132,17 +184,17 @@ const Dashboard = () => {
       case 'overview':
         return overviewUserId ? <OverviewView userId={overviewUserId} /> : null;
       case 'profile':
-        return <ProfileView user={user} />;
+        return <ProfileView internalUserId={overviewUserId} internalUserEmail={lookupEmail ?? undefined} />;
       case 'loans':
-        return overviewUserId ? <LoansView userId={overviewUserId} /> : null;
+        return overviewUserId ? <LoansView userId={overviewUserId} userEmail={lookupEmail ?? undefined} /> : null;
       case 'transactions':
-        return <TransactionsView />;
+        return <TransactionsView internalUserId={overviewUserId} />;
       case 'invite':
-        return <InviteView />;
+        return <InviteView internalUserId={overviewUserId} internalUserEmail={lookupEmail ?? undefined} />;
       case 'apply':
-        return <ApplyView user={user} />;
+        return <ApplyView user={user} internalUserId={overviewUserId} internalUserEmail={lookupEmail ?? undefined} />;
       case 'documents':
-        return <DocumentsView user={user} />;
+        return <DocumentsView user={user} internalUserId={overviewUserId} />;
       default:
         return overviewUserId ? <OverviewView userId={overviewUserId} /> : null;
     }

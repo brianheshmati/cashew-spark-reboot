@@ -58,7 +58,7 @@ const Auth = () => {
       const { data: profile, error } = await supabase
         .from("userProfiles")
         .select("user_id, referral")
-        .eq("internal_user_id", authUser.id)
+        .ilike("email", authUser.email ?? '')
         .limit(1)
 
       if (error || !profile || profile.length === 0) return
