@@ -26,7 +26,7 @@ interface Loan {
   status: string;
   loan_type: string | null;
   created_at: string;
-  internal_user_id: string;
+  email?: string;
 }
 
 interface Application {
@@ -37,7 +37,7 @@ interface Application {
   created_at: string;
   loan_purpose: string | null;
   promo_code: string | null;
-  internal_user_id: string;
+  email: string;
   remarks: string | null;
 }
 
@@ -49,11 +49,10 @@ interface NextPayment {
 }
 
 interface LoansViewProps {
-  userId: string;
   userEmail?: string;
 }
 
-export function LoansView({ userId, userEmail }: LoansViewProps) {
+export function LoansView({ userEmail }: LoansViewProps) {
 
   const [loans, setLoans] = useState<Loan[]>([]);
   const [applications, setApplications] = useState<Application[]>([]);
@@ -65,44 +64,61 @@ export function LoansView({ userId, userEmail }: LoansViewProps) {
 
   useEffect(() => {
     fetchData();
-  }, [userEmail, userId]);
+  }, [userEmail]);
 
   const fetchData = async () => {
 
+    if (!userEmail) {
+      setLoading(false);
+      return;
+    }
+
     try {
 
-      const { data: loansData } = await supabase
+      // 🔥 LOANS
+      const { data: loansData, error: loansError } = await supabase
         .from('user_loans_summary')
         .select('*')
-        .eq('internal_user_id', userId)
+        .ilike('email', userEmail)
         .order('created_at', { ascending: false });
 
-      const { data: applicationsData } = userEmail
-        ? await supabase
-            .from('applications')
-            .select('*')
-            .ilike('email', userEmail)
-            .order('created_at', { ascending: false })
-        : { data: [] };
+      if (loansError) throw loansError;
 
-      const { data: nextDue } = await supabase
-        .from('loan_transactions_1')
+      // 🔥 APPLICATIONS (VIEW)
+      const { data: applicationsData, error: appError } = await supabase
+        .from('applications_unconverted')
         .select('*')
-        .eq('internal_user_id', userId)
-        .eq('type', 'Installment')
-        .eq('is_fully_paid', false)
-        .order('date', { ascending: true })
-        .limit(1);
+        .ilike('email', userEmail)
+        .order('created_at', { ascending: false });
 
-      if (nextDue && nextDue.length > 0) {
+      if (appError) throw appError;
 
+      // 🔥 NEXT PAYMENT (based on loan_ids)
+      const loanIds = (loansData || []).map(l => l.loan_id);
+
+      let nextDueData: any[] = [];
+
+      if (loanIds.length > 0) {
+        const { data, error } = await supabase
+          .from('loan_transactions_1')
+          .select('*')
+          .in('loan_id', loanIds)
+          .eq('type', 'Installment')
+          .eq('is_fully_paid', false)
+          .order('date', { ascending: true })
+          .limit(1);
+
+        if (error) throw error;
+        nextDueData = data || [];
+      }
+
+      if (nextDueData.length > 0) {
         setNextPayment({
-          loan_id: nextDue[0].loan_id,
-          amount: nextDue[0].amount,
-          date: nextDue[0].date,
-          schedule_id: nextDue[0].schedule_id
+          loan_id: nextDueData[0].loan_id,
+          amount: nextDueData[0].amount,
+          date: nextDueData[0].date,
+          schedule_id: nextDueData[0].schedule_id
         });
-
       } else {
         setNextPayment(null);
       }
@@ -111,6 +127,8 @@ export function LoansView({ userId, userEmail }: LoansViewProps) {
       setApplications(applicationsData || []);
 
     } catch (err) {
+
+      console.error(err);
 
       toast({
         title: 'Error',
@@ -124,9 +142,7 @@ export function LoansView({ userId, userEmail }: LoansViewProps) {
   };
 
   const formatCurrency = (value: number | null | undefined) => {
-
     const safe = Number(value ?? 0);
-
     return `₱${safe.toLocaleString('en-PH', {
       minimumFractionDigits: 2,
       maximumFractionDigits: 2
@@ -140,7 +156,7 @@ export function LoansView({ userId, userEmail }: LoansViewProps) {
     normalize(loan.status) === 'active';
 
   const isActiveApplication = (app: Application) =>
-    !['closed', 'rejected', 'cancelled'].includes(normalize(app.status));
+    !['closed', 'duplicate', 'inactive'].includes(normalize(app.status));
 
   const formatStatus = (status: string) =>
     status.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase());
@@ -160,17 +176,10 @@ export function LoansView({ userId, userEmail }: LoansViewProps) {
     <div className="space-y-8">
 
       {/* HEADER */}
-
       <div className="flex justify-between items-center">
-
         <div>
-          <p className="text-sm text-muted-foreground">
-            Dashboard
-          </p>
-
-          <h1 className="text-3xl font-bold">
-            My Loans
-          </h1>
+          <p className="text-sm text-muted-foreground">Dashboard</p>
+          <h1 className="text-3xl font-bold">My Loans</h1>
         </div>
 
         <Button
@@ -182,27 +191,20 @@ export function LoansView({ userId, userEmail }: LoansViewProps) {
           <Plus className="h-4 w-4 mr-2" />
           Apply for New Loan
         </Button>
-
       </div>
 
-      {/* SUMMARY CARDS */}
-
+      {/* SUMMARY */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-
-        {/* Active Balance */}
 
         <Card className="rounded-2xl shadow-sm border">
           <CardContent className="p-6 flex justify-between items-center">
-
             <div>
               <p className="text-xs text-muted-foreground uppercase">
                 Active Balance
               </p>
-
               <p className="text-3xl font-semibold mt-2">
                 {formatCurrency(totalBalance)}
               </p>
-
               <p className="text-sm text-muted-foreground mt-1">
                 Across {activeLoans.length} active loans
               </p>
@@ -211,15 +213,11 @@ export function LoansView({ userId, userEmail }: LoansViewProps) {
             <div className="p-3 rounded-xl bg-primary/10">
               <DollarSign className="h-6 w-6 text-primary" />
             </div>
-
           </CardContent>
         </Card>
 
-        {/* NEXT PAYMENT */}
-
         <Card className="rounded-2xl shadow-sm border">
           <CardContent className="p-6">
-
             <p className="text-xs text-muted-foreground uppercase">
               Next Payment
             </p>
@@ -229,7 +227,6 @@ export function LoansView({ userId, userEmail }: LoansViewProps) {
                 <p className="text-3xl font-semibold mt-2">
                   {formatCurrency(nextPayment.amount)}
                 </p>
-
                 <p className="text-sm text-muted-foreground mt-1">
                   Due on {new Date(nextPayment.date).toLocaleDateString()}
                 </p>
@@ -250,202 +247,120 @@ export function LoansView({ userId, userEmail }: LoansViewProps) {
                 No upcoming payments
               </p>
             )}
-
           </CardContent>
         </Card>
 
-        {/* APPLICATION COUNT */}
-
         <Card className="rounded-2xl shadow-sm border">
           <CardContent className="p-6 flex justify-between items-center">
-
             <div>
-
               <p className="text-xs text-muted-foreground uppercase">
                 Applications
               </p>
-
               <p className="text-3xl font-semibold mt-2">
                 {applications.length}
               </p>
-
               <p className="text-sm text-muted-foreground mt-1">
-                Total submitted
+                Active applications only
               </p>
-
             </div>
 
             <div className="p-3 rounded-xl bg-green-100">
               <TrendingUp className="h-6 w-6 text-green-600" />
             </div>
-
           </CardContent>
         </Card>
 
       </div>
 
-      {/* APPLICATIONS SECTION */}
-
+      {/* APPLICATIONS */}
       {applications.length > 0 && (
-
         <div className="space-y-4">
+          <h2 className="text-xl font-semibold">Applications</h2>
 
-          <h2 className="text-xl font-semibold">
-            Applications
-          </h2>
-
-          {applications.map((app) => {
+          {applications.map(app => {
 
             const active = isActiveApplication(app);
 
             return (
-
               <div
                 key={app.id}
-                className={`rounded-2xl p-6 border transition shadow-sm ${
-                  active
-                    ? 'border-green-400 bg-green-50'
-                    : 'bg-white'
+                className={`rounded-2xl p-6 border shadow-sm ${
+                  active ? 'border-green-400 bg-green-50' : 'bg-white'
                 }`}
               >
-
-                <div className="flex justify-between items-center mb-4">
-
+                <div className="flex justify-between mb-4">
                   <div>
-
                     <p className="text-lg font-semibold">
                       Application #{app.app_id}
                     </p>
-
                     <p className="text-sm text-muted-foreground">
-                      Submitted {new Date(app.created_at).toLocaleDateString()}
+                      {new Date(app.created_at).toLocaleDateString()}
                     </p>
-
                   </div>
 
-                  <Badge>
-                    {formatStatus(app.status)}
-                  </Badge>
-
+                  <Badge>{formatStatus(app.status)}</Badge>
                 </div>
 
                 <div className="grid md:grid-cols-3 gap-6">
-
-                  <InfoBlock
-                    label="Requested Amount"
-                    value={formatCurrency(app.amount)}
-                  />
-
-                  <InfoBlock
-                    label="Purpose"
-                    value={app.loan_purpose || '—'}
-                  />
-
-                  <InfoBlock
-                    label="Promo Code"
-                    value={app.promo_code || '—'}
-                  />
-
+                  <InfoBlock label="Amount" value={formatCurrency(app.amount)} />
+                  <InfoBlock label="Purpose" value={app.loan_purpose || '—'} />
+                  <InfoBlock label="Promo" value={app.promo_code || '—'} />
                 </div>
 
-                {/* Remarks */}
-
                 {app.remarks && (
-                  <div className="mt-4 p-4 rounded-xl bg-muted/40 border">
+                  <div className="mt-4 p-4 bg-muted/40 rounded-xl border">
                     <p className="text-xs text-muted-foreground uppercase mb-1">
-                      Application Notes
+                      Notes
                     </p>
-                    <p className="text-sm">
-                      {app.remarks}
-                    </p>
+                    <p className="text-sm">{app.remarks}</p>
                   </div>
                 )}
-
               </div>
             );
           })}
-
         </div>
       )}
 
-      {/* LOANS SECTION */}
-
+      {/* LOANS */}
       {loans.length > 0 && (
-
         <div className="space-y-4">
+          <h2 className="text-xl font-semibold">Loans</h2>
 
-          <h2 className="text-xl font-semibold">
-            Loans
-          </h2>
-
-          {loans.map((loan) => {
+          {loans.map(loan => {
 
             const active = isActiveLoan(loan);
 
             return (
-
               <div
                 key={loan.loan_id}
-                className={`rounded-2xl p-6 border transition shadow-sm ${
-                  active
-                    ? 'border-primary/40 bg-primary/5'
-                    : 'bg-white'
+                className={`rounded-2xl p-6 border shadow-sm ${
+                  active ? 'border-primary/40 bg-primary/5' : 'bg-white'
                 }`}
               >
-
-                <div className="flex justify-between items-center mb-4">
-
+                <div className="flex justify-between mb-4">
                   <div>
-
                     <p className="text-lg font-semibold">
                       {loan.loan_type || 'Regular'}
                     </p>
-
                     <p className="text-sm text-muted-foreground">
                       ID: {loan.loan_id.slice(0, 8)}...
                     </p>
-
                   </div>
 
-                  <Badge>
-                    {formatStatus(loan.status)}
-                  </Badge>
-
+                  <Badge>{formatStatus(loan.status)}</Badge>
                 </div>
 
                 <div className="grid md:grid-cols-5 gap-6">
-
-                  <InfoBlock
-                    label="Loan Amount"
-                    value={formatCurrency(loan.loan_amount)}
-                  />
-
-                  <InfoBlock
-                    label="Current Balance"
-                    value={formatCurrency(loan.current_balance)}
-                  />
-
-                  <InfoBlock
-                    label="Monthly Payment"
-                    value={formatCurrency(loan.monthly_payment)}
-                  />
-
-                  <InfoBlock
-                    label="Interest Rate"
-                    value={`${Number(loan.interest_rate ?? 0) * 100}%`}
-                  />
-
-                  <InfoBlock
-                    label="Term"
-                    value={`${loan.term_months ?? 0} months`}
-                  />
-
+                  <InfoBlock label="Amount" value={formatCurrency(loan.loan_amount)} />
+                  <InfoBlock label="Balance" value={formatCurrency(loan.current_balance)} />
+                  <InfoBlock label="Monthly" value={formatCurrency(loan.monthly_payment)} />
+                  <InfoBlock label="Rate" value={`${Number(loan.interest_rate ?? 0) * 100}%`} />
+                  <InfoBlock label="Term" value={`${loan.term_months ?? 0} months`} />
                 </div>
 
               </div>
             );
           })}
-
         </div>
       )}
 
@@ -453,25 +368,11 @@ export function LoansView({ userId, userEmail }: LoansViewProps) {
   );
 }
 
-function InfoBlock({
-  label,
-  value
-}: {
-  label: string;
-  value: string;
-}) {
-
+function InfoBlock({ label, value }: { label: string; value: string }) {
   return (
     <div>
-
-      <p className="text-xs text-muted-foreground uppercase">
-        {label}
-      </p>
-
-      <p className="text-lg font-semibold mt-1">
-        {value}
-      </p>
-
+      <p className="text-xs text-muted-foreground uppercase">{label}</p>
+      <p className="text-lg font-semibold mt-1">{value}</p>
     </div>
   );
 }
