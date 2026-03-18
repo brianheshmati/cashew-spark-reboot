@@ -1,4 +1,5 @@
 export const INTERNAL_USER_ID_PARAM = 'uid';
+export const INTERNAL_USER_EMAIL_PARAM = 'email';
 
 interface ResolveInternalUserIdOptions {
   authenticatedUserId?: string | null;
@@ -11,6 +12,8 @@ interface ResolveInternalUserIdResult {
   impersonatedUserId?: string;
 }
 
+const isEmail = (value: string): boolean => /\S+@\S+\.\S+/.test(value);
+
 export const getInternalUserIdFromSearch = (search?: string): string | undefined => {
   if (!search) {
     return undefined;
@@ -20,6 +23,27 @@ export const getInternalUserIdFromSearch = (search?: string): string | undefined
   const value = params.get(INTERNAL_USER_ID_PARAM)?.trim();
 
   return value ? value : undefined;
+};
+
+export const getInternalUserEmailFromSearch = (search?: string): string | undefined => {
+  if (!search) {
+    return undefined;
+  }
+
+  const params = new URLSearchParams(search);
+  const explicitEmail = params.get(INTERNAL_USER_EMAIL_PARAM)?.trim();
+
+  if (explicitEmail) {
+    return explicitEmail;
+  }
+
+  const uid = params.get(INTERNAL_USER_ID_PARAM)?.trim();
+
+  if (uid && isEmail(uid)) {
+    return uid;
+  }
+
+  return undefined;
 };
 
 export const resolveInternalUserId = ({

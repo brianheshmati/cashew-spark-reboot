@@ -11,7 +11,7 @@ import { SidebarProvider } from '@/components/ui/sidebar';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 import { formatCurrency } from '@/lib/utils';
-import { resolveInternalUserId } from '@/lib/internal-user';
+import { getInternalUserEmailFromSearch, resolveInternalUserId } from '@/lib/internal-user';
 
 type DashboardView = 'overview' | 'profile' | 'loans' | 'transactions' | 'invite' | 'apply';
 
@@ -55,10 +55,21 @@ const LoanDetails = () => {
   const [nextPayment, setNextPayment] = useState<NextPayment | null>(null);
   const [payments, setPayments] = useState<LoanPayment[]>([]);
   const [profile, setProfile] = useState<ProfileName | null>(null);
+  const [lookupEmail, setLookupEmail] = useState<string | null>(null);
   const { effectiveUserId: userId } = resolveInternalUserId({
     authenticatedUserId: user?.id,
     search: location.search
   });
+  const urlLookupEmail = getInternalUserEmailFromSearch(location.search);
+
+  useEffect(() => {
+    if (urlLookupEmail) {
+      setLookupEmail(urlLookupEmail);
+      return;
+    }
+
+    setLookupEmail(user?.email ?? null);
+  }, [urlLookupEmail, user]);
 
   // =====================
   // AUTH
@@ -86,7 +97,7 @@ const LoanDetails = () => {
   // DATA
   // =====================
   useEffect(() => {
-    if (!userId || !loanId) return;
+    if (!userId || !loanId || !lookupEmail) return;
 
     const fetchLoanDetails = async () => {
       try {
@@ -114,7 +125,7 @@ const LoanDetails = () => {
           supabase
             .from('userProfiles')
             .select('first_name, last_name')
-            .eq('id', userId)
+            .ilike('email', lookupEmail)
             .maybeSingle(),
 
           supabase
@@ -147,7 +158,7 @@ const LoanDetails = () => {
     };
 
     fetchLoanDetails();
-  }, [loanId, userId, toast]);
+  }, [loanId, lookupEmail, userId, toast]);
 
   // =====================
   // DISPLAY NAME

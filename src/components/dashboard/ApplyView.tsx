@@ -4,9 +4,10 @@ import LoanApplicationForm from '@/components/LoanApplicationForm';
 interface ApplyViewProps {
   user: User | null;
   internalUserId?: string;
+  internalUserEmail?: string;
 }
 
-export function ApplyView({ user, internalUserId }: ApplyViewProps) {
+export function ApplyView({ user, internalUserId, internalUserEmail }: ApplyViewProps) {
   return (
     <div className="space-y-6">
       <div className="text-center space-y-2">
@@ -16,7 +17,7 @@ export function ApplyView({ user, internalUserId }: ApplyViewProps) {
         </p>
       </div>
 
-      <LoanApplicationForm user={user} internalUserId={internalUserId} />
+      <LoanApplicationForm user={user} internalUserId={internalUserId} internalUserEmail={internalUserEmail} />
     </div>
   );
 }

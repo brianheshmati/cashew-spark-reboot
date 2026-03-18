@@ -13,6 +13,7 @@ import { Wallet, FileText, Tag } from 'lucide-react'
 interface Props {
   user?: User | null
   internalUserId?: string
+  internalUserEmail?: string
 }
 
 interface LoanCalculation {
@@ -57,7 +58,7 @@ function calculateLoan(amount: number, months: number, type: string): LoanCalcul
 
 }
 
-export default function LoanApplicationForm({ user, internalUserId }: Props) {
+export default function LoanApplicationForm({ user, internalUserId, internalUserEmail }: Props) {
 
   const { toast } = useToast()
 
@@ -195,10 +196,13 @@ export default function LoanApplicationForm({ user, internalUserId }: Props) {
 
       if (!targetUserId) return
 
+      const lookupEmail = internalUserEmail ?? user?.email
+      if (!lookupEmail) return
+
       const { data } = await supabase
         .from('userProfiles')
         .select('*')
-        .eq('internal_user_id', targetUserId)
+        .ilike('email', lookupEmail)
         .order("created_at", { ascending: false })
         .limit(1)
         .single()
@@ -209,7 +213,7 @@ export default function LoanApplicationForm({ user, internalUserId }: Props) {
 
     loadProfile()
 
-  }, [internalUserId, user])
+  }, [internalUserEmail, internalUserId, user])
 
   /*
   CHECK ELIGIBILITY
