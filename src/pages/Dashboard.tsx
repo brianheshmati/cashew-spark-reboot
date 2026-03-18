@@ -13,19 +13,38 @@ import { DocumentsView } from '@/components/dashboard/DocumentsView';
 import { supabase } from '@/integrations/supabase/client';
 import { User, Session } from '@supabase/supabase-js';
 import { useToast } from '@/hooks/use-toast';
+import { resolveInternalUserId } from '@/lib/internal-user';
 
 type DashboardView = 'overview' | 'profile' | 'loans' | 'transactions' | 'invite' | 'apply' | 'documents';
+const DASHBOARD_LAST_VIEW_KEY = 'dashboard:last-view';
+const profileEntryKey = (userId: string) => `dashboard:profile-defaulted:${userId}`;
+
+const isDashboardView = (value: string | null): value is DashboardView =>
+  value === 'overview' ||
+  value === 'profile' ||
+  value === 'loans' ||
+  value === 'transactions' ||
+  value === 'invite' ||
+  value === 'apply' ||
+  value === 'documents';
 
 const Dashboard = () => {
   const [user, setUser] = useState<User | null>(null);
   const [session, setSession] = useState<Session | null>(null);
-  const [currentView, setCurrentView] = useState<DashboardView>('overview');
+  const [currentView, setCurrentView] = useState<DashboardView>(() => {
+    const savedView = localStorage.getItem(DASHBOARD_LAST_VIEW_KEY);
+    return isDashboardView(savedView) ? savedView : 'overview';
+  });
   const [loading, setLoading] = useState(true);
   const navigate = useNavigate();
   const location = useLocation();
   const { toast } = useToast();
   const localTestUserId = import.meta.env.VITE_LOCAL_TEST_USER_ID as string | undefined;
-  const overviewUserId = localTestUserId ?? user?.id;
+  const { effectiveUserId: overviewUserId, impersonatedUserId } = resolveInternalUserId({
+    authenticatedUserId: user?.id,
+    localTestUserId,
+    search: location.search
+  });
 
   const isProfileComplete = useCallback(async (currentUser: User): Promise<boolean> => {
     const { data } = await supabase
@@ -59,8 +78,12 @@ const Dashboard = () => {
 
   const redirectToProfileIfIncomplete = useCallback(async (currentUser: User): Promise<void> => {
     const complete = await isProfileComplete(currentUser);
-    if (!complete) {
+    const entryKey = profileEntryKey(currentUser.id);
+    const hasDefaultedProfile = localStorage.getItem(entryKey) === 'true';
+
+    if (!complete && !hasDefaultedProfile) {
       setCurrentView('profile');
+      localStorage.setItem(entryKey, 'true');
     }
   }, [isProfileComplete]);
 
@@ -105,6 +128,19 @@ const Dashboard = () => {
     }
   }, [location.state]);
 
+  useEffect(() => {
+    localStorage.setItem(DASHBOARD_LAST_VIEW_KEY, currentView);
+  }, [currentView]);
+
+  useEffect(() => {
+    if (impersonatedUserId) {
+      toast({
+        title: 'Impersonation active',
+        description: `Viewing data for uid: ${impersonatedUserId}`
+      });
+    }
+  }, [impersonatedUserId, toast]);
+
   const handleSignOut = async () => {
 
     try {
@@ -132,17 +168,17 @@ const Dashboard = () => {
       case 'overview':
         return overviewUserId ? <OverviewView userId={overviewUserId} /> : null;
       case 'profile':
-        return <ProfileView user={user} />;
+        return <ProfileView internalUserId={overviewUserId} />;
       case 'loans':
         return overviewUserId ? <LoansView userId={overviewUserId} /> : null;
       case 'transactions':
-        return <TransactionsView />;
+        return <TransactionsView internalUserId={overviewUserId} />;
       case 'invite':
-        return <InviteView />;
+        return <InviteView internalUserId={overviewUserId} />;
       case 'apply':
-        return <ApplyView user={user} />;
+        return <ApplyView user={user} internalUserId={overviewUserId} />;
       case 'documents':
-        return <DocumentsView user={user} />;
+        return <DocumentsView user={user} internalUserId={overviewUserId} />;
       default:
         return overviewUserId ? <OverviewView userId={overviewUserId} /> : null;
     }

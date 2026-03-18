@@ -41,7 +41,11 @@ interface LoanTransaction {
 
 const normalize = (v: unknown) => String(v ?? '').trim().toLowerCase();
 
-export function TransactionsView() {
+interface TransactionsViewProps {
+  internalUserId?: string;
+}
+
+export function TransactionsView({ internalUserId }: TransactionsViewProps) {
   const [transactions, setTransactions] = useState<LoanTransaction[]>([]);
   const [loading, setLoading] = useState(true);
   const [user, setUser] = useState<any>(null);
@@ -52,7 +56,7 @@ export function TransactionsView() {
 
   useEffect(() => {
     initialize();
-  }, []);
+  }, [internalUserId]);
 
   const initialize = async () => {
     const { data: userData } = await supabase.auth.getUser();
@@ -64,7 +68,7 @@ export function TransactionsView() {
       return;
     }
 
-    fetchTransactions(authUser.id);
+    fetchTransactions(internalUserId ?? authUser.id);
   };
 
   const fetchTransactions = async (userId: string) => {
