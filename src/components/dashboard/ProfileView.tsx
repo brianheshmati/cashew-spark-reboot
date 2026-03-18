@@ -2,9 +2,9 @@ import { useState, useEffect } from "react";
 import {
   Card,
   CardContent,
-  CardDescription,
   CardHeader,
   CardTitle,
+  CardDescription,
 } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -48,571 +48,243 @@ interface Profile {
   pay_schedule: string | null;
 }
 
-interface ProfileViewProps {
+interface Props {
   internalUserId?: string;
   internalUserEmail?: string;
 }
 
-export function ProfileView({ internalUserId, internalUserEmail }: ProfileViewProps): JSX.Element {
+export function ProfileView({ internalUserId, internalUserEmail }: Props) {
   const [authUser, setAuthUser] = useState<SupabaseUser | null>(null);
   const [profile, setProfile] = useState<Profile | null>(null);
-  const [editedProfile, setEditedProfile] = useState<Profile | null>(null);
-  const [isEditing, setIsEditing] = useState<boolean>(false);
-  const [loading, setLoading] = useState<boolean>(true);
-  const [saving, setSaving] = useState<boolean>(false);
+  const [edited, setEdited] = useState<Profile | null>(null);
+  const [editing, setEditing] = useState(false);
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
   const { toast } = useToast();
 
   useEffect(() => {
-    void initialize();
-  }, [internalUserEmail, internalUserId]);
+    init();
+  }, [internalUserEmail]);
 
-  const initialize = async (): Promise<void> => {
+  const init = async () => {
     setLoading(true);
 
     const {
       data: { user },
     } = await supabase.auth.getUser();
 
-    if (!user) {
-      setLoading(false);
-      return;
-    }
+    if (!user) return;
 
     setAuthUser(user);
 
-    const lookupEmail = internalUserEmail ?? user.email;
-    if (!lookupEmail) {
-      setLoading(false);
-      return;
-    }
+    const email = internalUserEmail ?? user.email;
 
     const { data } = await supabase
       .from("userProfiles")
       .select("*")
-      .ilike("email", lookupEmail)
-      .single();
+      .ilike("email", email)
+      .order("created_at", { ascending: false })
+      .limit(1)
+      .maybeSingle();
 
     const normalized: Profile = {
       first_name: data?.first_name ?? "",
       last_name: data?.last_name ?? "",
-      email: data?.email ?? user.email ?? "",
-      phone: data?.phone || null,
-      address: data?.address || null,
-
-      employer_name: data?.employer || null,
-      employer_address: data?.employer_address || null,
-      employer_phone: data?.employer_phone || null,
-
-      position: data?.occupation || null,
-
-      years_employed:
-        data?.years_employed !== null && data?.years_employed !== undefined
-          ? String(data.years_employed)
-          : null,
-
-      dob: data?.dob || null,
-      facebook: data?.facebook || null,
-
-      bank_name: data?.bank_name || null,
-      bank_account_number: data?.bank_account || null,
-
-      income:
-        data?.income !== null && data?.income !== undefined
-          ? String(data.income)
-          : null,
-
-      expense:
-        data?.expense !== null && data?.expense !== undefined
-          ? String(data.expense)
-          : null,
-
-      pay_schedule: data?.pay_schedule || null,
+      email: data?.email ?? "",
+      phone: data?.phone ?? null,
+      address: data?.address ?? null,
+      employer_name: data?.employer ?? null,
+      employer_address: data?.employer_address ?? null,
+      employer_phone: data?.employer_phone ?? null,
+      position: data?.occupation ?? null,
+      years_employed: data?.years_employed?.toString() ?? null,
+      dob: data?.dob ?? null,
+      facebook: data?.facebook ?? null,
+      bank_name: data?.bank_name ?? null,
+      bank_account_number: data?.bank_account ?? null,
+      income: data?.income?.toString() ?? null,
+      expense: data?.expense?.toString() ?? null,
+      pay_schedule: data?.pay_schedule ?? null,
     };
 
     setProfile(normalized);
-    setEditedProfile(normalized);
+    setEdited(normalized);
     setLoading(false);
   };
 
-  const handleSave = async (): Promise<void> => {
-    if (!editedProfile || !authUser) return;
+  const handleChange = (field: keyof Profile, value: string) => {
+    if (!edited) return;
+    setEdited({ ...edited, [field]: value || null });
+  };
 
-    const lookupEmail = internalUserEmail ?? authUser.email ?? editedProfile.email;
+  const save = async () => {
+    if (!edited || !authUser) return;
 
     setSaving(true);
 
+    const email =
+      internalUserEmail ?? authUser.email ?? edited.email;
+
     const payload = {
       internal_user_id: internalUserId ?? authUser.id,
-      first_name: editedProfile.first_name,
-      last_name: editedProfile.last_name,
-      email: editedProfile.email,
-      phone: editedProfile.phone,
-      address: editedProfile.address,
-      employer: editedProfile.employer_name,
-      employer_phone: editedProfile.employer_phone,
-      employer_address: editedProfile.employer_address,
-      occupation: editedProfile.position,
-      years_employed: editedProfile.years_employed
-        ? Number(editedProfile.years_employed)
+      first_name: edited.first_name,
+      last_name: edited.last_name,
+      email,
+      phone: edited.phone,
+      address: edited.address,
+      employer: edited.employer_name,
+      employer_phone: edited.employer_phone,
+      employer_address: edited.employer_address,
+      occupation: edited.position,
+      years_employed: edited.years_employed
+        ? Number(edited.years_employed)
         : null,
-      dob: editedProfile.dob,
-      facebook: editedProfile.facebook,
-      bank_name: editedProfile.bank_name,
-      bank_account: editedProfile.bank_account_number,
-      income: editedProfile.income ? Number(editedProfile.income) : null,
-      expense: editedProfile.expense ? Number(editedProfile.expense) : null,
-      pay_schedule: editedProfile.pay_schedule,
+      dob: edited.dob,
+      facebook: edited.facebook,
+      bank_name: edited.bank_name,
+      bank_account: edited.bank_account_number,
+      income: edited.income ? Number(edited.income) : null,
+      expense: edited.expense ? Number(edited.expense) : null,
+      pay_schedule: edited.pay_schedule,
     };
-
-    if (!lookupEmail) {
-      setSaving(false);
-      return;
-    }
 
     const { error } = await supabase
       .from("userProfiles")
-      .upsert({ ...payload, email: lookupEmail }, { onConflict: "email" });
-      
+      .update(payload)
+      .ilike("email", email);
+
     if (error) {
-      toast({
-        title: "Error",
-        description: "Failed to update profile",
-        variant: "destructive",
-      });
+      toast({ title: "Error saving", variant: "destructive" });
     } else {
-      setProfile(editedProfile);
-      setIsEditing(false);
-      toast({
-        title: "Success",
-        description: "Profile updated successfully",
-      });
+      setProfile(edited);
+      setEditing(false);
+      toast({ title: "Profile updated" });
     }
 
     setSaving(false);
   };
 
-  const handleCancel = (): void => {
-    setEditedProfile(profile);
-    setIsEditing(false);
-  };
-
-  const handleInputChange = (
-    field: keyof Profile,
-    value: string
-  ): void => {
-    if (!editedProfile) return;
-
-    setEditedProfile({
-      ...editedProfile,
-      [field]: value || null,
-    });
-  };
-
-  if (loading) {
-    return (
-      <div className="space-y-6">
-        <h1 className="text-3xl font-bold text-foreground">Profile</h1>
-        <div className="text-center text-muted-foreground">
-          Loading profile...
-        </div>
-      </div>
-    );
-  }
-
-  if (!authUser) {
-    return (
-      <div className="space-y-6">
-        <h1 className="text-3xl font-bold text-foreground">Profile</h1>
-        <div className="text-center text-muted-foreground">
-          No authenticated user.
-        </div>
-      </div>
-    );
-  }
+  if (loading) return <div>Loading...</div>;
+  if (!profile) return <div>No profile found</div>;
 
   return (
     <div className="space-y-6">
-      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-        <h1 className="text-3xl font-bold text-foreground">Profile</h1>
+      <div className="flex justify-between">
+        <h1 className="text-3xl font-bold">Profile</h1>
 
-        {!isEditing ? (
-          <Button onClick={() => setIsEditing(true)} variant="outline">
-            <Edit className="h-4 w-4 mr-2" />
-            Edit Profile
+        {!editing ? (
+          <Button onClick={() => setEditing(true)}>
+            <Edit className="h-4 w-4 mr-2" /> Edit
           </Button>
         ) : (
-          <div className="flex flex-col gap-2 sm:flex-row sm:space-x-2">
-            <Button onClick={handleSave} disabled={saving}>
+          <div className="flex gap-2">
+            <Button onClick={save} disabled={saving}>
               <Save className="h-4 w-4 mr-2" />
               {saving ? "Saving..." : "Save"}
             </Button>
-            <Button onClick={handleCancel} variant="outline">
-              <X className="h-4 w-4 mr-2" />
-              Cancel
+            <Button onClick={() => setEditing(false)} variant="outline">
+              <X className="h-4 w-4 mr-2" /> Cancel
             </Button>
           </div>
         )}
       </div>
 
       <div className="grid md:grid-cols-2 gap-6">
-        {/* Personal Information */}
+        {/* PERSONAL */}
         <Card>
           <CardHeader>
-            <CardTitle className="flex items-center">
-              <UserIcon className="h-5 w-5 mr-2" />
-              Personal Information
+            <CardTitle>
+              <UserIcon className="inline mr-2" />
+              Personal
             </CardTitle>
-            <CardDescription>
-              Your basic personal details
-            </CardDescription>
           </CardHeader>
+          <CardContent className="space-y-3">
+            <InputField label="First Name" value={profile.first_name} edit={editing} onChange={(v) => handleChange("first_name", v)} />
+            <InputField label="Last Name" value={profile.last_name} edit={editing} onChange={(v) => handleChange("last_name", v)} />
 
-          <CardContent className="space-y-4">
-            <div className="grid grid-cols-2 gap-4">
-              <div className="space-y-2">
-                <Label>First Name</Label>
-                {isEditing ? (
-                  <Input
-                    value={editedProfile?.first_name ?? ""}
-                    onChange={(e) =>
-                      handleInputChange("first_name", e.target.value)
-                    }
-                  />
-                ) : (
-                  <div className="p-3 bg-muted rounded-md">
-                    {profile?.first_name || "Not provided"}
-                  </div>
-                )}
-              </div>
-
-              <div className="space-y-2">
-                <Label>Last Name</Label>
-                {isEditing ? (
-                  <Input
-                    value={editedProfile?.last_name ?? ""}
-                    onChange={(e) =>
-                      handleInputChange("last_name", e.target.value)
-                    }
-                  />
-                ) : (
-                  <div className="p-3 bg-muted rounded-md">
-                    {profile?.last_name || "Not provided"}
-                  </div>
-                )}
-              </div>
+            <div className="p-3 bg-muted rounded flex justify-between">
+              {profile.email}
+              <Badge>Verified</Badge>
             </div>
 
-            <div className="space-y-2">
-              <Label className="flex items-center">
-                <Mail className="h-4 w-4 mr-2" />
-                Email
-              </Label>
-              <div className="p-3 bg-muted rounded-md flex items-center justify-between">
-                {profile?.email}
-                <Badge variant="secondary">Verified</Badge>
-              </div>
-            </div>
-
-            <div className="space-y-2">
-              <Label className="flex items-center">
-                <Phone className="h-4 w-4 mr-2" />
-                Phone Number
-              </Label>
-              {isEditing ? (
-                <Input
-                  value={editedProfile?.phone ?? ""}
-                  onChange={(e) =>
-                    handleInputChange("phone", e.target.value)
-                  }
-                  type="tel"
-                />
-              ) : (
-                <div className="p-3 bg-muted rounded-md">
-                  {profile?.phone || "Not provided"}
-                </div>
-              )}
-            </div>
-
-            <div className="space-y-2">
-              <Label className="flex items-center">
-                <CalendarDays className="h-4 w-4 mr-2" />
-                Date of Birth
-              </Label>
-              {isEditing ? (
-                <Input
-                  value={editedProfile?.dob ?? ""}
-                  onChange={(e) =>
-                    handleInputChange("dob", e.target.value)
-                  }
-                  type="date"
-                />
-              ) : (
-                <div className="p-3 bg-muted rounded-md">
-                  {profile?.dob || "Not provided"}
-                </div>
-              )}
-            </div>
-
-            <div className="space-y-2">
-              <Label>Facebook Profile Link</Label>
-              {isEditing ? (
-                <Input
-                  value={editedProfile?.facebook ?? ""}
-                  onChange={(e) =>
-                    handleInputChange("facebook", e.target.value)
-                  }
-                  type="url"
-                  placeholder="https://facebook.com/your-profile"
-                />
-              ) : (
-                <div className="p-3 bg-muted rounded-md break-all">
-                  {profile?.facebook || "Not provided"}
-                </div>
-              )}
-            </div>
+            <InputField label="Phone" value={profile.phone} edit={editing} onChange={(v) => handleChange("phone", v)} />
+            <InputField label="DOB" value={profile.dob} edit={editing} type="date" onChange={(v) => handleChange("dob", v)} />
           </CardContent>
         </Card>
 
-        {/* Address */}
+        {/* ADDRESS */}
         <Card>
           <CardHeader>
-            <CardTitle className="flex items-center">
-              <MapPin className="h-5 w-5 mr-2" />
-              Address Information
+            <CardTitle>
+              <MapPin className="inline mr-2" />
+              Address
             </CardTitle>
-            <CardDescription>
-              Your current address details
-            </CardDescription>
           </CardHeader>
-
           <CardContent>
-            <div className="space-y-2">
-              <Label>Address (3 lines)</Label>
-              {isEditing ? (
-                <Textarea
-                  value={editedProfile?.address ?? ""}
-                  onChange={(e) =>
-                    handleInputChange("address", e.target.value)
-                  }
-                  rows={3}
-                />
-              ) : (
-                <div className="p-3 bg-muted rounded-md whitespace-pre-line">
-                  {profile?.address || "Not provided"}
-                </div>
-              )}
-            </div>
+            <TextareaField value={profile.address} edit={editing} onChange={(v) => handleChange("address", v)} />
           </CardContent>
         </Card>
 
-        {/* Employment */}
+        {/* EMPLOYMENT */}
         <Card className="md:col-span-2">
           <CardHeader>
-            <CardTitle className="flex items-center">
-              <Briefcase className="h-5 w-5 mr-2" />
+            <CardTitle>
+              <Briefcase className="inline mr-2" />
               Employment
             </CardTitle>
-            <CardDescription>
-              Your employer and position details
-            </CardDescription>
           </CardHeader>
-
           <CardContent className="grid md:grid-cols-2 gap-4">
-            <div className="space-y-2">
-              <Label>Employer's Name</Label>
-              {isEditing ? (
-                <Input
-                  value={editedProfile?.employer_name ?? ""}
-                  onChange={(e) =>
-                    handleInputChange("employer_name", e.target.value)
-                  }
-                />
-              ) : (
-                <div className="p-3 bg-muted rounded-md">
-                  {profile?.employer_name || "Not provided"}
-                </div>
-              )}
-            </div>
-
-            <div className="space-y-2">
-              <Label>Employer's Phone Number</Label>
-              {isEditing ? (
-                <Input
-                  value={editedProfile?.employer_phone ?? ""}
-                  onChange={(e) =>
-                    handleInputChange("employer_phone", e.target.value)
-                  }
-                  type="tel"
-                />
-              ) : (
-                <div className="p-3 bg-muted rounded-md">
-                  {profile?.employer_phone || "Not provided"}
-                </div>
-              )}
-            </div>
-
-            <div className="space-y-2 md:col-span-2">
-              <Label>Employer's Address</Label>
-              {isEditing ? (
-                <Textarea
-                  value={editedProfile?.employer_address ?? ""}
-                  onChange={(e) =>
-                    handleInputChange(
-                      "employer_address",
-                      e.target.value
-                    )
-                  }
-                  rows={3}
-                />
-              ) : (
-                <div className="p-3 bg-muted rounded-md whitespace-pre-line">
-                  {profile?.employer_address || "Not provided"}
-                </div>
-              )}
-            </div>
-
-            <div className="space-y-2">
-              <Label>Position</Label>
-              {isEditing ? (
-                <Input
-                  value={editedProfile?.position ?? ""}
-                  onChange={(e) =>
-                    handleInputChange("position", e.target.value)
-                  }
-                />
-              ) : (
-                <div className="p-3 bg-muted rounded-md">
-                  {profile?.position || "Not provided"}
-                </div>
-              )}
-            </div>
-
-            <div className="space-y-2">
-              <Label>Years Employed</Label>
-              {isEditing ? (
-                <Input
-                  value={editedProfile?.years_employed ?? ""}
-                  onChange={(e) =>
-                    handleInputChange(
-                      "years_employed",
-                      e.target.value
-                    )
-                  }
-                  type="number"
-                  min="0"
-                />
-              ) : (
-                <div className="p-3 bg-muted rounded-md">
-                  {profile?.years_employed || "Not provided"}
-                </div>
-              )}
-            </div>
+            <InputField label="Employer" value={profile.employer_name} edit={editing} onChange={(v) => handleChange("employer_name", v)} />
+            <InputField label="Employer Phone" value={profile.employer_phone} edit={editing} onChange={(v) => handleChange("employer_phone", v)} />
+            <TextareaField label="Employer Address" value={profile.employer_address} edit={editing} onChange={(v) => handleChange("employer_address", v)} />
+            <InputField label="Position" value={profile.position} edit={editing} onChange={(v) => handleChange("position", v)} />
+            <InputField label="Years" value={profile.years_employed} edit={editing} onChange={(v) => handleChange("years_employed", v)} />
           </CardContent>
         </Card>
 
-        {/* Financial Information */}
+        {/* FINANCIAL */}
         <Card className="md:col-span-2">
           <CardHeader>
-            <CardTitle className="flex items-center">
-              <Landmark className="h-5 w-5 mr-2" />
-              Financial Information
+            <CardTitle>
+              <Landmark className="inline mr-2" />
+              Financial
             </CardTitle>
-            <CardDescription>
-              Your banking and cash flow details
-            </CardDescription>
           </CardHeader>
-
           <CardContent className="grid md:grid-cols-2 gap-4">
-            <div className="space-y-2">
-              <Label>The name of your bank</Label>
-              {isEditing ? (
-                <Input
-                  value={editedProfile?.bank_name ?? ""}
-                  onChange={(e) =>
-                    handleInputChange("bank_name", e.target.value)
-                  }
-                />
-              ) : (
-                <div className="p-3 bg-muted rounded-md">
-                  {profile?.bank_name || "Not provided"}
-                </div>
-              )}
-            </div>
-
-            <div className="space-y-2">
-              <Label>Your bank account number (to deposit the funds)</Label>
-              {isEditing ? (
-                <Input
-                  value={editedProfile?.bank_account_number ?? ""}
-                  onChange={(e) =>
-                    handleInputChange("bank_account_number", e.target.value)
-                  }
-                />
-              ) : (
-                <div className="p-3 bg-muted rounded-md">
-                  {profile?.bank_account_number || "Not provided"}
-                </div>
-              )}
-            </div>
-
-            <div className="space-y-2">
-              <Label className="flex items-center">
-                <PiggyBank className="h-4 w-4 mr-2" />
-                Monthly income
-              </Label>
-              {isEditing ? (
-                <Input
-                  value={editedProfile?.income ?? ""}
-                  onChange={(e) =>
-                    handleInputChange("income", e.target.value)
-                  }
-                  type="number"
-                  min="0"
-                />
-              ) : (
-                <div className="p-3 bg-muted rounded-md">
-                  {profile?.income || "Not provided"}
-                </div>
-              )}
-            </div>
-
-            <div className="space-y-2">
-              <Label>Estimated monthly expense</Label>
-              {isEditing ? (
-                <Input
-                  value={editedProfile?.expense ?? ""}
-                  onChange={(e) =>
-                    handleInputChange("expense", e.target.value)
-                  }
-                  type="number"
-                  min="0"
-                />
-              ) : (
-                <div className="p-3 bg-muted rounded-md">
-                  {profile?.expense || "Not provided"}
-                </div>
-              )}
-            </div>
-
-            <div className="space-y-2 md:col-span-2">
-              <Label>Pay schedule (days you get your pay)</Label>
-              {isEditing ? (
-                <Textarea
-                  value={editedProfile?.pay_schedule ?? ""}
-                  onChange={(e) =>
-                    handleInputChange("pay_schedule", e.target.value)
-                  }
-                  rows={2}
-                />
-              ) : (
-                <div className="p-3 bg-muted rounded-md whitespace-pre-line">
-                  {profile?.pay_schedule || "Not provided"}
-                </div>
-              )}
-            </div>
+            <InputField label="Bank" value={profile.bank_name} edit={editing} onChange={(v) => handleChange("bank_name", v)} />
+            <InputField label="Account #" value={profile.bank_account_number} edit={editing} onChange={(v) => handleChange("bank_account_number", v)} />
+            <InputField label="Income" value={profile.income} edit={editing} onChange={(v) => handleChange("income", v)} />
+            <InputField label="Expense" value={profile.expense} edit={editing} onChange={(v) => handleChange("expense", v)} />
+            <TextareaField label="Pay Schedule" value={profile.pay_schedule} edit={editing} onChange={(v) => handleChange("pay_schedule", v)} />
           </CardContent>
         </Card>
       </div>
     </div>
   );
 }
+
+/* 🔧 reusable components */
+
+const InputField = ({ label, value, edit, onChange, type = "text" }: any) => (
+  <div className="space-y-1">
+    <Label>{label}</Label>
+    {edit ? (
+      <Input value={value ?? ""} onChange={(e) => onChange(e.target.value)} type={type} />
+    ) : (
+      <div className="p-2 bg-muted rounded">{value || "—"}</div>
+    )}
+  </div>
+);
+
+const TextareaField = ({ label, value, edit, onChange }: any) => (
+  <div className="space-y-1">
+    {label && <Label>{label}</Label>}
+    {edit ? (
+      <Textarea value={value ?? ""} onChange={(e) => onChange(e.target.value)} />
+    ) : (
+      <div className="p-2 bg-muted rounded whitespace-pre-line">
+        {value || "—"}
+      </div>
+    )}
+  </div>
+);
