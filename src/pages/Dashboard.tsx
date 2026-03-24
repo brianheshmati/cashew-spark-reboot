@@ -62,7 +62,8 @@ const Dashboard = () => {
     if (!emailForLookup) {
       return false;
     }
-
+    console.log('Checking profile completeness for email:', emailForLookup);
+    
     const { data } = await supabase
       .from('userProfiles')
       .select('*')

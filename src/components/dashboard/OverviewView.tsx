@@ -1,94 +1,123 @@
 import { useEffect, useMemo, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 import { Calendar } from 'lucide-react';
 import { formatCurrency } from '@/lib/utils';
 
-interface LoanSummary {
-  loan_id: string;
-  loan_amount: number;
-  term_months: number;
-  interest_rate: number;
-  start_date: string | null;
-  end_date: string | null;
-  total_balance: number;
-}
-
+// =========================
+// TYPES
+// =========================
 interface NextPayment {
   loan_id: string;
-  date: string;
+  due_date: string;
   remaining_amount: number;
 }
 
-interface LoanTransaction {
-  id: number;
+interface Transaction {
   loan_id: string;
-  internal_user_id: string;
-  date: string;
+  payment_id: string | null;
+  transaction_date: string;
   amount: number;
   type: string;
-  status: string;
 }
 
 interface OverviewViewProps {
   userId: string;
 }
 
+// =========================
+// COMPONENT
+// =========================
 export function OverviewView({ userId }: OverviewViewProps) {
-  const [loans, setLoans] = useState<LoanSummary[]>([]);
+  const [searchParams] = useSearchParams();
+  const navigate = useNavigate();
+  const { toast } = useToast();
+
+  const [email, setEmail] = useState<string | null>(null);
   const [nextPayment, setNextPayment] = useState<NextPayment | null>(null);
-  const [transactions, setTransactions] = useState<LoanTransaction[]>([]);
+  const [balance, setBalance] = useState<number>(0);
+  const [transactions, setTransactions] = useState<Transaction[]>([]);
   const [transactionsLoading, setTransactionsLoading] = useState(true);
   const [transactionsPage, setTransactionsPage] = useState(1);
   const [transactionsTotal, setTransactionsTotal] = useState(0);
   const [loading, setLoading] = useState(true);
 
   const transactionsPageSize = 6;
-  const navigate = useNavigate();
-  const { toast } = useToast();
 
-  const primaryLoanId = useMemo(
-    () => nextPayment?.loan_id ?? loans[0]?.loan_id ?? null,
-    [loans, nextPayment]
-  );
+  // =========================
+  // RESOLVE EMAIL (IMPERSONATION FIRST)
+  // =========================
+  useEffect(() => {
+    const urlEmail = searchParams.get('email');
+
+    // 🔥 PRIORITY: impersonation email
+    if (urlEmail) {
+      setEmail(urlEmail.toLowerCase());
+      return;
+    }
+
+    // fallback to logged-in user
+    const fetchEmail = async () => {
+      const { data, error } = await supabase
+        .from('userProfiles')
+        .select('email')
+        .eq('internal_user_id', userId)
+        .single();
+
+      if (error || !data?.email) {
+        toast({
+          title: 'Error',
+          description: 'Failed to fetch user email.',
+          variant: 'destructive'
+        });
+        return;
+      }
+
+      setEmail(data.email.toLowerCase());
+    };
+
+    fetchEmail();
+  }, [userId, searchParams]);
 
   // =========================
   // OVERVIEW DATA
   // =========================
   useEffect(() => {
+    if (!email) return;
+
     const fetchOverview = async () => {
       try {
         const [
-          { data: loansData, error: loansError },
-          { data: paymentData, error: paymentError }
+          { data: paymentData, error: paymentError },
+          { data: balanceData, error: balanceError }
         ] = await Promise.all([
           supabase
-            .from('user_loans_summary')
-            .select('loan_id, loan_amount, term_months, interest_rate, start_date, end_date, total_balance')
-            .eq('internal_user_id', userId)
-            .order('end_date', { ascending: false }),
+            .from('next_payment_due')
+            .select('*')
+            .eq('email', email)
+            .limit(1),
+
           supabase
-            .from('outstanding_payment_schedules')
-            .select('loan_id, date, remaining_amount')
-            .eq('internal_user_id', userId)
-            .order('date', { ascending: true })
+            .from('user_outstanding_balance')
+            .select('*')
+            .eq('email', email)
             .limit(1)
         ]);
 
-        if (loansError) throw loansError;
         if (paymentError) throw paymentError;
+        if (balanceError) throw balanceError;
 
-        setLoans(loansData ?? []);
         setNextPayment(paymentData?.[0] ?? null);
+        setBalance(balanceData?.[0]?.total_outstanding_balance ?? 0);
       } catch {
         toast({
           title: 'Error',
-          description: 'Failed to load loan overview.',
+          description: 'Failed to load overview.',
           variant: 'destructive'
         });
       } finally {
@@ -97,21 +126,23 @@ export function OverviewView({ userId }: OverviewViewProps) {
     };
 
     fetchOverview();
-  }, [userId, toast]);
+  }, [email]);
 
   // =========================
   // TRANSACTIONS
   // =========================
   useEffect(() => {
+    if (!email) return;
+
     const fetchTransactions = async () => {
       try {
         setTransactionsLoading(true);
 
         const { data, count, error } = await supabase
-          .from('loan_transactions')
+          .from('user_transaction_history')
           .select('*', { count: 'exact' })
-          .eq('internal_user_id', userId)
-          .order('date', { ascending: false })
+          .eq('email', email)
+          .order('transaction_date', { ascending: false })
           .range(
             (transactionsPage - 1) * transactionsPageSize,
             transactionsPage * transactionsPageSize - 1
@@ -133,18 +164,23 @@ export function OverviewView({ userId }: OverviewViewProps) {
     };
 
     fetchTransactions();
-  }, [userId, transactionsPage, toast]);
+  }, [email, transactionsPage]);
 
+  const primaryLoanId = nextPayment?.loan_id ?? null;
+
+  // =========================
+  // LOADING
+  // =========================
   if (loading) {
     return <div className="py-10 text-center text-muted-foreground">Loading...</div>;
   }
 
   // =========================
-  // RENDER
+  // UI
   // =========================
   return (
     <div className="space-y-6">
-      {/* SUMMARY CARDS */}
+      {/* SUMMARY */}
       <div className="grid gap-6 md:grid-cols-2">
         <button
           type="button"
@@ -155,7 +191,9 @@ export function OverviewView({ userId }: OverviewViewProps) {
           <Card variant="highlight">
             <CardHeader>
               <Calendar className="h-5 w-5 text-orange-700" />
-              <CardTitle className="text-sm text-muted-foreground">Next Payment</CardTitle>
+              <CardTitle className="text-sm text-muted-foreground">
+                Next Payment
+              </CardTitle>
             </CardHeader>
             <CardContent>
               {nextPayment ? (
@@ -164,11 +202,13 @@ export function OverviewView({ userId }: OverviewViewProps) {
                     {formatCurrency(nextPayment.remaining_amount)}
                   </div>
                   <p className="text-sm text-muted-foreground">
-                    Due {new Date(nextPayment.date).toLocaleDateString()}
+                    Due {new Date(nextPayment.due_date).toLocaleDateString()}
                   </p>
                 </>
               ) : (
-                <p className="text-sm text-muted-foreground">No upcoming payments.</p>
+                <p className="text-sm text-muted-foreground">
+                  No upcoming payments.
+                </p>
               )}
             </CardContent>
           </Card>
@@ -182,7 +222,7 @@ export function OverviewView({ userId }: OverviewViewProps) {
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold">
-              {formatCurrency(loans.reduce((s, l) => s + l.total_balance, 0))}
+              {formatCurrency(balance)}
             </div>
           </CardContent>
         </Card>
@@ -195,9 +235,13 @@ export function OverviewView({ userId }: OverviewViewProps) {
         </CardHeader>
         <CardContent>
           {transactionsLoading ? (
-            <div className="py-6 text-center text-muted-foreground">Loading...</div>
+            <div className="py-6 text-center text-muted-foreground">
+              Loading...
+            </div>
           ) : transactions.length === 0 ? (
-            <div className="py-6 text-center text-muted-foreground">No transactions.</div>
+            <div className="py-6 text-center text-muted-foreground">
+              No transactions.
+            </div>
           ) : (
             <>
               <Table>
@@ -205,19 +249,17 @@ export function OverviewView({ userId }: OverviewViewProps) {
                   <TableRow>
                     <TableHead>Date</TableHead>
                     <TableHead>Type</TableHead>
-                    <TableHead>Status</TableHead>
                     <TableHead className="text-right">Amount</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {transactions.map(t => (
-                    <TableRow key={t.id}>
-                      <TableCell>{new Date(t.date).toLocaleDateString()}</TableCell>
+                  {transactions.map((t, i) => (
+                    <TableRow key={i}>
                       <TableCell>
-                        <Badge variant="outline">{t.type}</Badge>
+                        {new Date(t.transaction_date).toLocaleDateString()}
                       </TableCell>
                       <TableCell>
-                        <Badge>{t.status}</Badge>
+                        <Badge variant="outline">{t.type}</Badge>
                       </TableCell>
                       <TableCell className="text-right font-semibold">
                         {formatCurrency(t.amount)}

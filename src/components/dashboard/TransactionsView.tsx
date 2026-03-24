@@ -76,7 +76,7 @@ export function TransactionsView({ internalUserId }: TransactionsViewProps) {
       const { data, error } = await supabase
         .from('loan_transactions_1')
         .select('*')
-        .eq('internal_user_id', userId)
+        .ilike('email', userEmail)
         .order('date', { ascending: false });
 
       if (error) throw error;
