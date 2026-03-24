@@ -1,4 +1,5 @@
 import { FormEvent, useEffect, useMemo, useState } from 'react'
+import { useSearchParams } from 'react-router-dom'
 import { User } from '@supabase/supabase-js'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
@@ -32,6 +33,9 @@ interface DocumentsViewProps {
 
 export function DocumentsView({ user, internalUserId }: DocumentsViewProps) {
 
+  const [searchParams] = useSearchParams()
+  const { toast } = useToast()
+
   const [documents, setDocuments] = useState<DocumentRow[]>([])
   const [loading, setLoading] = useState(true)
   const [uploading, setUploading] = useState(false)
@@ -40,10 +44,49 @@ export function DocumentsView({ user, internalUserId }: DocumentsViewProps) {
   const [docName, setDocName] = useState('')
   const [file, setFile] = useState<File | null>(null)
 
-  const { toast } = useToast()
+  const [folderPath, setFolderPath] = useState<string | null>(null)
 
-  const folderPath = internalUserId ?? user?.id ?? null
+  // =========================
+  // RESOLVE FOLDER (IMPERSONATION FIRST)
+  // =========================
+  useEffect(() => {
+    const resolveFolder = async () => {
+      const urlEmail = searchParams.get('email')
 
+      // 🔥 impersonation path
+      if (urlEmail) {
+        const normalizedEmail = urlEmail.toLowerCase()
+
+        const { data, error } = await supabase
+          .from('userProfiles')
+          .select('internal_user_id')
+          .eq('email', normalizedEmail)
+          .single()
+
+        if (error || !data?.internal_user_id) {
+          toast({
+            title: 'Error',
+            description: 'Failed to resolve impersonated user',
+            variant: 'destructive'
+          })
+          setLoading(false)
+          return
+        }
+
+        setFolderPath(data.internal_user_id)
+        return
+      }
+
+      // fallback
+      setFolderPath(internalUserId ?? user?.id ?? null)
+    }
+
+    resolveFolder()
+  }, [internalUserId, user, searchParams])
+
+  // =========================
+  // SORT
+  // =========================
   const sortedDocuments = useMemo(
     () =>
       [...documents].sort(
@@ -54,9 +97,12 @@ export function DocumentsView({ user, internalUserId }: DocumentsViewProps) {
     [documents]
   )
 
+  // =========================
+  // FETCH
+  // =========================
   const fetchDocuments = async () => {
 
-    if (!user || !folderPath) return
+    if (!folderPath) return
 
     setLoading(true)
 
@@ -104,13 +150,16 @@ export function DocumentsView({ user, internalUserId }: DocumentsViewProps) {
 
   useEffect(() => {
     fetchDocuments()
-  }, [user])
+  }, [folderPath])
 
+  // =========================
+  // UPLOAD
+  // =========================
   const uploadDocument = async (event: FormEvent) => {
 
     event.preventDefault()
 
-    if (!user || !file || !docName.trim() || !docType || !folderPath) return
+    if (!file || !docName.trim() || !docType || !folderPath) return
 
     setUploading(true)
 
@@ -161,6 +210,9 @@ export function DocumentsView({ user, internalUserId }: DocumentsViewProps) {
 
   }
 
+  // =========================
+  // OPEN FILE
+  // =========================
   const openDocument = async (path: string) => {
 
     const { data, error } = await supabase.storage
@@ -182,6 +234,9 @@ export function DocumentsView({ user, internalUserId }: DocumentsViewProps) {
 
   }
 
+  // =========================
+  // UI
+  // =========================
   return (
 
     <div className="space-y-6">
@@ -212,15 +267,10 @@ export function DocumentsView({ user, internalUserId }: DocumentsViewProps) {
             <div className="space-y-2">
               <Label>Document Type</Label>
 
-              <Select
-                value={docType}
-                onValueChange={setDocType}
-              >
-
+              <Select value={docType} onValueChange={setDocType}>
                 <SelectTrigger>
                   <SelectValue placeholder="Select type" />
                 </SelectTrigger>
-
                 <SelectContent>
                   {DOCUMENT_TYPES.map(t => (
                     <SelectItem key={t.value} value={t.value}>
@@ -228,26 +278,22 @@ export function DocumentsView({ user, internalUserId }: DocumentsViewProps) {
                     </SelectItem>
                   ))}
                 </SelectContent>
-
               </Select>
 
             </div>
 
             <div className="space-y-2">
               <Label>Document name</Label>
-
               <Input
                 value={docName}
                 onChange={(e) => setDocName(e.target.value)}
                 placeholder="March Payroll"
                 required
               />
-
             </div>
 
             <div className="space-y-2">
               <Label>File</Label>
-
               <Input
                 type="file"
                 onChange={(e) =>
@@ -255,11 +301,9 @@ export function DocumentsView({ user, internalUserId }: DocumentsViewProps) {
                 }
                 required
               />
-
             </div>
 
             <div className="flex items-end">
-
               <Button
                 type="submit"
                 className="w-full"
@@ -267,7 +311,6 @@ export function DocumentsView({ user, internalUserId }: DocumentsViewProps) {
               >
                 {uploading ? 'Uploading...' : 'Upload'}
               </Button>
-
             </div>
 
           </form>
@@ -298,9 +341,7 @@ export function DocumentsView({ user, internalUserId }: DocumentsViewProps) {
                   <TableHead>Date</TableHead>
                   <TableHead>Type</TableHead>
                   <TableHead>Name</TableHead>
-                  <TableHead className="text-right">
-                    File
-                  </TableHead>
+                  <TableHead className="text-right">File</TableHead>
                 </TableRow>
               </TableHeader>
 
@@ -352,5 +393,4 @@ export function DocumentsView({ user, internalUserId }: DocumentsViewProps) {
     </div>
 
   )
-
 }
