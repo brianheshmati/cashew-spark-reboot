@@ -7,6 +7,7 @@ import { Badge } from '@/components/ui/badge'
 import { useToast } from '@/hooks/use-toast'
 import { supabase } from '@/integrations/supabase/client'
 import { Copy, Mail, MessageSquare } from 'lucide-react'
+import { useSearchParams } from 'react-router-dom'
 
 interface ReferralUser {
   first_name: string | null
@@ -16,45 +17,59 @@ interface ReferralUser {
 }
 
 interface InviteViewProps {
-  internalUserId?: string;
-  internalUserEmail?: string;
+  internalUserId?: string
+  internalUserEmail?: string
 }
 
 export function InviteView({ internalUserId, internalUserEmail }: InviteViewProps) {
 
   const { toast } = useToast()
+  const [searchParams] = useSearchParams()
 
   const [email, setEmail] = useState('')
   const [loading, setLoading] = useState(false)
 
-  const [userId, setUserId] = useState<number | null>(null)
+  const [userId, setUserId] = useState<string | null>(null)
   const [referralLink, setReferralLink] = useState('')
 
   const [referrals, setReferrals] = useState<ReferralUser[]>([])
 
   useEffect(() => {
     loadUser()
-  }, [internalUserEmail, internalUserId])
+  }, [internalUserEmail, internalUserId, searchParams])
 
   async function loadUser() {
 
-    const { data: auth } = await supabase.auth.getUser()
+    // 🔥 PRIORITY ORDER (this is important)
+    // 1. URL param ?email=
+    // 2. passed prop
+    // 3. logged-in user
 
-    if (!auth.user) return
+    const urlEmail = searchParams.get('email')
 
-    const lookupEmail = internalUserEmail ?? auth.user.email
+    let lookupEmail =
+      urlEmail ??
+      internalUserEmail ??
+      null
+
+    if (!lookupEmail) {
+      const { data: auth } = await supabase.auth.getUser()
+      lookupEmail = auth.user?.email ?? null
+    }
 
     if (!lookupEmail) return
 
+    lookupEmail = lookupEmail.toLowerCase()
+
     const { data: profile } = await supabase
       .from("userProfiles")
-      .select("user_id")
-      .ilike("email", lookupEmail)
+      .select("internal_user_id")
+      .eq("email", lookupEmail)   // ✅ no ilike
       .limit(1)
 
     if (!profile || profile.length === 0) return
 
-    const uid = profile[0].user_id
+    const uid = profile[0].internal_user_id
 
     setUserId(uid)
 
@@ -64,19 +79,17 @@ export function InviteView({ internalUserId, internalUserEmail }: InviteViewProp
     setReferralLink(link)
 
     loadReferrals(uid)
-
   }
 
-  async function loadReferrals(uid: number) {
+  async function loadReferrals(uid: string) {
 
     const { data } = await supabase
       .from("userProfiles")
       .select("first_name,last_name,email,created_at")
-      .eq("referral", uid)
-      .order("first_name", { ascending: true })
+      .eq("referral", uid)   // ✅ now matches uuid
+      .order("created_at", { ascending: false })
 
     if (data) setReferrals(data)
-
   }
 
   const handleSendInvite = async (e: React.FormEvent) => {
@@ -113,7 +126,6 @@ export function InviteView({ internalUserId, internalUserEmail }: InviteViewProp
     }
 
     setLoading(false)
-
   }
 
   const copyToClipboard = (text: string) => {
@@ -124,7 +136,6 @@ export function InviteView({ internalUserId, internalUserEmail }: InviteViewProp
       title: "Copied!",
       description: "Referral link copied"
     })
-
   }
 
   const shareViaEmail = () => {
@@ -137,7 +148,6 @@ export function InviteView({ internalUserId, internalUserEmail }: InviteViewProp
     window.open(
       `mailto:?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`
     )
-
   }
 
   const shareViaWhatsApp = () => {
@@ -146,7 +156,6 @@ export function InviteView({ internalUserId, internalUserEmail }: InviteViewProp
       `Check out Cashew for fast and simple loans: ${referralLink}`
 
     window.open(`https://wa.me/?text=${encodeURIComponent(message)}`)
-
   }
 
   return (
@@ -297,5 +306,4 @@ export function InviteView({ internalUserId, internalUserEmail }: InviteViewProp
     </div>
 
   )
-
 }
