@@ -4,7 +4,6 @@ import {
   CardContent,
   CardHeader,
   CardTitle,
-  CardDescription,
 } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -16,16 +15,12 @@ import { useToast } from "@/hooks/use-toast";
 import { User as SupabaseUser } from "@supabase/supabase-js";
 import {
   User as UserIcon,
-  Mail,
-  Phone,
   MapPin,
   Edit,
   Save,
   X,
   Briefcase,
-  CalendarDays,
   Landmark,
-  PiggyBank,
 } from "lucide-react";
 
 interface Profile {
@@ -165,7 +160,7 @@ export function ProfileView({ internalUserId, internalUserEmail }: Props) {
   };
 
   if (loading) return <div>Loading...</div>;
-  if (!profile) return <div>No profile found</div>;
+  if (!profile || !edited) return <div>No profile found</div>;
 
   return (
     <div className="space-y-6">
@@ -199,16 +194,16 @@ export function ProfileView({ internalUserId, internalUserEmail }: Props) {
             </CardTitle>
           </CardHeader>
           <CardContent className="space-y-3">
-            <InputField label="First Name" value={profile.first_name} edit={editing} onChange={(v) => handleChange("first_name", v)} />
-            <InputField label="Last Name" value={profile.last_name} edit={editing} onChange={(v) => handleChange("last_name", v)} />
+            <InputField label="First Name" value={edited.first_name} edit={editing} onChange={(v) => handleChange("first_name", v)} />
+            <InputField label="Last Name" value={edited.last_name} edit={editing} onChange={(v) => handleChange("last_name", v)} />
 
             <div className="p-3 bg-muted rounded flex justify-between">
               {profile.email}
               <Badge>Verified</Badge>
             </div>
 
-            <InputField label="Phone" value={profile.phone} edit={editing} onChange={(v) => handleChange("phone", v)} />
-            <InputField label="DOB" value={profile.dob} edit={editing} type="date" onChange={(v) => handleChange("dob", v)} />
+            <InputField label="Phone" value={edited.phone} edit={editing} onChange={(v) => handleChange("phone", v)} />
+            <InputField label="DOB" value={edited.dob} edit={editing} type="date" onChange={(v) => handleChange("dob", v)} />
           </CardContent>
         </Card>
 
@@ -221,7 +216,7 @@ export function ProfileView({ internalUserId, internalUserEmail }: Props) {
             </CardTitle>
           </CardHeader>
           <CardContent>
-            <TextareaField value={profile.address} edit={editing} onChange={(v) => handleChange("address", v)} />
+            <TextareaField value={edited.address} edit={editing} onChange={(v) => handleChange("address", v)} />
           </CardContent>
         </Card>
 
@@ -234,11 +229,11 @@ export function ProfileView({ internalUserId, internalUserEmail }: Props) {
             </CardTitle>
           </CardHeader>
           <CardContent className="grid md:grid-cols-2 gap-4">
-            <InputField label="Employer" value={profile.employer_name} edit={editing} onChange={(v) => handleChange("employer_name", v)} />
-            <InputField label="Employer Phone" value={profile.employer_phone} edit={editing} onChange={(v) => handleChange("employer_phone", v)} />
-            <TextareaField label="Employer Address" value={profile.employer_address} edit={editing} onChange={(v) => handleChange("employer_address", v)} />
-            <InputField label="Position" value={profile.position} edit={editing} onChange={(v) => handleChange("position", v)} />
-            <InputField label="Years" value={profile.years_employed} edit={editing} onChange={(v) => handleChange("years_employed", v)} />
+            <InputField label="Employer" value={edited.employer_name} edit={editing} onChange={(v) => handleChange("employer_name", v)} />
+            <InputField label="Employer Phone" value={edited.employer_phone} edit={editing} onChange={(v) => handleChange("employer_phone", v)} />
+            <TextareaField label="Employer Address" value={edited.employer_address} edit={editing} onChange={(v) => handleChange("employer_address", v)} />
+            <InputField label="Position" value={edited.position} edit={editing} onChange={(v) => handleChange("position", v)} />
+            <InputField label="Years" value={edited.years_employed} edit={editing} onChange={(v) => handleChange("years_employed", v)} />
           </CardContent>
         </Card>
 
@@ -251,11 +246,11 @@ export function ProfileView({ internalUserId, internalUserEmail }: Props) {
             </CardTitle>
           </CardHeader>
           <CardContent className="grid md:grid-cols-2 gap-4">
-            <InputField label="Bank" value={profile.bank_name} edit={editing} onChange={(v) => handleChange("bank_name", v)} />
-            <InputField label="Account #" value={profile.bank_account_number} edit={editing} onChange={(v) => handleChange("bank_account_number", v)} />
-            <InputField label="Income" value={profile.income} edit={editing} onChange={(v) => handleChange("income", v)} />
-            <InputField label="Expense" value={profile.expense} edit={editing} onChange={(v) => handleChange("expense", v)} />
-            <TextareaField label="Pay Schedule" value={profile.pay_schedule} edit={editing} onChange={(v) => handleChange("pay_schedule", v)} />
+            <InputField label="Bank" value={edited.bank_name} edit={editing} onChange={(v) => handleChange("bank_name", v)} />
+            <InputField label="Account #" value={edited.bank_account_number} edit={editing} onChange={(v) => handleChange("bank_account_number", v)} />
+            <InputField label="Income" value={edited.income} edit={editing} onChange={(v) => handleChange("income", v)} />
+            <InputField label="Expense" value={edited.expense} edit={editing} onChange={(v) => handleChange("expense", v)} />
+            <TextareaField label="Pay Schedule" value={edited.pay_schedule} edit={editing} onChange={(v) => handleChange("pay_schedule", v)} />
           </CardContent>
         </Card>
       </div>
@@ -263,7 +258,7 @@ export function ProfileView({ internalUserId, internalUserEmail }: Props) {
   );
 }
 
-/* 🔧 reusable components */
+/* reusable components */
 
 const InputField = ({ label, value, edit, onChange, type = "text" }: any) => (
   <div className="space-y-1">
