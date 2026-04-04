@@ -6,13 +6,13 @@ import { Label } from '@/components/ui/label'
 import { Badge } from '@/components/ui/badge'
 import { useToast } from '@/hooks/use-toast'
 import { supabase } from '@/integrations/supabase/client'
-import { Copy, Mail, MessageSquare } from 'lucide-react'
+import { Copy, Mail, MessageSquare, RefreshCw } from 'lucide-react'
 import { useSearchParams } from 'react-router-dom'
 
-interface ReferralUser {
-  first_name: string | null
-  last_name: string | null
-  email: string | null
+interface Invite {
+  id: string
+  invited_email: string
+  status: string
   created_at: string
 }
 
@@ -32,18 +32,13 @@ export function InviteView({ internalUserId, internalUserEmail }: InviteViewProp
   const [userId, setUserId] = useState<string | null>(null)
   const [referralLink, setReferralLink] = useState('')
 
-  const [referrals, setReferrals] = useState<ReferralUser[]>([])
+  const [invites, setInvites] = useState<Invite[]>([])
 
   useEffect(() => {
     loadUser()
   }, [internalUserEmail, internalUserId, searchParams])
 
   async function loadUser() {
-
-    // 🔥 PRIORITY ORDER (this is important)
-    // 1. URL param ?email=
-    // 2. passed prop
-    // 3. logged-in user
 
     const urlEmail = searchParams.get('email')
 
@@ -64,7 +59,7 @@ export function InviteView({ internalUserId, internalUserEmail }: InviteViewProp
     const { data: profile } = await supabase
       .from("userProfiles")
       .select("internal_user_id")
-      .eq("email", lookupEmail)   // ✅ no ilike
+      .eq("email", lookupEmail)
       .limit(1)
 
     if (!profile || profile.length === 0) return
@@ -78,18 +73,18 @@ export function InviteView({ internalUserId, internalUserEmail }: InviteViewProp
 
     setReferralLink(link)
 
-    loadReferrals(uid)
+    loadInvites(uid)
   }
 
-  async function loadReferrals(uid: string) {
+  async function loadInvites(uid: string) {
 
     const { data } = await supabase
-      .from("userProfiles")
-      .select("first_name,last_name,email,created_at")
-      .eq("referral", uid)   // ✅ now matches uuid
+      .from("invites")
+      .select("*")
+      .eq("referrer_internal_user_id", uid)
       .order("created_at", { ascending: false })
 
-    if (data) setReferrals(data)
+    if (data) setInvites(data)
   }
 
   const handleSendInvite = async (e: React.FormEvent) => {
@@ -102,6 +97,18 @@ export function InviteView({ internalUserId, internalUserEmail }: InviteViewProp
 
     try {
 
+      // 1. store invite
+      const { error } = await supabase
+        .from("invites")
+        .insert({
+          referrer_internal_user_id: userId,
+          invited_email: email.toLowerCase(),
+          referral_code: userId
+        })
+
+      if (error) throw error
+
+      // 2. send email
       await supabase.functions.invoke("send_referral_email", {
         body: {
           email,
@@ -116,16 +123,43 @@ export function InviteView({ internalUserId, internalUserEmail }: InviteViewProp
 
       setEmail('')
 
-    } catch {
+      loadInvites(userId)
+
+    } catch (err) {
+
+      console.error(err)
 
       toast({
         title: "Error",
         description: "Failed to send invitation"
       })
-
     }
 
     setLoading(false)
+  }
+
+  const resendInvite = async (inviteEmail: string) => {
+
+    try {
+
+      await supabase.functions.invoke("send_referral_email", {
+        body: {
+          email: inviteEmail,
+          referralLink
+        }
+      })
+
+      toast({
+        title: "Resent!",
+        description: `Invitation resent to ${inviteEmail}`
+      })
+
+    } catch {
+      toast({
+        title: "Error",
+        description: "Failed to resend invitation"
+      })
+    }
   }
 
   const copyToClipboard = (text: string) => {
@@ -167,8 +201,8 @@ export function InviteView({ internalUserId, internalUserEmail }: InviteViewProp
         <Badge variant="outline">Referral Program</Badge>
       </div>
 
+      {/* SEND INVITE */}
       <Card>
-
         <CardHeader>
           <CardTitle>Send Invitation</CardTitle>
           <CardDescription>
@@ -203,11 +237,10 @@ export function InviteView({ internalUserId, internalUserEmail }: InviteViewProp
           </form>
 
         </CardContent>
-
       </Card>
 
+      {/* REFERRAL LINK */}
       <Card>
-
         <CardHeader>
           <CardTitle>Your Referral Link</CardTitle>
           <CardDescription>
@@ -218,7 +251,6 @@ export function InviteView({ internalUserId, internalUserEmail }: InviteViewProp
         <CardContent className="space-y-4">
 
           <div className="flex space-x-2">
-
             <Input
               value={referralLink}
               readOnly
@@ -231,7 +263,6 @@ export function InviteView({ internalUserId, internalUserEmail }: InviteViewProp
             >
               <Copy className="h-4 w-4" />
             </Button>
-
           </div>
 
           <div className="flex space-x-2">
@@ -257,53 +288,62 @@ export function InviteView({ internalUserId, internalUserEmail }: InviteViewProp
           </div>
 
         </CardContent>
-
       </Card>
 
+      {/* INVITES TABLE */}
       <Card>
-
         <CardHeader>
-          <CardTitle>Friends Who Joined</CardTitle>
+          <CardTitle>Your Invitations</CardTitle>
         </CardHeader>
 
         <CardContent className="space-y-2">
 
-          {referrals.length === 0 &&
+          {invites.length === 0 &&
             <p className="text-sm text-muted-foreground">
-              No referrals yet
+              No invites yet
             </p>
           }
 
-          {referrals.map((r, i) => (
+          {invites.map((i) => (
 
             <div
-              key={i}
-              className="flex justify-between border rounded p-3"
+              key={i.id}
+              className="flex justify-between items-center border rounded p-3"
             >
 
               <div>
                 <div className="font-medium">
-                  {r.first_name} {r.last_name}
+                  {i.invited_email}
                 </div>
 
                 <div className="text-sm text-muted-foreground">
-                  {r.email}
+                  {new Date(i.created_at).toLocaleDateString()}
                 </div>
               </div>
 
-              <Badge variant="outline">
-                Joined
-              </Badge>
+              <div className="flex items-center space-x-2">
+
+                <Badge variant="outline">
+                  {i.status}
+                </Badge>
+
+                <Button
+                  size="sm"
+                  variant="ghost"
+                  onClick={() => resendInvite(i.invited_email)}
+                >
+                  <RefreshCw className="h-4 w-4" />
+                </Button>
+
+              </div>
 
             </div>
 
           ))}
 
         </CardContent>
-
       </Card>
 
     </div>
-
   )
 }
