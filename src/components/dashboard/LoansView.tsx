@@ -1,276 +1,378 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import {
+  Card,
+  CardContent
+} from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
-import { CreditCard, DollarSign, Calendar, TrendingUp, Plus } from 'lucide-react';
-import { formatCurrency } from '@/lib/utils';
+
+import {
+  DollarSign,
+  Calendar,
+  TrendingUp,
+  Plus
+} from 'lucide-react';
 
 interface Loan {
-  id: string;
-  principal_amount: number;
-  current_balance: number;
-  interest_rate: number;
-  term_months: number;
-  monthly_payment: number;
+  loan_id: string;
+  loan_amount: number | null;
+  current_balance: number | null;
+  interest_rate: number | null;
+  term_months: number | null;
+  monthly_payment: number | null;
   status: string;
-  loan_type: string;
-  origination_date: string | null;
-  maturity_date: string | null;
+  loan_type: string | null;
+  created_at: string;
+  email?: string;
 }
 
 interface Application {
-  internal_user_id: string;
-
   id: string;
-  loan_amount: number;
-  loan_type: string;
+  app_id: number | null;
+  amount: number | null;
   status: string;
-  submitted_at: string | null;
   created_at: string;
+  loan_purpose: string | null;
+  promo_code: string | null;
+  email: string;
+  remarks: string | null;
+}
+
+interface NextPayment {
+  loan_id: string;
+  amount: number;
+  date: string;
+  schedule_id: string | null;
 }
 
 interface LoansViewProps {
-  userId: string;
+  userEmail?: string;
 }
 
-export function LoansView({ userId }: LoansViewProps) {
+export function LoansView({ userEmail }: LoansViewProps) {
+
   const [loans, setLoans] = useState<Loan[]>([]);
   const [applications, setApplications] = useState<Application[]>([]);
+  const [nextPayment, setNextPayment] = useState<NextPayment | null>(null);
   const [loading, setLoading] = useState(true);
+
   const { toast } = useToast();
   const navigate = useNavigate();
 
   useEffect(() => {
-    fetchLoansAndApplications();
-  }, [userId]);
+    fetchData();
+  }, [userEmail]);
 
-  const fetchLoansAndApplications = async () => {
+  const fetchData = async () => {
+
+    if (!userEmail) {
+      setLoading(false);
+      return;
+    }
+
     try {
-      // Fetch active loans
+
+      // 🔥 LOANS
       const { data: loansData, error: loansError } = await supabase
         .from('user_loans_summary')
         .select('*')
-        .eq('internal_user_id', userId)
-          
+        .ilike('email', userEmail)
         .order('created_at', { ascending: false });
 
       if (loansError) throw loansError;
 
-      // Fetch loan applications
-      const { data: applicationsData, error: applicationsError } = await supabase
-        .from('applications')
+      // 🔥 APPLICATIONS (VIEW)
+      const { data: applicationsData, error: appError } = await supabase
+        .from('applications_unconverted')
         .select('*')
-        .eq('internal_user_id', userId)
+        .ilike('email', userEmail)
         .order('created_at', { ascending: false });
 
-      if (applicationsError) throw applicationsError;
+      if (appError) throw appError;
+
+      // 🔥 NEXT PAYMENT (based on loan_ids)
+      const loanIds = (loansData || []).map(l => l.loan_id);
+
+      let nextDueData: any[] = [];
+
+      if (loanIds.length > 0) {
+        const { data, error } = await supabase
+          .from('loan_transactions_1')
+          .select('*')
+          .in('loan_id', loanIds)
+          .eq('type', 'Installment')
+          .eq('is_fully_paid', false)
+          .order('date', { ascending: true })
+          .limit(1);
+
+        if (error) throw error;
+        nextDueData = data || [];
+      }
+
+      if (nextDueData.length > 0) {
+        setNextPayment({
+          loan_id: nextDueData[0].loan_id,
+          amount: nextDueData[0].amount,
+          date: nextDueData[0].date,
+          schedule_id: nextDueData[0].schedule_id
+        });
+      } else {
+        setNextPayment(null);
+      }
 
       setLoans(loansData || []);
       setApplications(applicationsData || []);
-    } catch {
+
+    } catch (err) {
+
+      console.error(err);
+
       toast({
-        title: "Error",
-        description: "Failed to load loans data",
-        variant: "destructive"
+        title: 'Error',
+        description: 'Failed to load loans data',
+        variant: 'destructive'
       });
+
     } finally {
       setLoading(false);
     }
   };
 
-  const getStatusColor = (status: string) => {
-    switch (status.toLowerCase()) {
-      case 'active':
-        return 'bg-success/10 text-success';
-      case 'approved':
-        return 'bg-info/10 text-info';
-      case 'pending':
-        return 'bg-warning/10 text-warning';
-      case 'under_review':
-        return 'bg-info/10 text-info';
-      case 'rejected':
-        return 'bg-destructive/10 text-destructive';
-      case 'paid_off':
-        return 'bg-success/10 text-success';
-      default:
-        return 'bg-muted text-muted-foreground';
-    }
+  const formatCurrency = (value: number | null | undefined) => {
+    const safe = Number(value ?? 0);
+    return `₱${safe.toLocaleString('en-PH', {
+      minimumFractionDigits: 2,
+      maximumFractionDigits: 2
+    })}`;
   };
 
-  const formatStatus = (status: string) => {
-    return status.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase());
-  };
+  const normalize = (status: string | null | undefined) =>
+    (status || '').toLowerCase();
+
+  const isActiveLoan = (loan: Loan) =>
+    normalize(loan.status) === 'active';
+
+  const isActiveApplication = (app: Application) =>
+    !['closed', 'duplicate', 'inactive'].includes(normalize(app.status));
+
+  const formatStatus = (status: string) =>
+    status.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase());
 
   if (loading) {
-    return (
-      <div className="space-y-6">
-        <h1 className="text-3xl font-bold text-foreground">My Loans</h1>
-        <div className="text-center text-muted-foreground">Loading loans...</div>
-      </div>
-    );
+    return <div className="p-6">Loading...</div>;
   }
 
-  const totalBalance = loans.reduce((sum, loan) => sum + loan.current_balance, 0);
-  const totalMonthlyPayment = loans.filter(loan => loan.status === 'active')
-    .reduce((sum, loan) => sum + loan.monthly_payment, 0);
+  const activeLoans = loans.filter(isActiveLoan);
 
+  const totalBalance = activeLoans.reduce(
+    (sum, loan) => sum + Number(loan.current_balance ?? 0),
+    0
+  );
 
   return (
-    <div className="space-y-6">
-      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-        <h1 className="text-3xl font-bold text-foreground">My Loans</h1>
-        <Button className="w-full sm:w-auto" onClick={() => navigate('/dashboard', { state: { view: 'apply' } })}>
+    <div className="space-y-8">
+
+      {/* HEADER */}
+      <div className="flex justify-between items-center">
+        <div>
+          <p className="text-sm text-muted-foreground">Dashboard</p>
+          <h1 className="text-3xl font-bold">My Loans</h1>
+        </div>
+
+        <Button
+          className="rounded-xl shadow-sm"
+          onClick={() =>
+            navigate('/dashboard', { state: { view: 'apply' } })
+          }
+        >
           <Plus className="h-4 w-4 mr-2" />
           Apply for New Loan
         </Button>
       </div>
 
-      {/* Summary Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4 md:gap-6">
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Total Balance</CardTitle>
-            <DollarSign className="h-4 w-4 text-muted-foreground" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">{formatCurrency(totalBalance)}</div>
-            <p className="text-xs text-muted-foreground">
-              Across {loans.length} active loan{loans.length !== 1 ? 's' : ''}
-            </p>
+      {/* SUMMARY */}
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+
+        <Card className="rounded-2xl shadow-sm border">
+          <CardContent className="p-6 flex justify-between items-center">
+            <div>
+              <p className="text-xs text-muted-foreground uppercase">
+                Active Balance
+              </p>
+              <p className="text-3xl font-semibold mt-2">
+                {formatCurrency(totalBalance)}
+              </p>
+              <p className="text-sm text-muted-foreground mt-1">
+                Across {activeLoans.length} active loans
+              </p>
+            </div>
+
+            <div className="p-3 rounded-xl bg-primary/10">
+              <DollarSign className="h-6 w-6 text-primary" />
+            </div>
           </CardContent>
         </Card>
 
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Monthly Payment</CardTitle>
-            <Calendar className="h-4 w-4 text-muted-foreground" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">{formatCurrency(totalMonthlyPayment)}</div>
-            <p className="text-xs text-muted-foreground">
-              Combined monthly payments
+        <Card className="rounded-2xl shadow-sm border">
+          <CardContent className="p-6">
+            <p className="text-xs text-muted-foreground uppercase">
+              Next Payment
             </p>
+
+            {nextPayment ? (
+              <>
+                <p className="text-3xl font-semibold mt-2">
+                  {formatCurrency(nextPayment.amount)}
+                </p>
+                <p className="text-sm text-muted-foreground mt-1">
+                  Due on {new Date(nextPayment.date).toLocaleDateString()}
+                </p>
+
+                <Button
+                  className="mt-4"
+                  size="sm"
+                  onClick={() =>
+                    navigate('/dashboard', { state: { view: 'transactions' } })
+                  }
+                >
+                  <Calendar className="h-4 w-4 mr-2" />
+                  Pay Now
+                </Button>
+              </>
+            ) : (
+              <p className="text-muted-foreground mt-2">
+                No upcoming payments
+              </p>
+            )}
           </CardContent>
         </Card>
 
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Applications</CardTitle>
-            <TrendingUp className="h-4 w-4 text-muted-foreground" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">{applications.length}</div>
-            <p className="text-xs text-muted-foreground">
-              Total applications submitted
-            </p>
+        <Card className="rounded-2xl shadow-sm border">
+          <CardContent className="p-6 flex justify-between items-center">
+            <div>
+              <p className="text-xs text-muted-foreground uppercase">
+                Applications
+              </p>
+              <p className="text-3xl font-semibold mt-2">
+                {applications.length}
+              </p>
+              <p className="text-sm text-muted-foreground mt-1">
+                Active applications only
+              </p>
+            </div>
+
+            <div className="p-3 rounded-xl bg-green-100">
+              <TrendingUp className="h-6 w-6 text-green-600" />
+            </div>
           </CardContent>
         </Card>
+
       </div>
 
-      {/* Active Loans */}
-      {loans.length > 0 && (
+      {/* APPLICATIONS */}
+      {applications.length > 0 && (
         <div className="space-y-4">
-          <h2 className="text-xl font-semibold text-foreground">Active Loans</h2>
-          <div className="grid gap-4">
-            {loans.map((loan) => (
-              <button
-                key={loan.id}
-                type="button"
-                className="w-full text-left"
-                onClick={() => navigate(`/dashboard/loans/${loan.id}`)}
+          <h2 className="text-xl font-semibold">Applications</h2>
+
+          {applications.map(app => {
+
+            const active = isActiveApplication(app);
+
+            return (
+              <div
+                key={app.id}
+                className={`rounded-2xl p-6 border shadow-sm ${
+                  active ? 'border-green-400 bg-green-50' : 'bg-white'
+                }`}
               >
-                <Card className="transition hover:-translate-y-0.5 hover:shadow-md">
-                  <CardHeader>
-                    <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-                      <CardTitle className="flex items-center">
-                        <CreditCard className="h-5 w-5 mr-2" />
-                        {loan.loan_type.charAt(0).toUpperCase() + loan.loan_type.slice(1)} Loan
-                      </CardTitle>
-                      <Badge className={getStatusColor(loan.status)}>
-                        {formatStatus(loan.status)}
-                      </Badge>
-                    </div>
-                    <CardDescription>
-                      Loan ID: {loan.id.slice(0, 8)}...
-                    </CardDescription>
-                  </CardHeader>
-                  <CardContent>
-                    <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-4">
-                      <div>
-                        <p className="text-sm text-muted-foreground">Current Balance</p>
-                        <p className="text-lg font-semibold">{formatCurrency(loan.current_balance)}</p>
-                      </div>
-                      <div>
-                        <p className="text-sm text-muted-foreground">Monthly Payment</p>
-                        <p className="text-lg font-semibold">{formatCurrency(loan.monthly_payment)}</p>
-                      </div>
-                      <div>
-                        <p className="text-sm text-muted-foreground">Interest Rate</p>
-                        <p className="text-lg font-semibold">{loan.interest_rate}%</p>
-                      </div>
-                      <div>
-                        <p className="text-sm text-muted-foreground">Term</p>
-                        <p className="text-lg font-semibold">{loan.term_months} months</p>
-                      </div>
-                    </div>
-                  </CardContent>
-                </Card>
-              </button>
-            ))}
-          </div>
+                <div className="flex justify-between mb-4">
+                  <div>
+                    <p className="text-lg font-semibold">
+                      Application #{app.app_id}
+                    </p>
+                    <p className="text-sm text-muted-foreground">
+                      {new Date(app.created_at).toLocaleDateString()}
+                    </p>
+                  </div>
+
+                  <Badge>{formatStatus(app.status)}</Badge>
+                </div>
+
+                <div className="grid md:grid-cols-3 gap-6">
+                  <InfoBlock label="Amount" value={formatCurrency(app.amount)} />
+                  <InfoBlock label="Purpose" value={app.loan_purpose || '—'} />
+                  <InfoBlock label="Promo" value={app.promo_code || '—'} />
+                </div>
+
+                {app.remarks && (
+                  <div className="mt-4 p-4 bg-muted/40 rounded-xl border">
+                    <p className="text-xs text-muted-foreground uppercase mb-1">
+                      Notes
+                    </p>
+                    <p className="text-sm">{app.remarks}</p>
+                  </div>
+                )}
+              </div>
+            );
+          })}
         </div>
       )}
 
-      {/* Recent Applications */}
-      <div className="space-y-4">
-        <h2 className="text-xl font-semibold text-foreground">Recent Applications</h2>
-        {applications.length > 0 ? (
-          <div className="grid gap-4">
-            {applications.map((application) => (
-              <Card key={application.id}>
-                <CardHeader>
-                  <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-                    <CardTitle className="text-lg">
-                      {application.loan_type.charAt(0).toUpperCase() + application.loan_type.slice(1)} Loan Application
-                    </CardTitle>
-                    <Badge className={getStatusColor(application.status)}>
-                      {formatStatus(application.status)}
-                    </Badge>
+      {/* LOANS */}
+      {loans.length > 0 && (
+        <div className="space-y-4">
+          <h2 className="text-xl font-semibold">Loans</h2>
+
+          {loans.map(loan => {
+
+            const active = isActiveLoan(loan);
+
+            return (
+              <div
+                key={loan.loan_id}
+                className={`rounded-2xl p-6 border shadow-sm ${
+                  active ? 'border-primary/40 bg-primary/5' : 'bg-white'
+                }`}
+              >
+                <div className="flex justify-between mb-4">
+                  <div>
+                    <p className="text-lg font-semibold">
+                      {loan.loan_type || 'Regular'}
+                    </p>
+                    <p className="text-sm text-muted-foreground">
+                      ID: {loan.loan_id.slice(0, 8)}...
+                    </p>
                   </div>
-                  <CardDescription>
-                    Applied on {new Date(application.created_at).toLocaleDateString()}
-                  </CardDescription>
-                </CardHeader>
-                <CardContent>
-                  <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-                    <div>
-                      <p className="text-sm text-muted-foreground">Requested Amount</p>
-                      <p className="text-lg font-semibold">{formatCurrency(application.loan_amount)}</p>
-                    </div>
-                    <div>
-                      <p className="text-sm text-muted-foreground">Application ID</p>
-                      <p className="text-sm font-mono">{application.id.slice(0, 8)}...</p>
-                    </div>
-                  </div>
-                </CardContent>
-              </Card>
-            ))}
-          </div>
-        ) : (
-          <Card>
-            <CardContent className="text-center py-8">
-              <p className="text-muted-foreground">No loan applications found.</p>
-              <Button className="mt-4 w-full sm:w-auto" onClick={() => navigate('/dashboard', { state: { view: 'apply' } })}>
-                <Plus className="h-4 w-4 mr-2" />
-                Apply for Your First Loan
-              </Button>
-            </CardContent>
-          </Card>
-        )}
-      </div>
+
+                  <Badge>{formatStatus(loan.status)}</Badge>
+                </div>
+
+                <div className="grid md:grid-cols-5 gap-6">
+                  <InfoBlock label="Amount" value={formatCurrency(loan.loan_amount)} />
+                  <InfoBlock label="Balance" value={formatCurrency(loan.current_balance)} />
+                  <InfoBlock label="Monthly" value={formatCurrency(loan.monthly_payment)} />
+                  <InfoBlock label="Rate" value={`${Number(loan.interest_rate ?? 0) * 100}%`} />
+                  <InfoBlock label="Term" value={`${loan.term_months ?? 0} months`} />
+                </div>
+
+              </div>
+            );
+          })}
+        </div>
+      )}
+
+    </div>
+  );
+}
+
+function InfoBlock({ label, value }: { label: string; value: string }) {
+  return (
+    <div>
+      <p className="text-xs text-muted-foreground uppercase">{label}</p>
+      <p className="text-lg font-semibold mt-1">{value}</p>
     </div>
   );
 }

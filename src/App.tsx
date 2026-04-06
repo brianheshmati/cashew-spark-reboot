@@ -1,8 +1,10 @@
+import { useEffect } from "react";
 import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route } from "react-router-dom";
+
 import Landing from "./pages/Landing";
 import Auth from "./pages/Auth";
 import Dashboard from "./pages/Dashboard";
@@ -14,26 +16,69 @@ import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
 
-const App = () => (
-  <QueryClientProvider client={queryClient}>
-    <TooltipProvider>
-      <Toaster />
-      <Sonner />
-      <BrowserRouter basename="/">
-        <Routes>
-          {/* <Route path="/" element={<Landing />} /> */}
-           <Route path="/" element={<Auth />} />
-           <Route path="/home" element={<Index />} />
-          <Route path="/auth" element={<Auth />} />
-          <Route path="/dashboard" element={<Dashboard />} />
-          <Route path="/dashboard/loans/:loanId" element={<LoanDetails />} />
-          {/* <Route path="/apply" element={<Apply />} /> */}
-          {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
-          <Route path="*" element={<NotFound />} />
-        </Routes>
-      </BrowserRouter>
-    </TooltipProvider>
-  </QueryClientProvider>
-);
+function App() {
+
+  useEffect(() => {
+
+    const params = new URLSearchParams(window.location.search);
+    const referral = params.get("referral");
+
+    if (referral) {
+
+      // store referral user_id
+      localStorage.setItem("cashew_referral", referral);
+
+      // remove referral param from URL
+      const cleanUrl = window.location.origin + window.location.pathname;
+      window.history.replaceState({}, document.title, cleanUrl);
+
+    }
+
+  }, []);
+
+  return (
+
+    <QueryClientProvider client={queryClient}>
+
+      <TooltipProvider>
+
+        <Toaster />
+        <Sonner />
+
+        <BrowserRouter basename="/">
+
+          <Routes>
+
+            {/* <Route path="/" element={<Landing />} /> */}
+
+            <Route path="/" element={<Auth />} />
+
+            <Route path="/home" element={<Index />} />
+
+            <Route path="/auth" element={<Auth />} />
+
+            <Route path="/dashboard" element={<Dashboard />} />
+
+            <Route
+              path="/dashboard/loans/:loanId"
+              element={<LoanDetails />}
+            />
+
+            {/* <Route path="/apply" element={<Apply />} /> */}
+
+            {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
+            <Route path="*" element={<NotFound />} />
+
+          </Routes>
+
+        </BrowserRouter>
+
+      </TooltipProvider>
+
+    </QueryClientProvider>
+
+  );
+
+}
 
 export default App;

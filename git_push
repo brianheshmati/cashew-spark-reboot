@@ -1,0 +1,7 @@
+Add a git alias so it's native.
+
+git config --global alias.pushc '!f(){ git add . && git commit -m "$1" && git push origin $(git rev-parse --abbrev-ref HEAD); }; f'
+
+Then just run:
+
+git pushc "update loans view UI"

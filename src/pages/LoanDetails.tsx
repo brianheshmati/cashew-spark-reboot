@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
-import { useNavigate, useParams } from 'react-router-dom';
+import { useLocation, useNavigate, useParams } from 'react-router-dom';
 import { User } from '@supabase/supabase-js';
 import { ArrowLeft, CheckCircle2 } from 'lucide-react';
 import { AppSidebar } from '@/components/AppSidebar';
@@ -11,6 +11,7 @@ import { SidebarProvider } from '@/components/ui/sidebar';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 import { formatCurrency } from '@/lib/utils';
+import { getInternalUserEmailFromSearch, resolveInternalUserId } from '@/lib/internal-user';
 
 type DashboardView = 'overview' | 'profile' | 'loans' | 'transactions' | 'invite' | 'apply';
 
@@ -42,10 +43,10 @@ interface ProfileName {
 const LoanDetails = () => {
   const { loanId } = useParams<{ loanId: string }>();
   const navigate = useNavigate();
+  const location = useLocation();
   const { toast } = useToast();
 
   const [user, setUser] = useState<User | null>(null);
-  const [userId, setUserId] = useState<string | null>(null);
 
   const [authLoading, setAuthLoading] = useState(true);
   const [loading, setLoading] = useState(true);
@@ -54,6 +55,21 @@ const LoanDetails = () => {
   const [nextPayment, setNextPayment] = useState<NextPayment | null>(null);
   const [payments, setPayments] = useState<LoanPayment[]>([]);
   const [profile, setProfile] = useState<ProfileName | null>(null);
+  const [lookupEmail, setLookupEmail] = useState<string | null>(null);
+  const { effectiveUserId: userId } = resolveInternalUserId({
+    authenticatedUserId: user?.id,
+    search: location.search
+  });
+  const urlLookupEmail = getInternalUserEmailFromSearch(location.search);
+
+  useEffect(() => {
+    if (urlLookupEmail) {
+      setLookupEmail(urlLookupEmail);
+      return;
+    }
+
+    setLookupEmail(user?.email ?? null);
+  }, [urlLookupEmail, user]);
 
   // =====================
   // AUTH
@@ -63,7 +79,6 @@ const LoanDetails = () => {
       supabase.auth.onAuthStateChange((_, session) => {
         const u = session?.user ?? null;
         setUser(u);
-        setUserId(u?.id ?? null);
         if (!u) navigate('/auth');
         setAuthLoading(false);
       });
@@ -71,7 +86,6 @@ const LoanDetails = () => {
     supabase.auth.getSession().then(({ data }) => {
       const u = data.session?.user ?? null;
       setUser(u);
-      setUserId(u?.id ?? null);
       if (!u) navigate('/auth');
       setAuthLoading(false);
     });
@@ -83,7 +97,7 @@ const LoanDetails = () => {
   // DATA
   // =====================
   useEffect(() => {
-    if (!userId || !loanId) return;
+    if (!userId || !loanId || !lookupEmail) return;
 
     const fetchLoanDetails = async () => {
       try {
@@ -111,7 +125,7 @@ const LoanDetails = () => {
           supabase
             .from('userProfiles')
             .select('first_name, last_name')
-            .eq('id', userId)
+            .ilike('email', lookupEmail)
             .maybeSingle(),
 
           supabase
@@ -144,7 +158,7 @@ const LoanDetails = () => {
     };
 
     fetchLoanDetails();
-  }, [loanId, userId, toast]);
+  }, [loanId, lookupEmail, userId, toast]);
 
   // =====================
   // DISPLAY NAME
