@@ -6,7 +6,7 @@ import { Label } from '@/components/ui/label'
 import { Badge } from '@/components/ui/badge'
 import { useToast } from '@/hooks/use-toast'
 import { supabase } from '@/integrations/supabase/client'
-import { Copy, Mail, MessageSquare, RefreshCw } from 'lucide-react'
+import { Mail, RefreshCw } from 'lucide-react'
 import { useSearchParams } from 'react-router-dom'
 
 interface Invite {
@@ -30,8 +30,6 @@ export function InviteView({ internalUserId, internalUserEmail }: InviteViewProp
   const [loading, setLoading] = useState(false)
 
   const [userId, setUserId] = useState<string | null>(null)
-  const [referralLink, setReferralLink] = useState('')
-
   const [invites, setInvites] = useState<Invite[]>([])
 
   useEffect(() => {
@@ -68,21 +66,21 @@ export function InviteView({ internalUserId, internalUserEmail }: InviteViewProp
 
     setUserId(uid)
 
-    const link =
-      `https://app.cashew.ph/?referral=${uid}`
-
-    setReferralLink(link)
-
     loadInvites(uid)
   }
 
   async function loadInvites(uid: string) {
 
-    const { data } = await supabase
+    const { data, error } = await supabase
       .from("invites")
       .select("*")
       .eq("referrer_internal_user_id", uid)
       .order("created_at", { ascending: false })
+
+    if (error) {
+      console.error(error)
+      return
+    }
 
     if (data) setInvites(data)
   }
@@ -97,32 +95,61 @@ export function InviteView({ internalUserId, internalUserEmail }: InviteViewProp
 
     try {
 
-      // 1. store invite
+      const normalizedEmail = email.trim().toLowerCase()
+
+      // 🔥 Check if already a user
+      const { data: existingUser } = await supabase
+        .from("userProfiles")
+        .select("id")
+        .eq("email", normalizedEmail)
+        .limit(1)
+
+      if (existingUser && existingUser.length > 0) {
+        toast({
+          title: "Already a user",
+          description: "This person is already registered."
+        })
+        setLoading(false)
+        return
+      }
+
+      // 🔥 Insert invite
       const { error } = await supabase
         .from("invites")
         .insert({
           referrer_internal_user_id: userId,
-          invited_email: email.toLowerCase(),
-          referral_code: userId
+          invited_email: normalizedEmail,
+          referral_code: userId,
+          status: 'sent'
         })
 
-      if (error) throw error
+      if (error) {
 
-      // 2. send email
+        if (error.code === '23505') {
+          toast({
+            title: "Already invited",
+            description: "This email has already been invited."
+          })
+          setLoading(false)
+          return
+        }
+
+        throw error
+      }
+
+      // 🔥 Send email
       await supabase.functions.invoke("send_referral_email", {
         body: {
-          email,
-          referralLink
+          email: normalizedEmail
         }
       })
 
       toast({
         title: "Invitation sent!",
-        description: `Invitation sent to ${email}`
+        description: `Invitation sent to ${normalizedEmail}`
       })
 
       setEmail('')
-
       loadInvites(userId)
 
     } catch (err) {
@@ -144,8 +171,7 @@ export function InviteView({ internalUserId, internalUserEmail }: InviteViewProp
 
       await supabase.functions.invoke("send_referral_email", {
         body: {
-          email: inviteEmail,
-          referralLink
+          email: inviteEmail
         }
       })
 
@@ -162,40 +188,11 @@ export function InviteView({ internalUserId, internalUserEmail }: InviteViewProp
     }
   }
 
-  const copyToClipboard = (text: string) => {
-
-    navigator.clipboard.writeText(text)
-
-    toast({
-      title: "Copied!",
-      description: "Referral link copied"
-    })
-  }
-
-  const shareViaEmail = () => {
-
-    const subject = "Join Cashew - Fast and Simple Loans"
-
-    const body =
-      `Check out Cashew for fast and simple loans.\n\n${referralLink}`
-
-    window.open(
-      `mailto:?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`
-    )
-  }
-
-  const shareViaWhatsApp = () => {
-
-    const message =
-      `Check out Cashew for fast and simple loans: ${referralLink}`
-
-    window.open(`https://wa.me/?text=${encodeURIComponent(message)}`)
-  }
-
   return (
 
     <div className="space-y-6">
 
+      {/* HEADER */}
       <div className="flex items-center justify-between">
         <h1 className="text-3xl font-bold">Invite Friends</h1>
         <Badge variant="outline">Referral Program</Badge>
@@ -239,58 +236,7 @@ export function InviteView({ internalUserId, internalUserEmail }: InviteViewProp
         </CardContent>
       </Card>
 
-      {/* REFERRAL LINK */}
-      <Card>
-        <CardHeader>
-          <CardTitle>Your Referral Link</CardTitle>
-          <CardDescription>
-            Share this link with friends
-          </CardDescription>
-        </CardHeader>
-
-        <CardContent className="space-y-4">
-
-          <div className="flex space-x-2">
-            <Input
-              value={referralLink}
-              readOnly
-              className="font-mono text-sm"
-            />
-
-            <Button
-              variant="outline"
-              onClick={() => copyToClipboard(referralLink)}
-            >
-              <Copy className="h-4 w-4" />
-            </Button>
-          </div>
-
-          <div className="flex space-x-2">
-
-            <Button
-              onClick={shareViaEmail}
-              variant="outline"
-              className="flex-1"
-            >
-              <Mail className="h-4 w-4 mr-2" />
-              Email
-            </Button>
-
-            <Button
-              onClick={shareViaWhatsApp}
-              variant="outline"
-              className="flex-1"
-            >
-              <MessageSquare className="h-4 w-4 mr-2" />
-              WhatsApp
-            </Button>
-
-          </div>
-
-        </CardContent>
-      </Card>
-
-      {/* INVITES TABLE */}
+      {/* INVITES LIST */}
       <Card>
         <CardHeader>
           <CardTitle>Your Invitations</CardTitle>
@@ -304,33 +250,33 @@ export function InviteView({ internalUserId, internalUserEmail }: InviteViewProp
             </p>
           }
 
-          {invites.map((i) => (
+          {invites.map((invite) => (
 
             <div
-              key={i.id}
+              key={invite.id}
               className="flex justify-between items-center border rounded p-3"
             >
 
               <div>
                 <div className="font-medium">
-                  {i.invited_email}
+                  {invite.invited_email}
                 </div>
 
                 <div className="text-sm text-muted-foreground">
-                  {new Date(i.created_at).toLocaleDateString()}
+                  {new Date(invite.created_at).toLocaleDateString()}
                 </div>
               </div>
 
               <div className="flex items-center space-x-2">
 
                 <Badge variant="outline">
-                  {i.status}
+                  {invite.status}
                 </Badge>
 
                 <Button
                   size="sm"
                   variant="ghost"
-                  onClick={() => resendInvite(i.invited_email)}
+                  onClick={() => resendInvite(invite.invited_email)}
                 >
                   <RefreshCw className="h-4 w-4" />
                 </Button>
