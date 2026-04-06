@@ -13,7 +13,7 @@ import { DocumentsView } from '@/components/dashboard/DocumentsView';
 import { supabase } from '@/integrations/supabase/client';
 import { User, Session } from '@supabase/supabase-js';
 import { useToast } from '@/hooks/use-toast';
-import { getInternalUserEmailFromSearch, resolveInternalUserId } from '@/lib/internal-user';
+import PaymentsView from '@/components/dashboard/PaymentsView';
 
 type DashboardView = 'overview' | 'profile' | 'loans' | 'transactions' | 'invite' | 'apply' | 'documents';
 const DASHBOARD_LAST_VIEW_KEY = 'dashboard:last-view';
@@ -195,7 +195,9 @@ const Dashboard = () => {
       case 'apply':
         return <ApplyView user={user} internalUserId={overviewUserId} internalUserEmail={lookupEmail ?? undefined} />;
       case 'documents':
-        return <DocumentsView user={user} internalUserId={overviewUserId} />;
+        return <DocumentsView user={user} />;
+      case 'payments':
+        return <PaymentsView />; 
       default:
         return overviewUserId ? <OverviewView userId={overviewUserId} /> : null;
     }
