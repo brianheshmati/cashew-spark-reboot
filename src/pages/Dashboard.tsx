@@ -15,18 +15,32 @@ import { User, Session } from '@supabase/supabase-js';
 import { useToast } from '@/hooks/use-toast';
 import PaymentsView from '@/components/dashboard/PaymentsView';
 
-type DashboardView = 'overview' | 'profile' | 'loans' | 'transactions' | 'invite' | 'apply' | 'documents';
+type DashboardView =
+  | 'overview'
+  | 'profile'
+  | 'loans'
+  | 'transactions'
+  | 'invite'
+  | 'apply'
+  | 'documents'
+  | 'payments';
+
 const DASHBOARD_LAST_VIEW_KEY = 'dashboard:last-view';
-const profileEntryKey = (userId: string) => `dashboard:profile-defaulted:${userId}`;
+
+const profileEntryKey = (userId: string) =>
+  `dashboard:profile-defaulted:${userId}`;
 
 const isDashboardView = (value: string | null): value is DashboardView =>
-  value === 'overview' ||
-  value === 'profile' ||
-  value === 'loans' ||
-  value === 'transactions' ||
-  value === 'invite' ||
-  value === 'apply' ||
-  value === 'documents';
+  [
+    'overview',
+    'profile',
+    'loans',
+    'transactions',
+    'invite',
+    'apply',
+    'documents',
+    'payments',
+  ].includes(value || '');
 
 const Dashboard = () => {
   const [user, setUser] = useState<User | null>(null);
@@ -37,101 +51,112 @@ const Dashboard = () => {
     return isDashboardView(savedView) ? savedView : 'overview';
   });
   const [loading, setLoading] = useState(true);
+
   const navigate = useNavigate();
   const location = useLocation();
   const { toast } = useToast();
-  const localTestUserId = import.meta.env.VITE_LOCAL_TEST_USER_ID as string | undefined;
-  const { effectiveUserId: overviewUserId, impersonatedUserId } = resolveInternalUserId({
-    authenticatedUserId: user?.id,
-    localTestUserId,
-    search: location.search
-  });
-  const urlLookupEmail = getInternalUserEmailFromSearch(location.search);
+
+  // 🔥 CLEAN EMAIL-BASED IMPERSONATION
+  const getEmailFromUrl = () => {
+    const params = new URLSearchParams(location.search);
+    return params.get('email')?.toLowerCase() || null;
+  };
 
   useEffect(() => {
-    if (urlLookupEmail) {
-      setLookupEmail(urlLookupEmail);
-      return;
+    const urlEmail = getEmailFromUrl();
+
+    if (urlEmail) {
+      setLookupEmail(urlEmail);
+      toast({
+        title: 'Impersonation active',
+        description: `Viewing data for ${urlEmail}`,
+      });
+    } else {
+      setLookupEmail(user?.email?.toLowerCase() ?? null);
     }
+  }, [location.search, user]);
 
-    setLookupEmail(user?.email ?? null);
-  }, [urlLookupEmail, user]);
+  // PROFILE COMPLETENESS
+  const isProfileComplete = useCallback(
+    async (currentUser: User): Promise<boolean> => {
+      const email = lookupEmail ?? currentUser.email ?? '';
+      if (!email) return false;
 
-  const isProfileComplete = useCallback(async (currentUser: User): Promise<boolean> => {
-    const emailForLookup = lookupEmail ?? currentUser.email ?? '';
-    if (!emailForLookup) {
-      return false;
-    }
-    console.log('Checking profile completeness for email:', emailForLookup);
-    
-    const { data } = await supabase
-      .from('userProfiles')
-      .select('*')
-      .ilike('email', emailForLookup)
-      .maybeSingle();
+      const { data } = await supabase
+        .from('userProfiles')
+        .select('*')
+        .eq('email', email.toLowerCase())
+        .maybeSingle();
 
-    const requiredValues = [
-      data?.first_name || currentUser.user_metadata?.first_name || '',
-      data?.last_name || currentUser.user_metadata?.last_name || '',
-      data?.email || currentUser.email || '',
-      data?.phone || '',
-      data?.address || '',
-      data?.employer_name || data?.employer || '',
-      data?.employer_phone || '',
-      data?.employer_address || '',
-      data?.position || data?.occupation || '',
-      data?.years_employed ?? '',
-      data?.dob || '',
-      data?.facebook_profile || '',
-      data?.bank_name || '',
-      data?.bank_account_number || '',
-      data?.income ?? '',
-      data?.expense ?? '',
-      data?.pay_schedule || '',
-    ];
+      const requiredValues = [
+        data?.first_name || currentUser.user_metadata?.first_name || '',
+        data?.last_name || currentUser.user_metadata?.last_name || '',
+        data?.email || currentUser.email || '',
+        data?.phone || '',
+        data?.address || '',
+        data?.employer_name || data?.employer || '',
+        data?.employer_phone || '',
+        data?.employer_address || '',
+        data?.position || data?.occupation || '',
+        data?.years_employed ?? '',
+        data?.dob || '',
+        data?.facebook_profile || '',
+        data?.bank_name || '',
+        data?.bank_account_number || '',
+        data?.income ?? '',
+        data?.expense ?? '',
+        data?.pay_schedule || '',
+      ];
 
-    return requiredValues.every((value) => String(value).trim().length > 0);
-  }, [lookupEmail]);
+      return requiredValues.every(
+        (value) => String(value).trim().length > 0
+      );
+    },
+    [lookupEmail]
+  );
 
-  const redirectToProfileIfIncomplete = useCallback(async (currentUser: User): Promise<void> => {
-    const complete = await isProfileComplete(currentUser);
-    const entryKey = profileEntryKey(currentUser.id);
-    const hasDefaultedProfile = localStorage.getItem(entryKey) === 'true';
+  const redirectToProfileIfIncomplete = useCallback(
+    async (currentUser: User) => {
+      const complete = await isProfileComplete(currentUser);
+      const entryKey = profileEntryKey(currentUser.id);
+      const hasDefaultedProfile =
+        localStorage.getItem(entryKey) === 'true';
 
-    if (!complete && !hasDefaultedProfile) {
-      setCurrentView('profile');
-      localStorage.setItem(entryKey, 'true');
-    }
-  }, [isProfileComplete]);
-
-  useEffect(() => {
-    // Set up auth state listener
-    const { data: { subscription } } = supabase.auth.onAuthStateChange(
-      (event, session) => {
-        setSession(session);
-        setUser(session?.user ?? null);
-        
-        if (!session?.user) {
-          setTimeout(() => {
-            navigate('/auth');
-          }, 0);
-        } else {
-          void redirectToProfileIfIncomplete(session.user);
-        }
-        setLoading(false);
+      if (!complete && !hasDefaultedProfile) {
+        setCurrentView('profile');
+        localStorage.setItem(entryKey, 'true');
       }
-    );
+    },
+    [isProfileComplete]
+  );
 
-    // Check for existing session
-    supabase.auth.getSession().then(({ data: { session } }) => {
+  // AUTH
+  useEffect(() => {
+    const {
+      data: { subscription },
+    } = supabase.auth.onAuthStateChange((_, session) => {
       setSession(session);
       setUser(session?.user ?? null);
-      
+
       if (!session?.user) {
         navigate('/auth');
       } else {
         void redirectToProfileIfIncomplete(session.user);
       }
+
+      setLoading(false);
+    });
+
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      setSession(session);
+      setUser(session?.user ?? null);
+
+      if (!session?.user) {
+        navigate('/auth');
+      } else {
+        void redirectToProfileIfIncomplete(session.user);
+      }
+
       setLoading(false);
     });
 
@@ -139,67 +164,58 @@ const Dashboard = () => {
   }, [navigate, redirectToProfileIfIncomplete]);
 
   useEffect(() => {
-    const locationView = (location.state as { view?: DashboardView } | null)?.view;
-    if (locationView) {
-      setCurrentView(locationView);
-    }
+    const locationView = (location.state as any)?.view;
+    if (locationView) setCurrentView(locationView);
   }, [location.state]);
 
   useEffect(() => {
     localStorage.setItem(DASHBOARD_LAST_VIEW_KEY, currentView);
   }, [currentView]);
 
-  useEffect(() => {
-    if (impersonatedUserId) {
-      toast({
-        title: 'Impersonation active',
-        description: `Viewing data for uid: ${impersonatedUserId}`
-      });
-    }
-  }, [impersonatedUserId, toast]);
-
   const handleSignOut = async () => {
-
     try {
-
-      const { error } = await supabase.auth.signOut()
-
-      if (error && error.message !== "Auth session missing") {
-        console.error(error)
-      }
-
+      await supabase.auth.signOut();
     } catch (err) {
-
-      console.warn("Logout warning:", err)
-
+      console.warn(err);
     } finally {
-
-      navigate("/")
-
+      navigate('/');
     }
+  };
 
-  }
-
+  // 🔥 PASS EMAIL, NOT internal_user_id
   const renderCurrentView = () => {
     switch (currentView) {
       case 'overview':
-        return overviewUserId ? <OverviewView userId={overviewUserId} /> : null;
+        return <OverviewView userEmail={lookupEmail ?? undefined} />;
+
       case 'profile':
-        return <ProfileView internalUserId={overviewUserId} internalUserEmail={lookupEmail ?? undefined} />;
+        return <ProfileView internalUserEmail={lookupEmail ?? undefined} />;
+
       case 'loans':
-        return overviewUserId ? <LoansView userId={overviewUserId} userEmail={lookupEmail ?? undefined} /> : null;
+        return <LoansView userEmail={lookupEmail ?? undefined} />;
+
       case 'transactions':
-        return <TransactionsView internalUserId={overviewUserId} />;
+        return <TransactionsView userEmail={lookupEmail ?? undefined} />;
+
       case 'invite':
-        return <InviteView internalUserId={overviewUserId} internalUserEmail={lookupEmail ?? undefined} />;
+        return <InviteView internalUserEmail={lookupEmail ?? undefined} />;
+
       case 'apply':
-        return <ApplyView user={user} internalUserId={overviewUserId} internalUserEmail={lookupEmail ?? undefined} />;
+        return (
+          <ApplyView
+            user={user}
+            internalUserEmail={lookupEmail ?? undefined}
+          />
+        );
+
       case 'documents':
         return <DocumentsView user={user} />;
+
       case 'payments':
-        return <PaymentsView />; 
+        return <PaymentsView />;
+
       default:
-        return overviewUserId ? <OverviewView userId={overviewUserId} /> : null;
+        return <OverviewView userEmail={lookupEmail ?? undefined} />;
     }
   };
 
@@ -211,22 +227,17 @@ const Dashboard = () => {
     );
   }
 
-  if (!user) {
-    return null;
-  }
+  if (!user) return null;
 
   return (
     <SidebarProvider>
       <div className="min-h-screen flex w-full">
-        <AppSidebar 
+        <AppSidebar
           currentView={currentView}
           onViewChange={setCurrentView}
         />
         <div className="flex-1 flex flex-col">
-          <DashboardHeader 
-            user={user}
-            onSignOut={handleSignOut}
-          />
+          <DashboardHeader user={user} onSignOut={handleSignOut} />
           <main className="flex-1 p-4 md:p-6 bg-gradient-soft">
             {renderCurrentView()}
           </main>

@@ -8,21 +8,31 @@ import {
   CardTitle,
 } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import { PaymentMethod } from '@/types/payments';
+import { Input } from '@/components/ui/input';
+
+declare global {
+  interface Window {
+    Xendit: any;
+  }
+}
 
 export default function PaymentsView() {
-  const [cards, setCards] = useState<PaymentMethod[]>([]);
+  const [cards, setCards] = useState<any[]>([]);
   const [loading, setLoading] = useState(false);
 
+  const [showForm, setShowForm] = useState(false);
+  const [cardNumber, setCardNumber] = useState('');
+  const [expMonth, setExpMonth] = useState('');
+  const [expYear, setExpYear] = useState('');
+  const [cvv, setCvv] = useState('');
+
   const fetchCards = async () => {
-    const { data, error } = await supabase
+    const { data } = await supabase
       .from('payment_methods')
       .select('*')
       .order('created_at', { ascending: false });
 
-    if (!error && data) {
-      setCards(data);
-    }
+    if (data) setCards(data);
   };
 
   useEffect(() => {
@@ -30,15 +40,19 @@ export default function PaymentsView() {
   }, []);
 
   const setDefault = async (id: string) => {
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
+
+    if (!user) return;
+
     setLoading(true);
 
-    // reset all
     await supabase
       .from('payment_methods')
       .update({ is_default: false })
-      .neq('id', '');
+      .eq('internal_user_id', user.id);
 
-    // set selected
     await supabase
       .from('payment_methods')
       .update({ is_default: true })
@@ -46,6 +60,55 @@ export default function PaymentsView() {
 
     await fetchCards();
     setLoading(false);
+  };
+
+  const handleAddCard = async () => {
+    try {
+      const xendit = window.Xendit;
+
+      xendit.setPublishableKey(import.meta.env.VITE_XENDIT_PUBLIC_KEY);
+
+      xendit.card.createToken(
+        {
+          amount: 10000,
+          card_number: cardNumber,
+          card_exp_month: expMonth,
+          card_exp_year: expYear,
+          card_cvn: cvv,
+          is_multiple_use: true,
+        },
+        async (err: any, token: any) => {
+          if (err) {
+            console.error(err);
+            return;
+          }
+
+          const { error } = await supabase.functions.invoke(
+            'add-payment-method',
+            {
+              body: {
+                token_id: token.id,
+              },
+            }
+          );
+
+          if (error) {
+            console.error(error);
+            return;
+          }
+
+          setShowForm(false);
+          setCardNumber('');
+          setExpMonth('');
+          setExpYear('');
+          setCvv('');
+
+          await fetchCards();
+        }
+      );
+    } catch (err) {
+      console.error(err);
+    }
   };
 
   return (
@@ -73,7 +136,6 @@ export default function PaymentsView() {
                 <div className="font-medium">
                   {card.brand} •••• {card.last4}
                 </div>
-
                 <div className="text-sm text-muted-foreground">
                   Exp {card.exp_month}/{card.exp_year}
                 </div>
@@ -98,9 +160,38 @@ export default function PaymentsView() {
             </div>
           ))}
 
-          <Button className="mt-4 w-full">
-            Add Card
-          </Button>
+          {!showForm && (
+            <Button className="mt-4 w-full" onClick={() => setShowForm(true)}>
+              Add Card
+            </Button>
+          )}
+
+          {showForm && (
+            <div className="space-y-2">
+              <Input
+                placeholder="Card Number"
+                value={cardNumber}
+                onChange={(e) => setCardNumber(e.target.value)}
+              />
+              <Input
+                placeholder="MM"
+                value={expMonth}
+                onChange={(e) => setExpMonth(e.target.value)}
+              />
+              <Input
+                placeholder="YYYY"
+                value={expYear}
+                onChange={(e) => setExpYear(e.target.value)}
+              />
+              <Input
+                placeholder="CVV"
+                value={cvv}
+                onChange={(e) => setCvv(e.target.value)}
+              />
+
+              <Button onClick={handleAddCard}>Save Card</Button>
+            </div>
+          )}
         </CardContent>
       </Card>
     </div>
