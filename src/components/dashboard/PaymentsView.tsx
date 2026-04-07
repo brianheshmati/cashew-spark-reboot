@@ -19,6 +19,7 @@ declare global {
 export default function PaymentsView() {
   const [cards, setCards] = useState<any[]>([]);
   const [loading, setLoading] = useState(false);
+  const [errorMsg, setErrorMsg] = useState('');
 
   const [showForm, setShowForm] = useState(false);
   const [cardNumber, setCardNumber] = useState('');
@@ -39,31 +40,41 @@ export default function PaymentsView() {
     fetchCards();
   }, []);
 
-  const setDefault = async (id: string) => {
-    const {
-      data: { user },
-    } = await supabase.auth.getUser();
+  const formatCardNumber = (value: string) => {
+    return value
+      .replace(/\D/g, '')
+      .replace(/(.{4})/g, '$1 ')
+      .trim();
+  };
 
-    if (!user) return;
-
-    setLoading(true);
-
-    await supabase
-      .from('payment_methods')
-      .update({ is_default: false })
-      .eq('internal_user_id', user.id);
-
-    await supabase
-      .from('payment_methods')
-      .update({ is_default: true })
-      .eq('id', id);
-
-    await fetchCards();
-    setLoading(false);
+  const validateForm = () => {
+    if (!cardNumber || cardNumber.replace(/\s/g, '').length < 13) {
+      return 'Invalid card number';
+    }
+    if (!expMonth || Number(expMonth) < 1 || Number(expMonth) > 12) {
+      return 'Invalid month';
+    }
+    if (!expYear || expYear.length !== 4) {
+      return 'Invalid year';
+    }
+    if (!cvv || cvv.length < 3) {
+      return 'Invalid CVV';
+    }
+    return '';
   };
 
   const handleAddCard = async () => {
+    setErrorMsg('');
+
+    const validationError = validateForm();
+    if (validationError) {
+      setErrorMsg(validationError);
+      return;
+    }
+
     try {
+      setLoading(true);
+
       const xendit = window.Xendit;
 
       xendit.setPublishableKey(import.meta.env.VITE_XENDIT_PUBLIC_KEY);
@@ -71,7 +82,7 @@ export default function PaymentsView() {
       xendit.card.createToken(
         {
           amount: 10000,
-          card_number: cardNumber,
+          card_number: cardNumber.replace(/\s/g, ''),
           card_exp_month: expMonth,
           card_exp_year: expYear,
           card_cvn: cvv,
@@ -79,7 +90,8 @@ export default function PaymentsView() {
         },
         async (err: any, token: any) => {
           if (err) {
-            console.error(err);
+            setErrorMsg(err.message || 'Card failed');
+            setLoading(false);
             return;
           }
 
@@ -93,7 +105,8 @@ export default function PaymentsView() {
           );
 
           if (error) {
-            console.error(error);
+            setErrorMsg(error.message);
+            setLoading(false);
             return;
           }
 
@@ -104,39 +117,35 @@ export default function PaymentsView() {
           setCvv('');
 
           await fetchCards();
+          setLoading(false);
         }
       );
-    } catch (err) {
-      console.error(err);
+    } catch (err: any) {
+      setErrorMsg(err.message || 'Error');
+      setLoading(false);
     }
   };
 
   return (
-    <div className="p-6 space-y-6">
+    <div className="p-6 max-w-xl mx-auto space-y-6">
       <h1 className="text-2xl font-bold">Payments</h1>
 
-      <Card>
+      <Card className="shadow-sm border">
         <CardHeader>
           <CardTitle>Saved Cards</CardTitle>
         </CardHeader>
 
         <CardContent className="space-y-3">
-          {cards.length === 0 && (
-            <div className="text-sm text-muted-foreground">
-              No cards added yet.
-            </div>
-          )}
-
           {cards.map((card) => (
             <div
               key={card.id}
-              className="flex items-center justify-between border rounded-lg p-3"
+              className="flex items-center justify-between border rounded-xl p-4 hover:bg-gray-50 transition"
             >
               <div>
-                <div className="font-medium">
+                <div className="font-medium text-sm">
                   {card.brand} •••• {card.last4}
                 </div>
-                <div className="text-sm text-muted-foreground">
+                <div className="text-xs text-muted-foreground">
                   Exp {card.exp_month}/{card.exp_year}
                 </div>
               </div>
@@ -145,51 +154,97 @@ export default function PaymentsView() {
                 {card.is_default && (
                   <Badge variant="secondary">Default</Badge>
                 )}
-
-                {!card.is_default && (
-                  <Button
-                    size="sm"
-                    variant="outline"
-                    onClick={() => setDefault(card.id)}
-                    disabled={loading}
-                  >
-                    Set Default
-                  </Button>
-                )}
               </div>
             </div>
           ))}
 
           {!showForm && (
-            <Button className="mt-4 w-full" onClick={() => setShowForm(true)}>
+            <Button
+              className="mt-4 w-full rounded-xl"
+              onClick={() => setShowForm(true)}
+            >
               Add Card
             </Button>
           )}
 
           {showForm && (
-            <div className="space-y-2">
-              <Input
-                placeholder="Card Number"
-                value={cardNumber}
-                onChange={(e) => setCardNumber(e.target.value)}
-              />
-              <Input
-                placeholder="MM"
-                value={expMonth}
-                onChange={(e) => setExpMonth(e.target.value)}
-              />
-              <Input
-                placeholder="YYYY"
-                value={expYear}
-                onChange={(e) => setExpYear(e.target.value)}
-              />
-              <Input
-                placeholder="CVV"
-                value={cvv}
-                onChange={(e) => setCvv(e.target.value)}
-              />
+            <div className="space-y-4 border rounded-xl p-4 bg-gray-50">
+              <div>
+                <label className="text-xs text-muted-foreground">
+                  Card Number
+                </label>
+                <Input
+                  placeholder="1234 5678 9012 3456"
+                  value={cardNumber}
+                  onChange={(e) =>
+                    setCardNumber(formatCardNumber(e.target.value))
+                  }
+                  className="mt-1 text-lg tracking-wide"
+                />
+              </div>
 
-              <Button onClick={handleAddCard}>Save Card</Button>
+              <div className="grid grid-cols-3 gap-3">
+                <div>
+                  <label className="text-xs text-muted-foreground">
+                    Month
+                  </label>
+                  <Input
+                    placeholder="MM"
+                    value={expMonth}
+                    onChange={(e) => setExpMonth(e.target.value)}
+                  />
+                </div>
+
+                <div>
+                  <label className="text-xs text-muted-foreground">
+                    Year
+                  </label>
+                  <Input
+                    placeholder="YYYY"
+                    value={expYear}
+                    onChange={(e) => setExpYear(e.target.value)}
+                  />
+                </div>
+
+                <div>
+                  <label className="text-xs text-muted-foreground">
+                    CVV
+                  </label>
+                  <Input
+                    placeholder="123"
+                    value={cvv}
+                    onChange={(e) => setCvv(e.target.value)}
+                  />
+                </div>
+              </div>
+
+              {errorMsg && (
+                <div className="text-sm text-red-500">
+                  {errorMsg}
+                </div>
+              )}
+
+              <div className="flex gap-2">
+                <Button
+                  className="flex-1 rounded-xl"
+                  onClick={handleAddCard}
+                  disabled={loading}
+                >
+                  {loading ? 'Saving...' : 'Save Card'}
+                </Button>
+
+                <Button
+                  variant="outline"
+                  className="flex-1 rounded-xl"
+                  onClick={() => setShowForm(false)}
+                >
+                  Cancel
+                </Button>
+              </div>
+
+              <div className="text-xs text-muted-foreground text-center">
+                Your card is securely processed and never stored on our servers.
+              </div>
             </div>
           )}
         </CardContent>
