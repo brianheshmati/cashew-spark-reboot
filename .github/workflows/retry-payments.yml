@@ -1,0 +1,17 @@
+name: Retry Payments
+
+on:
+  schedule:
+    - cron: "*/15 * * * *"   # every 15 minutes
+  workflow_dispatch:         # allows manual trigger
+
+jobs:
+  retry:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Call Supabase Retry Function
+        run: |
+          curl -X POST \
+          https://api.cashew.ph/functions/v1/retry \
+          -H "Authorization: Bearer ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}"
