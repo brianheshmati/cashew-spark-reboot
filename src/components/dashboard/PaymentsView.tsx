@@ -22,14 +22,14 @@ export default function PaymentsView() {
   const [errorMsg, setErrorMsg] = useState('');
 
   const [showForm, setShowForm] = useState(false);
+
+  const [firstName, setFirstName] = useState('');
+  const [lastName, setLastName] = useState('');
   const [cardNumber, setCardNumber] = useState('');
   const [expMonth, setExpMonth] = useState('');
   const [expYear, setExpYear] = useState('');
   const [cvv, setCvv] = useState('');
 
-  // =========================
-  // FETCH SAVED CARDS
-  // =========================
   const fetchCards = async () => {
     const { data } = await supabase
       .from('payment_methods')
@@ -43,54 +43,33 @@ export default function PaymentsView() {
     fetchCards();
   }, []);
 
-  // =========================
-  // VALIDATION
-  // =========================
   const validateForm = () => {
-    const cleanNumber = cardNumber.replace(/\s/g, '');
+    if (!firstName || !lastName) return 'Cardholder name required';
 
-    if (!cleanNumber || cleanNumber.length < 13) {
-      return 'Invalid card number';
-    }
+    const cleanNumber = cardNumber.replace(/\s/g, '');
+    if (cleanNumber.length < 13) return 'Invalid card number';
 
     const month = Number(expMonth);
     const year = Number(expYear);
 
-    if (!month || month < 1 || month > 12) {
-      return 'Invalid month';
-    }
+    if (month < 1 || month > 12) return 'Invalid month';
+    if (!year || expYear.length !== 4) return 'Invalid year';
 
-    if (!year || expYear.length !== 4) {
-      return 'Invalid year';
-    }
-
-    // expiration check
     const now = new Date();
-    const currentYear = now.getFullYear();
-    const currentMonth = now.getMonth() + 1;
-
-    if (year < currentYear || (year === currentYear && month < currentMonth)) {
-      return 'Card is expired';
+    if (
+      year < now.getFullYear() ||
+      (year === now.getFullYear() && month < now.getMonth() + 1)
+    ) {
+      return 'Card expired';
     }
 
-    if (!cvv || cvv.length < 3) {
-      return 'Invalid CVV';
-    }
+    if (cvv.length < 3) return 'Invalid CVV';
 
     return '';
   };
 
-  // =========================
-  // ADD CARD
-  // =========================
   const handleAddCard = async () => {
     setErrorMsg('');
-
-    // env check
-    if (!import.meta.env.VITE_XENDIT_PUBLIC_KEY) {
-      setErrorMsg('Payment configuration missing');
-      return;
-    }
 
     if (!window.Xendit) {
       setErrorMsg('Payment system not loaded');
@@ -106,6 +85,17 @@ export default function PaymentsView() {
     try {
       setLoading(true);
 
+      const {
+        data: { user },
+      } = await supabase.auth.getUser();
+
+      const userEmail = user?.email;
+      if (!userEmail) {
+        setErrorMsg('User email missing');
+        setLoading(false);
+        return;
+      }
+
       const xendit = window.Xendit;
       xendit.setPublishableKey(
         import.meta.env.VITE_XENDIT_PUBLIC_KEY
@@ -114,16 +104,18 @@ export default function PaymentsView() {
       xendit.card.createToken(
         {
           amount: 10000,
+          card_holder_first_name: firstName,
+          card_holder_last_name: lastName,
+          card_holder_email: userEmail,  
           card_number: cardNumber.replace(/\s/g, ''),
           card_exp_month: String(expMonth),
-          card_exp_year: String(expYear), // ✅ FULL YEAR
+          card_exp_year: String(expYear),
           card_cvv: cvv,
           is_multiple_use: true,
         },
         async (err: any, token: any) => {
           if (err) {
-            console.error('Xendit error:', err);
-            setErrorMsg(err.message || 'Card failed');
+            setErrorMsg(err.message);
             setLoading(false);
             return;
           }
@@ -133,6 +125,9 @@ export default function PaymentsView() {
             {
               body: {
                 token_id: token.id,
+                first_name: firstName,
+                last_name: lastName,
+                email: userEmail, // ✅ REQUIRED
               },
             }
           );
@@ -145,6 +140,8 @@ export default function PaymentsView() {
 
           // reset
           setShowForm(false);
+          setFirstName('');
+          setLastName('');
           setCardNumber('');
           setExpMonth('');
           setExpYear('');
@@ -155,78 +152,70 @@ export default function PaymentsView() {
         }
       );
     } catch (err: any) {
-      setErrorMsg(err.message || 'Error');
+      setErrorMsg(err.message);
       setLoading(false);
     }
   };
 
-  // =========================
-  // UI
-  // =========================
   return (
     <div className="p-6 max-w-xl mx-auto space-y-6">
       <h1 className="text-2xl font-bold">Payments</h1>
 
-      <Card className="shadow-sm border">
+      <Card>
         <CardHeader>
-          <CardTitle>New Card</CardTitle>
+          <CardTitle>Saved Cards</CardTitle>
         </CardHeader>
 
         <CardContent className="space-y-4">
           {cards.map((card) => (
             <div
               key={card.id}
-              className="flex items-center justify-between border rounded-xl p-4 hover:bg-gray-50 transition"
+              className="flex justify-between border p-4 rounded-xl"
             >
               <div>
-                <div className="font-medium text-sm">
-                  {card.brand} •••• {card.last4}
-                </div>
-                <div className="text-xs text-muted-foreground">
+                {card.brand} •••• {card.last4}
+                <div className="text-xs">
                   Exp {card.exp_month}/{card.exp_year}
                 </div>
               </div>
-
-              {card.is_default && (
-                <Badge variant="secondary">Default</Badge>
-              )}
+              {card.is_default && <Badge>Default</Badge>}
             </div>
           ))}
 
           {!showForm && (
-            <Button
-              className="w-full rounded-xl"
-              onClick={() => setShowForm(true)}
-            >
+            <Button onClick={() => setShowForm(true)}>
               Add Card
             </Button>
           )}
 
           {showForm && (
-            <div className="space-y-4 border rounded-2xl p-5 bg-white shadow-sm">
-              {/* CARD NUMBER */}
-              <div>
-                <label className="text-xs text-muted-foreground">
-                  Card Number
-                </label>
-                <Input
-                  placeholder="1234 5678 9012 3456"
-                  value={cardNumber}
-                  onChange={(e) => {
-                    const raw = e.target.value
-                      .replace(/\D/g, '')
-                      .slice(0, 16);
-                    const formatted = raw
-                      .replace(/(.{4})/g, '$1 ')
-                      .trim();
-                    setCardNumber(formatted);
-                  }}
-                  className="mt-1 text-lg tracking-widest"
-                />
-              </div>
+            <div className="space-y-4 border p-4 rounded-xl">
+              <Input
+                placeholder="First Name"
+                value={firstName}
+                onChange={(e) => setFirstName(e.target.value)}
+              />
 
-              {/* EXP + CVV */}
-              <div className="grid grid-cols-3 gap-3">
+              <Input
+                placeholder="Last Name"
+                value={lastName}
+                onChange={(e) => setLastName(e.target.value)}
+              />
+
+              <Input
+                placeholder="Card Number"
+                value={cardNumber}
+                onChange={(e) => {
+                  const raw = e.target.value
+                    .replace(/\D/g, '')
+                    .slice(0, 16);
+                  setCardNumber(
+                    raw.replace(/(.{4})/g, '$1 ').trim()
+                  );
+                }}
+              />
+
+              <div className="grid grid-cols-3 gap-2">
                 <Input
                   placeholder="MM"
                   value={expMonth}
@@ -236,7 +225,6 @@ export default function PaymentsView() {
                     )
                   }
                 />
-
                 <Input
                   placeholder="YYYY"
                   value={expYear}
@@ -246,7 +234,6 @@ export default function PaymentsView() {
                     )
                   }
                 />
-
                 <Input
                   placeholder="CVV"
                   value={cvv}
@@ -258,38 +245,15 @@ export default function PaymentsView() {
                 />
               </div>
 
-              {/* ERROR */}
               {errorMsg && (
-                <div className="text-sm text-red-500 font-medium">
+                <div className="text-red-500 text-sm">
                   {errorMsg}
                 </div>
               )}
 
-              {/* ACTIONS */}
-              <div className="flex gap-2">
-                <Button
-                  className="flex-1 rounded-xl"
-                  onClick={handleAddCard}
-                  disabled={loading}
-                >
-                  {loading ? 'Saving...' : 'Save Card'}
-                </Button>
-
-                <Button
-                  variant="outline"
-                  className="flex-1 rounded-xl"
-                  onClick={() => {
-                    setShowForm(false);
-                    setErrorMsg('');
-                  }}
-                >
-                  Cancel
-                </Button>
-              </div>
-
-              <div className="text-xs text-muted-foreground text-center">
-                Secure card processing via Xendit. We do not store card data.
-              </div>
+              <Button onClick={handleAddCard} disabled={loading}>
+                {loading ? 'Saving...' : 'Save Card'}
+              </Button>
             </div>
           )}
         </CardContent>
