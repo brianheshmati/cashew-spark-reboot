@@ -20,7 +20,6 @@ export default function PaymentsView() {
   const [cards, setCards] = useState<any[]>([]);
   const [loading, setLoading] = useState(false);
   const [errorMsg, setErrorMsg] = useState('');
-
   const [showForm, setShowForm] = useState(false);
 
   const [firstName, setFirstName] = useState('');
@@ -68,92 +67,125 @@ export default function PaymentsView() {
     return '';
   };
 
-  const handleAddCard = async () => {
-    setErrorMsg('');
-
-    if (!window.Xendit) {
-      setErrorMsg('Payment system not loaded');
-      return;
-    }
-
-    const validationError = validateForm();
-    if (validationError) {
-      setErrorMsg(validationError);
-      return;
-    }
-
-    try {
-      setLoading(true);
-
-      const {
-        data: { user },
-      } = await supabase.auth.getUser();
-
-      const userEmail = user?.email;
-      if (!userEmail) {
-        setErrorMsg('User email missing');
-        setLoading(false);
-        return;
-      }
-
-      const xendit = window.Xendit;
-      xendit.setPublishableKey(
-        import.meta.env.VITE_XENDIT_PUBLIC_KEY
-      );
-
-      xendit.card.createToken(
+  // ✅ Convert Xendit callback → Promise
+  const createToken = (userEmail: string) =>
+    new Promise<any>((resolve, reject) => {
+      window.Xendit.card.createToken(
         {
           amount: 10000,
           card_holder_first_name: firstName,
           card_holder_last_name: lastName,
-          card_holder_email: userEmail,  
+          card_holder_email: userEmail,
           card_number: cardNumber.replace(/\s/g, ''),
           card_exp_month: String(expMonth),
           card_exp_year: String(expYear),
           card_cvv: cvv,
           is_multiple_use: true,
         },
-        async (err: any, token: any) => {
-          if (err) {
-            setErrorMsg(err.message);
-            setLoading(false);
-            return;
-          }
-
-          const { error } = await supabase.functions.invoke(
-            'add-payment-method',
-            {
-              body: {
-                token_id: token.id,
-                first_name: firstName,
-                last_name: lastName,
-                email: userEmail, // ✅ REQUIRED
-              },
-            }
-          );
-
-          if (error) {
-            setErrorMsg(error.message);
-            setLoading(false);
-            return;
-          }
-
-          // reset
-          setShowForm(false);
-          setFirstName('');
-          setLastName('');
-          setCardNumber('');
-          setExpMonth('');
-          setExpYear('');
-          setCvv('');
-
-          await fetchCards();
-          setLoading(false);
+        (err: any, token: any) => {
+          if (err) return reject(err);
+          resolve(token);
         }
       );
+    });
+
+  const handleAddCard = async () => {
+    setErrorMsg('');
+    setLoading(true);
+
+    try {
+      if (!window.Xendit) {
+        throw new Error('Payment system not loaded');
+      }
+
+      const validationError = validateForm();
+      if (validationError) {
+        throw new Error(validationError);
+      }
+
+      const {
+        data: { user },
+      } = await supabase.auth.getUser();
+
+      if (!user) throw new Error('User not logged in');
+
+      const userEmail = user.email;
+
+      const session = await supabase.auth.getSession();
+      const accessToken = session.data.session?.access_token;
+
+      if (!accessToken) throw new Error('Missing auth token');
+
+      const xendit = window.Xendit;
+      xendit.setPublishableKey(
+        import.meta.env.VITE_XENDIT_PUBLIC_KEY
+      );
+
+      // ✅ Token creation (awaited)
+      const token = await Promise.race([
+        createToken(userEmail),
+        new Promise((_, reject) =>
+          setTimeout(() => reject(new Error('Token timeout')), 10000)
+        ),
+      ]);
+
+      console.log('TOKEN:', token);
+
+      // ✅ Call edge function directly (no proxy issues)
+      //`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/add-payment-method`,
+  
+      const res = await fetch(
+  `https://fklaxhpublxhgxcajuyu.supabase.co/functions/v1/add-payment-method`,
+  {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      Authorization: `Bearer ${accessToken}`,
+    },
+    body: JSON.stringify({
+      token_id: token.id,
+      first_name: firstName,
+      last_name: lastName,
+      email: userEmail,
+    }),
+  }
+);
+
+  const raw = await res.text();
+
+      console.log('RAW RESPONSE:', raw);
+
+      let result;
+      try {
+        result = raw ? JSON.parse(raw) : {};
+      } catch (e) {
+        console.error('NON-JSON RESPONSE:', raw);
+        throw new Error('Server returned invalid response');
+      }
+
+      if (!res.ok) {
+        throw new Error(result.error || 'Failed to save card');
+      }
+
+      if (!res.ok) {
+        throw new Error(result.error || 'Failed to save card');
+      }
+
+      // ✅ Reset UI
+      setShowForm(false);
+      setFirstName('');
+      setLastName('');
+      setCardNumber('');
+      setExpMonth('');
+      setExpYear('');
+      setCvv('');
+
+      await fetchCards();
     } catch (err: any) {
+      console.error(err);
       setErrorMsg(err.message);
-      setLoading(false);
+    } finally {
+      setLoading(false); // ✅ ALWAYS runs
     }
   };
 
