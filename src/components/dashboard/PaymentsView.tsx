@@ -10,6 +10,8 @@ import {
 import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
 
+import { FEATURES } from '@/config/features';
+
 declare global {
   interface Window {
     Xendit: any;
@@ -17,17 +19,27 @@ declare global {
 }
 
 export default function PaymentsView() {
+  // ✅ feature flag guard
+  if (!FEATURES.paymentMethods) {
+    return (
+      <div className="p-6 text-center text-gray-500">
+        Payment Methods feature is not enabled.
+      </div>
+    );
+  }
+
   const [cards, setCards] = useState<any[]>([]);
   const [loading, setLoading] = useState(false);
   const [errorMsg, setErrorMsg] = useState('');
   const [showForm, setShowForm] = useState(false);
 
-  const [firstName, setFirstName] = useState('');
-  const [lastName, setLastName] = useState('');
-  const [cardNumber, setCardNumber] = useState('');
-  const [expMonth, setExpMonth] = useState('');
-  const [expYear, setExpYear] = useState('');
-  const [cvv, setCvv] = useState('');
+  // ✅ DEFAULT VALUES (TEST CARD)
+  const [firstName, setFirstName] = useState('BRIAN');
+  const [lastName, setLastName] = useState('HESHMAT');
+  const [cardNumber, setCardNumber] = useState('4111 1111 1111 1111');
+  const [expMonth, setExpMonth] = useState('10');
+  const [expYear, setExpYear] = useState('2030');
+  const [cvv, setCvv] = useState('123');
 
   const fetchCards = async () => {
     const { data } = await supabase
@@ -67,7 +79,6 @@ export default function PaymentsView() {
     return '';
   };
 
-  // ✅ Convert Xendit callback → Promise
   const createToken = (userEmail: string) =>
     new Promise<any>((resolve, reject) => {
       window.Xendit.card.createToken(
@@ -90,6 +101,8 @@ export default function PaymentsView() {
     });
 
   const handleAddCard = async () => {
+    if (loading) return;
+
     setErrorMsg('');
     setLoading(true);
 
@@ -121,7 +134,6 @@ export default function PaymentsView() {
         import.meta.env.VITE_XENDIT_PUBLIC_KEY
       );
 
-      // ✅ Token creation (awaited)
       const token = await Promise.race([
         createToken(userEmail),
         new Promise((_, reject) =>
@@ -129,73 +141,57 @@ export default function PaymentsView() {
         ),
       ]);
 
-      console.log('TOKEN:', token);
-
-      // ✅ Call edge function directly (no proxy issues)
-      //`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/add-payment-method`,
-  
       const res = await fetch(
-  `https://fklaxhpublxhgxcajuyu.supabase.co/functions/v1/add-payment-method`,
-  {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      Authorization: `Bearer ${accessToken}`,
-    },
-    body: JSON.stringify({
-      token_id: token.id,
-      first_name: firstName,
-      last_name: lastName,
-      email: userEmail,
-    }),
-  }
-);
+        `https://fklaxhpublxhgxcajuyu.supabase.co/functions/v1/add-payment-method`,
+        {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            Authorization: `Bearer ${accessToken}`,
+          },
+          body: JSON.stringify({
+            token_id: token.id,
+            first_name: firstName,
+            last_name: lastName,
+            email: userEmail,
+          }),
+        }
+      );
 
-  const raw = await res.text();
-
+      const raw = await res.text();
       console.log('RAW RESPONSE:', raw);
 
       let result;
       try {
         result = raw ? JSON.parse(raw) : {};
-      } catch (e) {
-        console.error('NON-JSON RESPONSE:', raw);
-        throw new Error('Server returned invalid response');
+      } catch {
+        throw new Error('Invalid server response');
       }
 
       if (!res.ok) {
         throw new Error(result.error || 'Failed to save card');
       }
 
-      if (!res.ok) {
-        throw new Error(result.error || 'Failed to save card');
-      }
-
-      // ✅ Reset UI
+      // reset (keep defaults instead of clearing)
       setShowForm(false);
-      setFirstName('');
-      setLastName('');
-      setCardNumber('');
-      setExpMonth('');
-      setExpYear('');
-      setCvv('');
 
       await fetchCards();
     } catch (err: any) {
       console.error(err);
       setErrorMsg(err.message);
     } finally {
-      setLoading(false); // ✅ ALWAYS runs
+      setLoading(false);
     }
   };
 
   return (
     <div className="p-6 max-w-xl mx-auto space-y-6">
-      <h1 className="text-2xl font-bold">Payments</h1>
+      {/* ✅ TITLE UPDATED */}
+      <h1 className="text-2xl font-bold">Payment Methods</h1>
 
       <Card>
         <CardHeader>
-          <CardTitle>Saved Cards</CardTitle>
+          <CardTitle>New card</CardTitle>
         </CardHeader>
 
         <CardContent className="space-y-4">

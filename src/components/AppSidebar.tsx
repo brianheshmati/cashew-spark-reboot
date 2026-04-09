@@ -19,7 +19,17 @@ import {
   useSidebar,
 } from '@/components/ui/sidebar';
 
-type DashboardView = 'overview' | 'profile' | 'loans' | 'transactions' | 'invite' | 'apply' | 'documents' | 'payments';
+import { FEATURES } from '@/config/features';
+
+type DashboardView =
+  | 'overview'
+  | 'profile'
+  | 'loans'
+  | 'transactions'
+  | 'invite'
+  | 'apply'
+  | 'documents'
+  | 'payments';
 
 interface AppSidebarProps {
   currentView: DashboardView;
@@ -32,10 +42,21 @@ const menuItems = [
   { id: 'loans' as DashboardView, title: 'My Loans', icon: CreditCard },
   { id: 'transactions' as DashboardView, title: 'Transactions', icon: History },
   { id: 'apply' as DashboardView, title: 'Apply for Loan', icon: FileText },
-  { id: 'payments' as DashboardView, title: 'Payments', icon: CreditCard },
+
+  // ✅ FEATURE FLAG CONTROLLED
+  FEATURES.paymentMethods && {
+    id: 'payments' as DashboardView,
+    title: 'Payment Methods',
+    icon: CreditCard,
+  },
+
   { id: 'documents' as DashboardView, title: 'Documents', icon: FolderOpen },
   { id: 'invite' as DashboardView, title: 'Invite Friends', icon: UserPlus },
-];
+].filter(Boolean) as {
+  id: DashboardView;
+  title: string;
+  icon: any;
+}[];
 
 export function AppSidebar({ currentView, onViewChange }: AppSidebarProps) {
   const { state } = useSidebar();
@@ -56,9 +77,10 @@ export function AppSidebar({ currentView, onViewChange }: AppSidebarProps) {
                 <SidebarMenuItem key={item.id}>
                   <SidebarMenuButton 
                     onClick={() => onViewChange(item.id)}
-                    className={currentView === item.id ? 
-                      "bg-sidebar-accent text-sidebar-accent-foreground" : 
-                      "hover:bg-sidebar-accent/50"
+                    className={
+                      currentView === item.id
+                        ? "bg-sidebar-accent text-sidebar-accent-foreground"
+                        : "hover:bg-sidebar-accent/50"
                     }
                   >
                     <item.icon className="h-4 w-4" />
