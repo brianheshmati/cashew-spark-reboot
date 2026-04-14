@@ -27,13 +27,13 @@ interface Transaction {
 }
 
 interface OverviewViewProps {
-  userId: string;
+  userEmail?: string;
 }
 
 // =========================
 // COMPONENT
 // =========================
-export function OverviewView({ userId }: OverviewViewProps) {
+export function OverviewView({ userEmail }: OverviewViewProps) {
   const [searchParams] = useSearchParams();
   const navigate = useNavigate();
   const { toast } = useToast();
@@ -55,40 +55,30 @@ export function OverviewView({ userId }: OverviewViewProps) {
   useEffect(() => {
     const urlEmail = searchParams.get('email');
 
-    // 🔥 PRIORITY: impersonation email
+    // Priority: explicit URL impersonation email
     if (urlEmail) {
       setEmail(urlEmail.toLowerCase());
       return;
     }
 
-    // fallback to logged-in user
-    const fetchEmail = async () => {
-      const { data, error } = await supabase
-        .from('userProfiles')
-        .select('email')
-        .eq('internal_user_id', userId)
-        .single();
+    // Fallback: email provided by dashboard state
+    if (userEmail) {
+      setEmail(userEmail.toLowerCase());
+      return;
+    }
 
-      if (error || !data?.email) {
-        toast({
-          title: 'Error',
-          description: 'Failed to fetch user email.',
-          variant: 'destructive'
-        });
-        return;
-      }
-
-      setEmail(data.email.toLowerCase());
-    };
-
-    fetchEmail();
-  }, [userId, searchParams]);
+    setEmail(null);
+    setLoading(false);
+    setTransactionsLoading(false);
+  }, [searchParams, userEmail]);
 
   // =========================
   // OVERVIEW DATA
   // =========================
   useEffect(() => {
     if (!email) return;
+
+    setLoading(true);
 
     const fetchOverview = async () => {
       try {
