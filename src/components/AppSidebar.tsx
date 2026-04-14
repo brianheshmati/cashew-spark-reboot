@@ -59,13 +59,34 @@ const menuItems = [
 }[];
 
 export function AppSidebar({ currentView, onViewChange }: AppSidebarProps) {
-  const { state } = useSidebar();
+  const { state, isMobile, setOpen, setOpenMobile } = useSidebar();
   const collapsed = state === 'collapsed';
+
+  const handleViewSelect = (view: DashboardView) => {
+    onViewChange(view);
+
+    if (isMobile) {
+      setOpenMobile(false);
+      return;
+    }
+
+    setOpen(false);
+  };
 
   return (
     <Sidebar
       className={collapsed ? "w-14" : "w-60"}
       collapsible="icon"
+      onMouseEnter={() => {
+        if (!isMobile) {
+          setOpen(true);
+        }
+      }}
+      onMouseLeave={() => {
+        if (!isMobile) {
+          setOpen(false);
+        }
+      }}
     >
       <SidebarTrigger className="m-2 self-end" />
 
@@ -76,7 +97,7 @@ export function AppSidebar({ currentView, onViewChange }: AppSidebarProps) {
               {menuItems.map((item) => (
                 <SidebarMenuItem key={item.id}>
                   <SidebarMenuButton 
-                    onClick={() => onViewChange(item.id)}
+                    onClick={() => handleViewSelect(item.id)}
                     className={
                       currentView === item.id
                         ? "bg-sidebar-accent text-sidebar-accent-foreground"
