@@ -206,12 +206,16 @@ const LoanDetails = () => {
 
   if (!loan || !user) return null;
 
-  const openQuickPayPage = () => {
-    window.open(
-      'https://wise.com/pay/business/cashewsolutionsopc?utm_source=quick_pay',
-      '_blank',
-      'noopener,noreferrer'
+  const openQuickPayPage = (amount: number, paymentNumber: number) => {
+    const quickPayUrl = new URL('https://wise.com/pay/business/cashewsolutionsopc');
+    quickPayUrl.searchParams.set('utm_source', 'quick_pay');
+    quickPayUrl.searchParams.set('amount', String(amount));
+    quickPayUrl.searchParams.set(
+      'description',
+      `Loan ${loan.loan_id} - Payment #${paymentNumber}`
     );
+
+    window.open(quickPayUrl.toString(), '_blank', 'noopener,noreferrer');
   };
 
   // =====================
@@ -289,7 +293,7 @@ const LoanDetails = () => {
                   </Card>
                 )}
 
-                {paymentSchedule.map((schedule) => (
+                {paymentSchedule.map((schedule, index) => (
                   <Card key={schedule.id}>
                     <CardContent className="py-4 flex items-center justify-between gap-4">
                       <div className="space-y-1">
@@ -313,7 +317,7 @@ const LoanDetails = () => {
                           Paid
                         </Button>
                       ) : (
-                        <Button onClick={openQuickPayPage}>
+                        <Button onClick={() => openQuickPayPage(schedule.amount, index + 1)}>
                           Pay
                         </Button>
                       )}
