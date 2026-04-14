@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useLocation, useNavigate } from 'react-router-dom';
 import {
   Card,
   CardContent
@@ -61,6 +61,7 @@ export function LoansView({ userEmail }: LoansViewProps) {
 
   const { toast } = useToast();
   const navigate = useNavigate();
+  const location = useLocation();
 
   useEffect(() => {
     fetchData();
@@ -160,6 +161,13 @@ export function LoansView({ userEmail }: LoansViewProps) {
 
   const formatStatus = (status: string) =>
     status.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase());
+
+  const openLoanDetails = (loanId: string) => {
+    navigate({
+      pathname: `/dashboard/loans/${loanId}`,
+      search: location.search
+    });
+  };
 
   if (loading) {
     return <div className="p-6">Loading...</div>;
@@ -333,8 +341,23 @@ export function LoansView({ userEmail }: LoansViewProps) {
             return (
               <div
                 key={loan.loan_id}
+                role={active ? 'button' : undefined}
+                tabIndex={active ? 0 : undefined}
+                onClick={active ? () => openLoanDetails(loan.loan_id) : undefined}
+                onKeyDown={
+                  active
+                    ? (event) => {
+                      if (event.key === 'Enter' || event.key === ' ') {
+                        event.preventDefault();
+                        openLoanDetails(loan.loan_id);
+                      }
+                    }
+                    : undefined
+                }
                 className={`rounded-2xl p-6 border shadow-sm ${
-                  active ? 'border-primary/40 bg-primary/5' : 'bg-white'
+                  active
+                    ? 'border-primary/40 bg-primary/5 cursor-pointer hover:bg-primary/10 focus:outline-none focus:ring-2 focus:ring-primary/40'
+                    : 'bg-white'
                 }`}
               >
                 <div className="flex justify-between mb-4">
