@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useLocation, useNavigate, useParams } from 'react-router-dom';
 import { User } from '@supabase/supabase-js';
-import { ArrowLeft, CheckCircle2 } from 'lucide-react';
+import { ArrowLeft, CheckCircle2, Circle } from 'lucide-react';
 import { AppSidebar } from '@/components/AppSidebar';
 import { DashboardHeader } from '@/components/DashboardHeader';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
@@ -35,6 +35,14 @@ interface LoanPayment {
   date: string;
 }
 
+interface PaymentScheduleItem {
+  id: string;
+  schedule_id: string | null;
+  amount: number;
+  date: string;
+  is_fully_paid: boolean;
+}
+
 interface ProfileName {
   first_name: string;
   last_name: string;
@@ -54,6 +62,7 @@ const LoanDetails = () => {
   const [loan, setLoan] = useState<LoanDetailsData | null>(null);
   const [nextPayment, setNextPayment] = useState<NextPayment | null>(null);
   const [payments, setPayments] = useState<LoanPayment[]>([]);
+  const [paymentSchedule, setPaymentSchedule] = useState<PaymentScheduleItem[]>([]);
   const [profile, setProfile] = useState<ProfileName | null>(null);
   const [lookupEmail, setLookupEmail] = useState<string | null>(null);
   const { effectiveUserId: userId } = resolveInternalUserId({
@@ -107,7 +116,8 @@ const LoanDetails = () => {
           loanRes,
           paymentRes,
           profileRes,
-          nextPaymentRes
+          nextPaymentRes,
+          scheduleRes
         ] = await Promise.all([
           supabase
             .from('user_loans_summary')
@@ -133,18 +143,27 @@ const LoanDetails = () => {
             .select('loan_id, date, remaining_amount')
             .eq('internal_user_id', userId)
             .order('date', { ascending: true })
-            .limit(1)
+            .limit(1),
+
+          supabase
+            .from('loan_transactions_1')
+            .select('id, schedule_id, amount, date, is_fully_paid')
+            .eq('loan_id', loanId)
+            .eq('type', 'Installment')
+            .order('date', { ascending: true })
         ]);
 
         if (loanRes.error) throw loanRes.error;
         if (paymentRes.error) throw paymentRes.error;
         if (profileRes.error && profileRes.error.code !== 'PGRST116') throw profileRes.error;
         if (nextPaymentRes.error) throw nextPaymentRes.error;
+        if (scheduleRes.error) throw scheduleRes.error;
 
         setLoan(loanRes.data);
         setPayments(paymentRes.data ?? []);
         setProfile(profileRes.data ?? null);
         setNextPayment(nextPaymentRes.data?.[0] ?? null);
+        setPaymentSchedule(scheduleRes.data ?? []);
 
       } catch {
         toast({
@@ -186,6 +205,18 @@ const LoanDetails = () => {
   }
 
   if (!loan || !user) return null;
+
+  const openQuickPayPage = (amount: number, paymentNumber: number) => {
+    const quickPayUrl = new URL('https://wise.com/pay/business/cashewsolutionsopc');
+    quickPayUrl.searchParams.set('utm_source', 'quick_pay');
+    quickPayUrl.searchParams.set('amount', String(amount));
+    quickPayUrl.searchParams.set(
+      'description',
+      `Loan ${loan.loan_id} - Payment #${paymentNumber}`
+    );
+
+    window.open(quickPayUrl.toString(), '_blank', 'noopener,noreferrer');
+  };
 
   // =====================
   // RENDER
@@ -251,7 +282,49 @@ const LoanDetails = () => {
                 ))}
               </section>
 
-              <Button className="w-full py-6">Make a Payment</Button>
+              <section className="space-y-3">
+                <h3 className="text-lg font-semibold">Payment Schedule</h3>
+
+                {paymentSchedule.length === 0 && (
+                  <Card>
+                    <CardContent className="py-4 text-sm text-muted-foreground">
+                      No scheduled installments yet.
+                    </CardContent>
+                  </Card>
+                )}
+
+                {paymentSchedule.map((schedule, index) => (
+                  <Card key={schedule.id}>
+                    <CardContent className="py-4 flex items-center justify-between gap-4">
+                      <div className="space-y-1">
+                        <div className="flex items-center gap-2">
+                          {schedule.is_fully_paid ? (
+                            <CheckCircle2 className="h-4 w-4 text-green-600" />
+                          ) : (
+                            <Circle className="h-4 w-4 text-muted-foreground" />
+                          )}
+                          <p className="font-medium">
+                            {new Date(schedule.date).toLocaleDateString()}
+                          </p>
+                        </div>
+                        <p className="text-sm text-muted-foreground">
+                          {formatCurrency(schedule.amount)}
+                        </p>
+                      </div>
+
+                      {schedule.is_fully_paid ? (
+                        <Button variant="secondary" disabled>
+                          Paid
+                        </Button>
+                      ) : (
+                        <Button onClick={() => openQuickPayPage(schedule.amount, index + 1)}>
+                          Pay
+                        </Button>
+                      )}
+                    </CardContent>
+                  </Card>
+                ))}
+              </section>
             </div>
           </main>
         </div>
