@@ -50,7 +50,7 @@ interface ProfileName {
 }
 
 const LoanDetails = () => {
-  const { loanId } = useParams<{ loanId: string }>();
+  const { loanId, app_id } = useParams<{ loanId: string; app_id: string }>();
   const navigate = useNavigate();
   const location = useLocation();
   const { toast } = useToast();
@@ -217,7 +217,7 @@ const LoanDetails = () => {
     quickPayUrl.searchParams.set('amount', String(amount));
     quickPayUrl.searchParams.set(
       'description',
-      `${loan.app_id ?? loan.loan_id}/payment ${paymentNumber} of ${totalPayments}`
+      `${loan.app_id ?? 'Loan'} - Payment ${paymentNumber} of ${totalPayments}`
     );
 
     window.open(quickPayUrl.toString(), '_blank', 'noopener,noreferrer');
