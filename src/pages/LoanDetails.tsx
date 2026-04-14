@@ -17,6 +17,7 @@ type DashboardView = 'overview' | 'profile' | 'loans' | 'transactions' | 'invite
 
 interface LoanDetailsData {
   loan_id: string;
+  app_id: number | null;
   loan_amount: number;
   interest_rate: number;
   term_months: number;
@@ -121,7 +122,7 @@ const LoanDetails = () => {
         ] = await Promise.all([
           supabase
             .from('user_loans_summary')
-            .select('loan_id, loan_amount, interest_rate, term_months, total_balance')
+            .select('loan_id, app_id, loan_amount, interest_rate, term_months, total_balance')
             .eq('loan_id', loanId)
             .maybeSingle(),
 
@@ -206,13 +207,17 @@ const LoanDetails = () => {
 
   if (!loan || !user) return null;
 
-  const openQuickPayPage = (amount: number, paymentNumber: number) => {
+  const openQuickPayPage = (
+    amount: number,
+    paymentNumber: number,
+    totalPayments: number
+  ) => {
     const quickPayUrl = new URL('https://wise.com/pay/business/cashewsolutionsopc');
     quickPayUrl.searchParams.set('utm_source', 'quick_pay');
     quickPayUrl.searchParams.set('amount', String(amount));
     quickPayUrl.searchParams.set(
       'description',
-      `Loan ${loan.loan_id} - Payment #${paymentNumber}`
+      `${loan.app_id ?? loan.loan_id}/payment ${paymentNumber} of ${totalPayments}`
     );
 
     window.open(quickPayUrl.toString(), '_blank', 'noopener,noreferrer');
@@ -317,7 +322,15 @@ const LoanDetails = () => {
                           Paid
                         </Button>
                       ) : (
-                        <Button onClick={() => openQuickPayPage(schedule.amount, index + 1)}>
+                        <Button
+                          onClick={() =>
+                            openQuickPayPage(
+                              schedule.amount,
+                              index + 1,
+                              paymentSchedule.length
+                            )
+                          }
+                        >
                           Pay
                         </Button>
                       )}
