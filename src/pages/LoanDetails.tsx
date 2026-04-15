@@ -207,12 +207,27 @@ const LoanDetails = () => {
 
   if (!loan || !user) return null;
 
+  // const openQuickPayPage = (
+  //   amount: number,
+  //   paymentNumber: number,
+  //   totalPayments: number
+  // ) => {
+  //   const quickPayUrl = new URL('https://wise.com/pay/business/cashewsolutionsopc');
+  //   quickPayUrl.searchParams.set('utm_source', 'quick_pay');
+  //   quickPayUrl.searchParams.set('amount', String(amount));
+  //   quickPayUrl.searchParams.set(
+  //     'description',
+  //     `${loan.app_id ?? 'Loan'} - Payment ${paymentNumber} of ${totalPayments}`
+  //   );
+
+  //   window.open(quickPayUrl.toString(), '_blank', 'noopener,noreferrer');
+  // };
   const openQuickPayPage = (
     amount: number,
     paymentNumber: number,
     totalPayments: number
   ) => {
-    const quickPayUrl = new URL('https://wise.com/pay/business/cashewsolutionsopc');
+    const quickPayUrl = new URL('https://paymongo.page/l/cashew-payment');
     quickPayUrl.searchParams.set('utm_source', 'quick_pay');
     quickPayUrl.searchParams.set('amount', String(amount));
     quickPayUrl.searchParams.set(
@@ -222,7 +237,6 @@ const LoanDetails = () => {
 
     window.open(quickPayUrl.toString(), '_blank', 'noopener,noreferrer');
   };
-
   // =====================
   // RENDER
   // =====================
@@ -253,7 +267,7 @@ const LoanDetails = () => {
                   <AvatarFallback>{initials}</AvatarFallback>
                 </Avatar>
                 <h2 className="text-xl font-semibold">{displayName}</h2>
-                <p className="text-muted-foreground">Loan ID: {loan.loan_id}</p>
+                <p className="text-muted-foreground">Loan ID: {loan.app_id ?? loan.loan_id}</p>
               </div>
 
               <Card>
