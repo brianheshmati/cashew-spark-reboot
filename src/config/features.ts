@@ -1,3 +1,3 @@
 export const FEATURES = {
-  paymentMethods: true,
+  paymentMethods: false,
 };
