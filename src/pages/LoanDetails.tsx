@@ -71,6 +71,7 @@ const LoanDetails = () => {
     search: location.search
   });
   const urlLookupEmail = getInternalUserEmailFromSearch(location.search);
+  const xenditPaymentLink = import.meta.env.VITE_XENDIT_PAYMENT_LINK as string | undefined;
 
   useEffect(() => {
     if (urlLookupEmail) {
