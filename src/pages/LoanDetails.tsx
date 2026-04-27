@@ -71,6 +71,7 @@ const LoanDetails = () => {
     search: location.search
   });
   const urlLookupEmail = getInternalUserEmailFromSearch(location.search);
+  const xenditFallbackLink = import.meta.env.VITE_XENDIT_PAYMENT_LINK as string | undefined;
 
   useEffect(() => {
     if (urlLookupEmail) {
@@ -222,20 +223,56 @@ const LoanDetails = () => {
 
   //   window.open(quickPayUrl.toString(), '_blank', 'noopener,noreferrer');
   // };
-  const openQuickPayPage = (
+  const openQuickPayPage = async (
     amount: number,
+    dueDate: string,
     paymentNumber: number,
     totalPayments: number
   ) => {
-    const quickPayUrl = new URL('https://paymongo.page/l/cashew-payment');
-    quickPayUrl.searchParams.set('utm_source', 'quick_pay');
-    quickPayUrl.searchParams.set('amount', String(amount));
-    quickPayUrl.searchParams.set(
-      'description',
-      `${loan.app_id ?? 'Loan'} - Payment ${paymentNumber} of ${totalPayments}`
-    );
+    try {
+      const { data, error } = await supabase.functions.invoke('create-payment-link', {
+        body: {
+          amount,
+          dueDate,
+          paymentNumber,
+          totalPayments,
+          loanId: loan.loan_id,
+          appId: loan.app_id,
+          description: `${loan.app_id ?? 'Loan'} - Payment ${paymentNumber} of ${totalPayments}`,
+          customer: {
+            given_names: displayName,
+            email: lookupEmail ?? user?.email ?? undefined,
+          },
+        },
+      });
 
-    window.open(quickPayUrl.toString(), '_blank', 'noopener,noreferrer');
+      if (error) throw error;
+      if (!data?.invoice_url) {
+        throw new Error('No invoice_url returned from Xendit.');
+      }
+
+      window.open(data.invoice_url, '_blank', 'noopener,noreferrer');
+    } catch (err: any) {
+      if (xenditFallbackLink) {
+        const fallbackUrl = new URL(xenditFallbackLink);
+        fallbackUrl.searchParams.set('utm_source', 'quick_pay_fallback');
+        fallbackUrl.searchParams.set('amount', String(amount));
+        fallbackUrl.searchParams.set(
+          'description',
+          `${loan.app_id ?? 'Loan'} - Payment ${paymentNumber} of ${totalPayments}`
+        );
+        window.open(fallbackUrl.toString(), '_blank', 'noopener,noreferrer');
+        return;
+      }
+
+      toast({
+        title: 'Unable to start payment',
+        description:
+          err?.message ??
+          'Failed to create a Xendit payment link. Ensure create-payment-link is deployed.',
+        variant: 'destructive',
+      });
+    }
   };
   // =====================
   // RENDER
@@ -340,6 +377,7 @@ const LoanDetails = () => {
                           onClick={() =>
                             openQuickPayPage(
                               schedule.amount,
+                              schedule.date,
                               index + 1,
                               paymentSchedule.length
                             )
