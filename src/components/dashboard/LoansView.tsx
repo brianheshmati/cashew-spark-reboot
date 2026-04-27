@@ -58,6 +58,8 @@ export function LoansView({ userEmail }: LoansViewProps) {
   const [applications, setApplications] = useState<Application[]>([]);
   const [nextPayment, setNextPayment] = useState<NextPayment | null>(null);
   const [loading, setLoading] = useState(true);
+  const [isPayingNextDue, setIsPayingNextDue] = useState(false);
+  const paymentFallbackLink = import.meta.env.VITE_PAYMENT_LINK_URL as string | undefined;
 
   const { toast } = useToast();
   const navigate = useNavigate();
@@ -169,6 +171,55 @@ export function LoansView({ userEmail }: LoansViewProps) {
     });
   };
 
+  const openNextPaymentLink = async () => {
+    if (!nextPayment || !userEmail) return;
+
+    setIsPayingNextDue(true);
+    try {
+      const { data, error } = await supabase.functions.invoke('create-payment-link', {
+        body: {
+          amount: nextPayment.amount,
+          dueDate: nextPayment.date,
+          paymentNumber: 1,
+          totalPayments: 1,
+          loanId: nextPayment.loan_id,
+          description: 'My Loans next payment',
+          customer: {
+            given_names: userEmail.split('@')[0],
+            email: userEmail,
+          },
+        },
+      });
+
+      if (error) throw error;
+      if (!data?.invoice_url) throw new Error('No invoice_url returned from payment provider.');
+
+      window.open(data.invoice_url, '_blank', 'noopener,noreferrer');
+    } catch (err: any) {
+      if (paymentFallbackLink) {
+        const fallbackUrl = new URL(paymentFallbackLink);
+        fallbackUrl.searchParams.set('utm_source', 'my_loans_next_payment');
+        fallbackUrl.searchParams.set('amount', String(nextPayment.amount));
+        fallbackUrl.searchParams.set(
+          'description',
+          `Payment due on ${new Date(nextPayment.date).toLocaleDateString()}`
+        );
+        window.open(fallbackUrl.toString(), '_blank', 'noopener,noreferrer');
+        return;
+      }
+
+      toast({
+        title: 'Unable to start payment',
+        description:
+          err?.message ??
+          'Failed to create payment link. Ensure create-payment-link is deployed.',
+        variant: 'destructive'
+      });
+    } finally {
+      setIsPayingNextDue(false);
+    }
+  };
+
   if (loading) {
     return <div className="p-6">Loading...</div>;
   }
@@ -242,12 +293,11 @@ export function LoansView({ userEmail }: LoansViewProps) {
                 <Button
                   className="mt-4"
                   size="sm"
-                  onClick={() =>
-                    navigate('/dashboard', { state: { view: 'transactions' } })
-                  }
+                  onClick={openNextPaymentLink}
+                  disabled={isPayingNextDue}
                 >
                   <Calendar className="h-4 w-4 mr-2" />
-                  Pay Now
+                  {isPayingNextDue ? 'Opening…' : 'Pay Now'}
                 </Button>
               </>
             ) : (

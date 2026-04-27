@@ -5,7 +5,7 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
-import { ArrowUpRight, ArrowDownLeft, Filter } from 'lucide-react';
+import { ArrowUpRight, ArrowDownLeft } from 'lucide-react';
 import { formatCurrency } from '@/lib/utils';
 
 interface Transaction {
@@ -18,6 +18,7 @@ interface Transaction {
 }
 
 interface NextPayment {
+  loan_id?: string;
   due_date: string;
   remaining_amount: number;
 }
@@ -34,6 +35,8 @@ export function TransactionsView({ internalUserId }: TransactionsViewProps) {
   const [transactions, setTransactions] = useState<Transaction[]>([]);
   const [nextPayment, setNextPayment] = useState<NextPayment | null>(null);
   const [loading, setLoading] = useState(true);
+  const [isPayingNextDue, setIsPayingNextDue] = useState(false);
+  const paymentFallbackLink = import.meta.env.VITE_PAYMENT_LINK_URL as string | undefined;
 
   // =========================
   // RESOLVE EMAIL (IMPERSONATION FIRST)
@@ -131,6 +134,55 @@ export function TransactionsView({ internalUserId }: TransactionsViewProps) {
     0
   );
 
+  const openNextPaymentLink = async () => {
+    if (!nextPayment || !email) return;
+
+    setIsPayingNextDue(true);
+    try {
+      const { data, error } = await supabase.functions.invoke('create-payment-link', {
+        body: {
+          amount: nextPayment.remaining_amount,
+          dueDate: nextPayment.due_date,
+          paymentNumber: 1,
+          totalPayments: 1,
+          loanId: nextPayment.loan_id,
+          description: 'Dashboard next payment due',
+          customer: {
+            given_names: email.split('@')[0],
+            email,
+          },
+        },
+      });
+
+      if (error) throw error;
+      if (!data?.invoice_url) throw new Error('No invoice_url returned from payment provider.');
+
+      window.open(data.invoice_url, '_blank', 'noopener,noreferrer');
+    } catch (err: any) {
+      if (paymentFallbackLink) {
+        const fallbackUrl = new URL(paymentFallbackLink);
+        fallbackUrl.searchParams.set('utm_source', 'dashboard_next_payment_due');
+        fallbackUrl.searchParams.set('amount', String(nextPayment.remaining_amount));
+        fallbackUrl.searchParams.set(
+          'description',
+          `Payment due on ${new Date(nextPayment.due_date).toLocaleDateString()}`
+        );
+        window.open(fallbackUrl.toString(), '_blank', 'noopener,noreferrer');
+        return;
+      }
+
+      toast({
+        title: 'Unable to start payment',
+        description:
+          err?.message ??
+          'Failed to create payment link. Ensure create-payment-link is deployed.',
+        variant: 'destructive',
+      });
+    } finally {
+      setIsPayingNextDue(false);
+    }
+  };
+
   // =========================
   // LOADING
   // =========================
@@ -154,10 +206,6 @@ export function TransactionsView({ internalUserId }: TransactionsViewProps) {
       {/* HEADER */}
       <div className="flex items-center justify-between">
         <h1 className="text-3xl font-bold">Transaction History</h1>
-        <Button variant="outline">
-          <Filter className="h-4 w-4 mr-2" />
-          Filter
-        </Button>
       </div>
 
       {/* METRICS */}
@@ -194,6 +242,14 @@ export function TransactionsView({ internalUserId }: TransactionsViewProps) {
                 <p className="text-xs text-muted-foreground">
                   Due {new Date(nextPayment.due_date).toLocaleDateString()}
                 </p>
+                <Button
+                  className="mt-4"
+                  size="sm"
+                  onClick={openNextPaymentLink}
+                  disabled={isPayingNextDue}
+                >
+                  {isPayingNextDue ? 'Opening…' : 'Pay Now'}
+                </Button>
               </>
             ) : (
               <p className="text-sm text-muted-foreground">
