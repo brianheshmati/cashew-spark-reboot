@@ -71,7 +71,7 @@ const LoanDetails = () => {
     search: location.search
   });
   const urlLookupEmail = getInternalUserEmailFromSearch(location.search);
-  const xenditPaymentLink = import.meta.env.VITE_XENDIT_PAYMENT_LINK as string | undefined;
+  const xenditFallbackLink = import.meta.env.VITE_XENDIT_PAYMENT_LINK as string | undefined;
 
   useEffect(() => {
     if (urlLookupEmail) {
@@ -253,9 +253,23 @@ const LoanDetails = () => {
 
       window.open(data.invoice_url, '_blank', 'noopener,noreferrer');
     } catch (err: any) {
+      if (xenditFallbackLink) {
+        const fallbackUrl = new URL(xenditFallbackLink);
+        fallbackUrl.searchParams.set('utm_source', 'quick_pay_fallback');
+        fallbackUrl.searchParams.set('amount', String(amount));
+        fallbackUrl.searchParams.set(
+          'description',
+          `${loan.app_id ?? 'Loan'} - Payment ${paymentNumber} of ${totalPayments}`
+        );
+        window.open(fallbackUrl.toString(), '_blank', 'noopener,noreferrer');
+        return;
+      }
+
       toast({
         title: 'Unable to start payment',
-        description: err?.message ?? 'Failed to create a Xendit payment link.',
+        description:
+          err?.message ??
+          'Failed to create a Xendit payment link. Ensure create-payment-link is deployed.',
         variant: 'destructive',
       });
     }
