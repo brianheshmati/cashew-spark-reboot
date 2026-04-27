@@ -223,29 +223,42 @@ const LoanDetails = () => {
 
   //   window.open(quickPayUrl.toString(), '_blank', 'noopener,noreferrer');
   // };
-  const openQuickPayPage = (
+  const openQuickPayPage = async (
     amount: number,
+    dueDate: string,
     paymentNumber: number,
     totalPayments: number
   ) => {
-    if (!xenditPaymentLink) {
-      toast({
-        title: 'Xendit payment link is not configured',
-        description: 'Set VITE_XENDIT_PAYMENT_LINK in your environment to enable quick pay.',
-        variant: 'destructive'
+    try {
+      const { data, error } = await supabase.functions.invoke('create-payment-link', {
+        body: {
+          amount,
+          dueDate,
+          paymentNumber,
+          totalPayments,
+          loanId: loan.loan_id,
+          appId: loan.app_id,
+          description: `${loan.app_id ?? 'Loan'} - Payment ${paymentNumber} of ${totalPayments}`,
+          customer: {
+            given_names: displayName,
+            email: lookupEmail ?? user?.email ?? undefined,
+          },
+        },
       });
-      return;
+
+      if (error) throw error;
+      if (!data?.invoice_url) {
+        throw new Error('No invoice_url returned from Xendit.');
+      }
+
+      window.open(data.invoice_url, '_blank', 'noopener,noreferrer');
+    } catch (err: any) {
+      toast({
+        title: 'Unable to start payment',
+        description: err?.message ?? 'Failed to create a Xendit payment link.',
+        variant: 'destructive',
+      });
     }
-
-    const quickPayUrl = new URL(xenditPaymentLink);
-    quickPayUrl.searchParams.set('utm_source', 'quick_pay');
-    quickPayUrl.searchParams.set('amount', String(amount));
-    quickPayUrl.searchParams.set(
-      'description',
-      `${loan.app_id ?? 'Loan'} - Payment ${paymentNumber} of ${totalPayments}`
-    );
-
-    window.open(quickPayUrl.toString(), '_blank', 'noopener,noreferrer');
   };
   // =====================
   // RENDER
@@ -350,6 +363,7 @@ const LoanDetails = () => {
                           onClick={() =>
                             openQuickPayPage(
                               schedule.amount,
+                              schedule.date,
                               index + 1,
                               paymentSchedule.length
                             )
