@@ -71,6 +71,7 @@ const LoanDetails = () => {
     search: location.search
   });
   const urlLookupEmail = getInternalUserEmailFromSearch(location.search);
+  const xenditPaymentLink = import.meta.env.VITE_XENDIT_PAYMENT_LINK as string | undefined;
 
   useEffect(() => {
     if (urlLookupEmail) {
@@ -227,7 +228,16 @@ const LoanDetails = () => {
     paymentNumber: number,
     totalPayments: number
   ) => {
-    const quickPayUrl = new URL('https://paymongo.page/l/cashew-payment');
+    if (!xenditPaymentLink) {
+      toast({
+        title: 'Xendit payment link is not configured',
+        description: 'Set VITE_XENDIT_PAYMENT_LINK in your environment to enable quick pay.',
+        variant: 'destructive'
+      });
+      return;
+    }
+
+    const quickPayUrl = new URL(xenditPaymentLink);
     quickPayUrl.searchParams.set('utm_source', 'quick_pay');
     quickPayUrl.searchParams.set('amount', String(amount));
     quickPayUrl.searchParams.set(
