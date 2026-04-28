@@ -63,7 +63,6 @@ export default function PaymentsView() {
   const [userEmail, setUserEmail] = useState('');
   const [firstName, setFirstName] = useState('');
   const [lastName, setLastName] = useState('');
-  const [tokenId, setTokenId] = useState('');
   const [paymentMethods, setPaymentMethods] = useState<SavedPaymentMethod[]>([]);
   const [selectedMethod, setSelectedMethod] = useState<PaymentMethodType | null>(null);
   const [loading, setLoading] = useState(true);
@@ -191,15 +190,15 @@ export default function PaymentsView() {
     setSaving(true);
 
     if (selectedMethod === 'card') {
-      if (!tokenId || !firstName || !lastName || !userEmail) {
-        toast({ title: 'Missing required card details', description: 'token_id, first name, last name, and email are required.', variant: 'destructive' });
+      if (!firstName || !lastName || !userEmail) {
+        toast({ title: 'Missing required card details', description: 'First name, last name, and email are required.', variant: 'destructive' });
         setSaving(false);
         return;
       }
 
       const { data, error } = await supabase.functions.invoke('add-payment-method', {
         body: {
-          token_id: tokenId,
+          payment_type: 'card',
           first_name: firstName,
           last_name: lastName,
           email: userEmail,
@@ -230,23 +229,18 @@ export default function PaymentsView() {
       }
 
       toast({ title: 'Card payment method added' });
-      setTokenId('');
       setSaving(false);
       return;
     }
 
-    const { data, error } = await supabase
-      .from('payment_methods')
-      .insert({
-        internal_user_id: internalUserId,
-        provider: 'xendit',
-        brand: selectedMethod,
-        last4: selectedMethod === 'ach' ? '0987' : null,
-        is_default: paymentMethods.length === 0,
-        is_active: true,
-      })
-      .select('id, brand, last4, is_default')
-      .single();
+    const { data, error } = await supabase.functions.invoke('add-payment-method', {
+      body: {
+        payment_type: selectedMethod,
+        first_name: firstName,
+        last_name: lastName,
+        email: userEmail,
+      },
+    });
 
     if (error) {
       toast({ title: 'Could not save payment method', description: error.message, variant: 'destructive' });
@@ -254,16 +248,19 @@ export default function PaymentsView() {
       return;
     }
 
-    const type = providerToType(data.brand);
-    const next: SavedPaymentMethod = {
-      id: data.id,
-      type,
-      nickname: type === 'ach' ? 'ACH account' : 'Payroll deduction',
-      details: type === 'ach' ? `Bank account ending ${data.last4 ?? '----'}` : 'Payroll method',
-      isDefault: !!data.is_default,
-    };
+    const created = data?.data;
+    if (created?.id) {
+      const type = providerToType(created.brand);
+      const next: SavedPaymentMethod = {
+        id: created.id,
+        type,
+        nickname: type === 'card' ? `${created.brand ?? 'Card'} ending ${created.last4 ?? '----'}` : type === 'ach' ? 'ACH account' : 'Payroll deduction',
+        details: type === 'card' ? `${created.brand ?? 'Card'} •••• ${created.last4 ?? '----'}` : type === 'ach' ? `Bank account ending ${created.last4 ?? '----'}` : 'Payroll method',
+        isDefault: !!created.is_default,
+      };
+      setPaymentMethods((prev) => [next, ...prev.map((method) => ({ ...method, isDefault: next.isDefault ? false : method.isDefault }))]);
+    }
 
-    setPaymentMethods((prev) => [next, ...prev.map((method) => ({ ...method, isDefault: next.isDefault ? false : method.isDefault }))]);
     toast({ title: 'Payment method saved' });
     setSaving(false);
   };
@@ -351,7 +348,7 @@ export default function PaymentsView() {
       <Card>
         <CardContent className="space-y-6 p-6">
           {selectedMethod === 'payroll' && <PayrollForm />}
-          {selectedMethod === 'card' && <CardForm tokenId={tokenId} setTokenId={setTokenId} firstName={firstName} setFirstName={setFirstName} lastName={lastName} setLastName={setLastName} email={userEmail} setEmail={setUserEmail} />}
+          {selectedMethod === 'card' && <CardForm firstName={firstName} setFirstName={setFirstName} lastName={lastName} setLastName={setLastName} email={userEmail} setEmail={setUserEmail} />}
           {selectedMethod === 'ach' && <AchForm />}
 
           <div className="flex justify-end">
@@ -387,10 +384,10 @@ function PayrollForm() {
   );
 }
 
-function CardForm({ tokenId, setTokenId, firstName, setFirstName, lastName, setLastName, email, setEmail }: { tokenId: string; setTokenId: (v: string) => void; firstName: string; setFirstName: (v: string) => void; lastName: string; setLastName: (v: string) => void; email: string; setEmail: (v: string) => void }) {
+function CardForm({ firstName, setFirstName, lastName, setLastName, email, setEmail }: { firstName: string; setFirstName: (v: string) => void; lastName: string; setLastName: (v: string) => void; email: string; setEmail: (v: string) => void }) {
   return (
     <div className="space-y-6">
-      <Field label="Xendit token_id"><Input value={tokenId} onChange={(e) => setTokenId(e.target.value)} placeholder="tok-xxxx" /></Field>
+      <p className="text-sm text-muted-foreground">Card tokenization is requested through the edge function when you save this method.</p>
       <div className="grid grid-cols-1 gap-6 md:grid-cols-2">
         <Field label="First name"><Input value={firstName} onChange={(e) => setFirstName(e.target.value)} /></Field>
         <Field label="Last name"><Input value={lastName} onChange={(e) => setLastName(e.target.value)} /></Field>
