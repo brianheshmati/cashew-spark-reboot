@@ -202,6 +202,7 @@ export default function PaymentsView() {
           first_name: firstName,
           last_name: lastName,
           email: userEmail,
+          flow: 'reusable_payment_codes',
         },
       });
 
@@ -228,6 +229,9 @@ export default function PaymentsView() {
         ]);
       }
 
+      if (data?.action_url) {
+        window.open(data.action_url as string, '_blank', 'noopener,noreferrer');
+      }
       toast({ title: 'Card payment method added' });
       setSaving(false);
       return;
@@ -239,6 +243,7 @@ export default function PaymentsView() {
         first_name: firstName,
         last_name: lastName,
         email: userEmail,
+        flow: 'reusable_payment_codes',
       },
     });
 
@@ -261,6 +266,9 @@ export default function PaymentsView() {
       setPaymentMethods((prev) => [next, ...prev.map((method) => ({ ...method, isDefault: next.isDefault ? false : method.isDefault }))]);
     }
 
+    if (data?.action_url) {
+      window.open(data.action_url as string, '_blank', 'noopener,noreferrer');
+    }
     toast({ title: 'Payment method saved' });
     setSaving(false);
   };
@@ -281,7 +289,7 @@ export default function PaymentsView() {
     <div className="mx-auto max-w-5xl space-y-6">
       <div className="space-y-2 text-center">
         <h1 className="text-3xl font-bold text-foreground">Payment Management</h1>
-        <p className="text-muted-foreground">Manage defaults and add methods backed by Supabase + Xendit.</p>
+        <p className="text-muted-foreground">Manage defaults and add methods using Xendit reusable payment code enrollment.</p>
       </div>
 
       <Card>
