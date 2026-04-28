@@ -14,9 +14,7 @@ import {
   SelectItem,
   SelectTrigger,
   SelectValue,
-} from '@/components/ui/select';
-import { useToast } from '@/hooks/use-toast';
-import { supabase } from '@/integrations/supabase/client';
+} from '@/components/ui/select'
 
 import { FEATURES } from '@/config/features';
 
