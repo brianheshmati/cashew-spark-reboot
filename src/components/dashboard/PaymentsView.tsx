@@ -40,6 +40,12 @@ const providerToType = (brand: string | null): PaymentMethod => {
   return 'card';
 };
 
+const initialMethods: SavedPaymentMethod[] = [
+  { id: 'pm_1', type: 'payroll', nickname: 'Primary payroll', details: 'Employee ID ending 2345' },
+  { id: 'pm_2', type: 'card', nickname: 'Visa personal', details: '•••• 4242 · Expires 12/27' },
+  { id: 'pm_3', type: 'ach', nickname: 'Checking account', details: 'Bank account ending 0987' },
+];
+
 export default function PaymentsView() {
   const { toast } = useToast();
   const [paymentMethods, setPaymentMethods] = useState<SavedPaymentMethod[]>([]);
