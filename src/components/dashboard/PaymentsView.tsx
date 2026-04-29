@@ -14,7 +14,9 @@ import {
   SelectItem,
   SelectTrigger,
   SelectValue,
-} from '@/components/ui/select'
+} from '@/components/ui/select';
+import { useToast } from '@/hooks/use-toast';
+import { supabase } from '@/integrations/supabase/client';
 
 import { FEATURES } from '@/config/features';
 
@@ -59,8 +61,6 @@ export default function PaymentsView() {
   const { toast } = useToast();
   const [internalUserId, setInternalUserId] = useState('');
   const [userEmail, setUserEmail] = useState('');
-  const [firstName, setFirstName] = useState('');
-  const [lastName, setLastName] = useState('');
   const [paymentMethods, setPaymentMethods] = useState<SavedPaymentMethod[]>([]);
   const [selectedMethod, setSelectedMethod] = useState<PaymentMethodType | null>(null);
   const [loading, setLoading] = useState(true);
@@ -89,8 +89,6 @@ export default function PaymentsView() {
 
       setInternalUserId(user.id);
       setUserEmail(user.email ?? '');
-      setFirstName(user.user_metadata?.first_name ?? '');
-      setLastName(user.user_metadata?.last_name ?? '');
 
       const { data, error } = await supabase
         .from('payment_methods')
@@ -188,8 +186,8 @@ export default function PaymentsView() {
     setSaving(true);
 
     if (selectedMethod === 'card') {
-      if (!firstName || !lastName || !userEmail) {
-        toast({ title: 'Missing required card details', description: 'First name, last name, and email are required.', variant: 'destructive' });
+      if (!userEmail) {
+        toast({ title: 'Missing account email', description: 'Your account email is required for payment method enrollment.', variant: 'destructive' });
         setSaving(false);
         return;
       }
@@ -197,8 +195,6 @@ export default function PaymentsView() {
       const { data, error } = await supabase.functions.invoke('add-payment-method', {
         body: {
           payment_type: 'card',
-          first_name: firstName,
-          last_name: lastName,
           email: userEmail,
           flow: 'reusable_payment_codes',
         },
@@ -238,8 +234,6 @@ export default function PaymentsView() {
     const { data, error } = await supabase.functions.invoke('add-payment-method', {
       body: {
         payment_type: selectedMethod,
-        first_name: firstName,
-        last_name: lastName,
         email: userEmail,
         flow: 'reusable_payment_codes',
       },
@@ -393,12 +387,12 @@ function PayrollForm() {
 function CardForm({ firstName, setFirstName, lastName, setLastName, email, setEmail }: { firstName: string; setFirstName: (v: string) => void; lastName: string; setLastName: (v: string) => void; email: string; setEmail: (v: string) => void }) {
   return (
     <div className="space-y-6">
-      <p className="text-sm text-muted-foreground">Card tokenization is requested through the edge function when you save this method.</p>
-      <div className="grid grid-cols-1 gap-6 md:grid-cols-2">
-        <Field label="First name"><Input value={firstName} onChange={(e) => setFirstName(e.target.value)} /></Field>
-        <Field label="Last name"><Input value={lastName} onChange={(e) => setLastName(e.target.value)} /></Field>
-      </div>
-      <Field label="Email"><Input value={email} onChange={(e) => setEmail(e.target.value)} type="email" /></Field>
+      <p className="text-sm text-muted-foreground">
+        Card authorization details are pulled securely via your authenticated account on the backend.
+      </p>
+      <p className="text-sm text-muted-foreground">
+        Click <span className="font-medium text-foreground">Save payment method</span> to begin Xendit reusable payment code enrollment.
+      </p>
     </div>
   );
 }
