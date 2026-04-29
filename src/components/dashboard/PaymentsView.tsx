@@ -346,7 +346,7 @@ export default function PaymentsView() {
       <Card>
         <CardContent className="space-y-6 p-6">
           {selectedMethod === 'payroll' && <PayrollForm />}
-          {selectedMethod === 'card' && <CardForm firstName={firstName} setFirstName={setFirstName} lastName={lastName} setLastName={setLastName} email={userEmail} setEmail={setUserEmail} />}
+          {selectedMethod === 'card' && <CardForm />}
           {selectedMethod === 'ach' && <AchForm />}
 
           <div className="flex justify-end">
@@ -382,7 +382,7 @@ function PayrollForm() {
   );
 }
 
-function CardForm({ firstName, setFirstName, lastName, setLastName, email, setEmail }: { firstName: string; setFirstName: (v: string) => void; lastName: string; setLastName: (v: string) => void; email: string; setEmail: (v: string) => void }) {
+function CardForm() {
   return (
     <div className="space-y-6">
       <p className="text-sm text-muted-foreground">
