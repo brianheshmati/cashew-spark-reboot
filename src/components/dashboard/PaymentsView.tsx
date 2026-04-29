@@ -6,6 +6,8 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Input } from '@/components/ui/input';
+import { useToast } from '@/hooks/use-toast';
+import { supabase } from '@/integrations/supabase/client';
 import {
   Select,
   SelectContent,
@@ -346,7 +348,7 @@ export default function PaymentsView() {
       <Card>
         <CardContent className="space-y-6 p-6">
           {selectedMethod === 'payroll' && <PayrollForm />}
-          {selectedMethod === 'card' && <CardForm />}
+          {selectedMethod === 'card' && <CardForm firstName={firstName} setFirstName={setFirstName} lastName={lastName} setLastName={setLastName} email={userEmail} setEmail={setUserEmail} />}
           {selectedMethod === 'ach' && <AchForm />}
 
           <div className="flex justify-end">
@@ -382,7 +384,7 @@ function PayrollForm() {
   );
 }
 
-function CardForm() {
+function CardForm({ firstName, setFirstName, lastName, setLastName, email, setEmail }: { firstName: string; setFirstName: (v: string) => void; lastName: string; setLastName: (v: string) => void; email: string; setEmail: (v: string) => void }) {
   return (
     <div className="space-y-6">
       <p className="text-sm text-muted-foreground">

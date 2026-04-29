@@ -67,7 +67,7 @@ export default function LoanApplicationForm({ user, internalUserId, internalUser
   const [loanAmount, setLoanAmount] = useState('')
   const [loanTerm, setLoanTerm] = useState('')
   const [loanPurpose, setLoanPurpose] = useState('')
-  const [loanType, setLoanType] = useState('')
+  const [loanType, setLoanType] = useState('conventional')
   const [promoCode, setPromoCode] = useState('')
 
   const [hasPaidOffLoan, setHasPaidOffLoan] = useState(false)
@@ -383,7 +383,7 @@ export default function LoanApplicationForm({ user, internalUserId, internalUser
       setLoanTerm('')
       setLoanPurpose('')
       setPromoCode('')
-      setLoanType('')
+      setLoanType('conventional')
 
     } catch (err: any) {
 
@@ -417,24 +417,16 @@ export default function LoanApplicationForm({ user, internalUserId, internalUser
 
             <Select
               value={loanType}
-              onValueChange={(value) => {
-
-                setLoanType(value)
-
-                if (value === 'emergency') {
-                  setLoanTerm('1')
-                }
-
-              }}
+              onValueChange={setLoanType}
+              disabled
             >
 
               <SelectTrigger>
-                <SelectValue placeholder="Select loan type" />
+                <SelectValue placeholder="Conventional" />
               </SelectTrigger>
 
               <SelectContent>
                 <SelectItem value="conventional">Conventional</SelectItem>
-                <SelectItem value="emergency">Emergency</SelectItem>
               </SelectContent>
 
             </Select>
