@@ -1,3 +1,8 @@
 export const FEATURES = {
-  paymentMethods: false,
+  paymentMethods: true,
+  paymentMethodTypes: {
+    payroll: true,
+    card: true,
+    ach: true,
+  },
 };
