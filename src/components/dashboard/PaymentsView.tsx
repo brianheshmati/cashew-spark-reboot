@@ -98,6 +98,7 @@ export default function PaymentsView() {
     if (window.Xendit) {
       window.Xendit.setPublishableKey(
         import.meta.env.VITE_XENDIT_PUBLIC_KEY
+        //import.meta.env.VITE_XENDIT_TEST_KEY
       );
     }
   }, []);
@@ -197,14 +198,17 @@ export default function PaymentsView() {
           is_multiple_use: true,
           should_authenticate: true,
 
-          // 🔥 NEW FIELDS
           card_holder_first_name: first_name,
           card_holder_last_name: last_name,
           card_holder_email: cardForm.email,
           card_holder_phone_number: cardForm.phone,
         },
         async (err: any, token: any) => {
+          console.log("🔥 XENDIT CALLBACK TRIGGERED");
+
           if (err) {
+            console.error("❌ TOKEN ERROR:", err);
+
             toast({
               title: 'Card error',
               description: err.message,
@@ -214,16 +218,37 @@ export default function PaymentsView() {
             return;
           }
 
-          const { error } = await supabase.functions.invoke(
+          console.log("🔥 FULL TOKEN RESPONSE:", token);
+
+          if (!token || !token.id) {
+            console.error("❌ TOKEN MISSING ID");
+            setSaving(false);
+            return;
+          }
+
+          console.log("✅ TOKEN ID:", token.id);
+
+          // ✅ SAVE TO UI (so you SEE it)
+          //setDebugToken(token.id);
+
+          // 🔥 CRITICAL: LOG WHAT YOU SEND
+          const payload = {
+            token_id: token.id,
+            first_name,
+            last_name,
+          };
+
+          console.log("📤 SENDING TO EDGE:", payload);
+
+          const { data, error } = await supabase.functions.invoke(
             'add-payment-method',
             {
-              body: {
-                token_id: token.id,
-                first_name,
-                last_name,
-              },
+              body: payload,
             }
           );
+
+          console.log("📥 EDGE RESPONSE:", data);
+          console.log("⚠️ EDGE ERROR:", error);
 
           if (error) {
             toast({
