@@ -225,17 +225,35 @@ export default function PaymentsView() {
             setSaving(false);
             return;
           }
-
-          console.log("✅ TOKEN ID:", token.id);
+          console.log("✅ TOKEN:", token);
+          // console.log("✅ TOKEN ID:", token.id);
 
           // ✅ SAVE TO UI (so you SEE it)
           //setDebugToken(token.id);
 
           // 🔥 CRITICAL: LOG WHAT YOU SEND
           const payload = {
-            token_id: token.id,
-            first_name,
-            last_name,
+            provider_token_id: token.id,
+
+            // expiration
+            exp_month: parseInt(token.card_expiration_month),
+            exp_year: parseInt(token.card_expiration_year),
+
+            // card info
+            brand: token.card_info?.brand,
+            bank: token.card_info?.bank,
+            country: token.card_info?.country,
+            card_type: token.card_info?.type,
+            fingerprint: token.card_info?.fingerprint,
+
+            // optional (if available)
+            last4: token.card_info?.last_four,
+            masked_card_number: token.masked_card_number,
+
+            verification_status: token.status,
+
+            // required
+            internal_user_id: internalUserId,
           };
 
           console.log("📤 SENDING TO EDGE:", payload);
