@@ -121,7 +121,8 @@ export function ProfileView({ internalUserId, internalUserEmail }: Props) {
       internalUserEmail ?? authUser.email ?? edited.email;
 
     const payload = {
-      // internal_user_id: internalUserId ?? authUser.id,
+      internal_user_id: internalUserId ?? authUser.id,
+
       first_name: edited.first_name,
       last_name: edited.last_name,
       email,
@@ -131,36 +132,79 @@ export function ProfileView({ internalUserId, internalUserEmail }: Props) {
       employer_phone: edited.employer_phone,
       employer_address: edited.employer_address,
       occupation: edited.position,
+
       years_employed: edited.years_employed
         ? Number(edited.years_employed)
         : null,
+
       dob: edited.dob,
       facebook: edited.facebook,
+
       bank_name: edited.bank_name,
       bank_account: edited.bank_account_number,
-      income: edited.income ? Number(edited.income) : null,
-      expense: edited.expense ? Number(edited.expense) : null,
+
+      income: edited.income
+        ? Number(edited.income)
+        : null,
+
+      expense: edited.expense
+        ? Number(edited.expense)
+        : null,
+
       pay_schedule: edited.pay_schedule,
     };
 
-    const { error } = await supabase
+    // try update first
+    const updateResult = await supabase
       .from("userProfiles")
       .update(payload)
-      .ilike("email", email);
+      .ilike("email", email)
+      .select();
+
+    let error = updateResult.error;
+    let created = false;
+
+    // no rows updated -> insert
+    if (!error && (!updateResult.data || updateResult.data.length === 0)) {
+      const insertResult = await supabase
+        .from("userProfiles")
+        .insert(payload);
+
+      error = insertResult.error;
+      created = !insertResult.error;
+    }
 
     if (error) {
-      toast({ title: "Error saving", variant: "destructive" });
+      toast({
+        title: "Error saving",
+        description: error.message,
+        variant: "destructive",
+      });
     } else {
-      setProfile(edited);
+      setProfile({
+        ...edited,
+        email,
+      });
+
+      setEdited({
+        ...edited,
+        email,
+      });
+
       setEditing(false);
-      toast({ title: "Profile updated" });
+
+      toast({
+        title: created
+          ? "Profile created"
+          : "Profile updated",
+      });
     }
 
     setSaving(false);
   };
 
   if (loading) return <div>Loading...</div>;
-  if (!profile || !edited) return <div>No profile found</div>;
+  if (!edited) return <div>Loading...</div>;
 
   return (
     <div className="space-y-6">
