@@ -97,7 +97,8 @@ export default function PaymentsView() {
   useEffect(() => {
     if (window.Xendit) {
       window.Xendit.setPublishableKey(
-        import.meta.env.VITE_XENDIT_PUBLIC_KEY
+        //import.meta.env.VITE_XENDIT_PUBLIC_KEY
+        import.meta.env.VITE_XENDIT_PRODUCTION_KEY
         //import.meta.env.VITE_XENDIT_TEST_KEY
       );
     }
@@ -159,7 +160,9 @@ export default function PaymentsView() {
           };
         });
 
-      setPaymentMethods(mapped);
+      setPaymentMethods(
+        mapped.sort((a, b) => Number(b.isDefault) - Number(a.isDefault))
+      );
       setLoading(false);
     };
 
@@ -176,7 +179,6 @@ export default function PaymentsView() {
 
     setSaving(true);
 
-    // 🔥 CARD FLOW FIXED
     if (selectedMethod === 'card') {
       if (!window.Xendit) {
         toast({ title: 'Xendit not loaded', variant: 'destructive' });
@@ -184,108 +186,84 @@ export default function PaymentsView() {
         return;
       }
 
-      const cleanNumber = cardForm.number.replace(/\s/g, '');
-      const [first_name, ...rest] = cardForm.name.split(' ');
-      const last_name = rest.join(' ') || 'NA';
+      try {
+        const cleanNumber = cardForm.number.replace(/\s/g, '');
+        const [first_name, ...rest] = cardForm.name.split(' ');
+        const last_name = rest.join(' ') || 'NA';
 
-      window.Xendit.card.createToken(
-        {
-          amount: 0,
-          card_number: cleanNumber,
-          card_exp_month: cardForm.expMonth,
-          card_exp_year: cardForm.expYear,
-          card_cvn: cardForm.cvv,
-          is_multiple_use: true,
-          should_authenticate: true,
+        window.Xendit.card.createToken(
+          {
+            amount: 50,
+            card_number: cleanNumber,
+            card_exp_month: cardForm.expMonth,
+            card_exp_year: cardForm.expYear,
+            card_cvn: cardForm.cvv,
 
-          card_holder_first_name: first_name,
-          card_holder_last_name: last_name,
-          card_holder_email: cardForm.email,
-          card_holder_phone_number: cardForm.phone,
-        },
-        async (err: any, token: any) => {
-          console.log("🔥 XENDIT CALLBACK TRIGGERED");
+            is_multiple_use: true,
+            should_authenticate: true,
 
-          if (err) {
-            console.error("❌ TOKEN ERROR:", err);
-
-            toast({
-              title: 'Card error',
-              description: err.message,
-              variant: 'destructive',
-            });
-            setSaving(false);
-            return;
-          }
-
-          console.log("🔥 FULL TOKEN RESPONSE:", token);
-
-          if (!token || !token.id) {
-            console.error("❌ TOKEN MISSING ID");
-            setSaving(false);
-            return;
-          }
-          console.log("✅ TOKEN:", token);
-          // console.log("✅ TOKEN ID:", token.id);
-
-          // ✅ SAVE TO UI (so you SEE it)
-          //setDebugToken(token.id);
-
-          // 🔥 CRITICAL: LOG WHAT YOU SEND
-          const payload = {
-            provider_token_id: token.id,
-
-            // expiration
-            exp_month: parseInt(token.card_expiration_month),
-            exp_year: parseInt(token.card_expiration_year),
-
-            // card info
-            brand: token.card_info?.brand,
-            bank: token.card_info?.bank,
-            country: token.card_info?.country,
-            card_type: token.card_info?.type,
-            fingerprint: token.card_info?.fingerprint,
-
-            // optional (if available)
-            last4: token.card_info?.last_four,
-            masked_card_number: token.masked_card_number,
-
-            verification_status: token.status,
-
-            // required
-            internal_user_id: internalUserId,
-          };
-
-          console.log("📤 SENDING TO EDGE:", payload);
-
-          const { data, error } = await supabase.functions.invoke(
-            'add-payment-method',
-            {
-              body: payload,
+            card_holder_first_name: first_name,
+            card_holder_last_name: last_name,
+            card_holder_email: cardForm.email,
+            card_holder_phone_number: cardForm.phone,
+          },
+          async (err: any, token: any) => {
+            if (err) {
+              toast({
+                title: 'Card error',
+                description: err.message,
+                variant: 'destructive',
+              });
+              setSaving(false);
+              return;
             }
-          );
 
-          console.log("📥 EDGE RESPONSE:", data);
-          console.log("⚠️ EDGE ERROR:", error);
+            if (!token?.id) {
+              setSaving(false);
+              return;
+            }
 
-          if (error) {
-            toast({
-              title: 'Failed to save card',
-              description: error.message,
-              variant: 'destructive',
-            });
-          } else {
-            toast({ title: 'Card added successfully' });
+            // 🔴 Save token BEFORE redirect
+            localStorage.setItem("xendit_token_id", token.id);
+
+            // 🔥 Create authentication
+            const { data, error } = await supabase.functions.invoke(
+              'create-card-authentication',
+              {
+                body: {
+                  token_id: token.id,
+                  amount: 50,
+                },
+              }
+            );
+
+            if (error) {
+              toast({
+                title: 'Authentication failed',
+                description: error.message,
+                variant: 'destructive',
+              });
+              setSaving(false);
+              return;
+            }
+
+            // 🔁 Redirect to 3DS
+            window.location.href = data.payer_authentication_url;
           }
-
-          setSaving(false);
-        }
-      );
+        );
+      } catch (err: any) {
+        toast({
+          title: 'Error',
+          description: err.message,
+          variant: 'destructive',
+        });
+        setSaving(false);
+      }
 
       return;
     }
 
-    // ACH + Payroll unchanged
+    // other methods unchanged
     const { error } = await supabase.functions.invoke('add-payment-method', {
       body: {
         payment_type: selectedMethod,
@@ -305,7 +283,107 @@ export default function PaymentsView() {
 
     setSaving(false);
   };
+  const removePaymentMethod = async (methodId: string) => {
+    try {
+      const method = paymentMethods.find((m) => m.id === methodId);
 
+      if (!method) return;
+
+      if (method.isDefault) {
+        toast({
+          title: 'Default payment method cannot be removed',
+          variant: 'destructive',
+        });
+        return;
+      }
+
+      const { error } = await supabase
+        .from('payment_methods')
+        .update({
+          is_active: false,
+        })
+        .eq('id', methodId);
+
+      if (error) {
+        toast({
+          title: 'Unable to remove payment method',
+          description: error.message,
+          variant: 'destructive',
+        });
+
+        return;
+      }
+
+      setPaymentMethods((prev) =>
+        prev.filter((method) => method.id !== methodId)
+      );
+
+      toast({
+        title: 'Payment method removed',
+      });
+    } catch (err: any) {
+      toast({
+        title: 'Error',
+        description: err.message,
+        variant: 'destructive',
+      });
+    }
+  };
+  const setDefaultPaymentMethod = async (methodId: string) => {
+    try {
+      // remove existing defaults
+      const { error: clearError } = await supabase
+        .from('payment_methods')
+        .update({ is_default: false })
+        .eq('internal_user_id', internalUserId);
+
+      if (clearError) {
+        toast({
+          title: 'Unable to update default payment method',
+          description: clearError.message,
+          variant: 'destructive',
+        });
+
+        return;
+      }
+
+      // set new default
+      const { error: setError } = await supabase
+        .from('payment_methods')
+        .update({ is_default: true })
+        .eq('id', methodId);
+
+      if (setError) {
+        toast({
+          title: 'Unable to update default payment method',
+          description: setError.message,
+          variant: 'destructive',
+        });
+
+        return;
+      }
+
+      // local UI update
+      setPaymentMethods((prev) =>
+        [...prev]
+          .map((method) => ({
+            ...method,
+            isDefault: method.id === methodId,
+          }))
+          .sort((a, b) => Number(b.isDefault) - Number(a.isDefault))
+      );
+
+      toast({
+        title: 'Default payment method updated',
+      });
+    } catch (err: any) {
+      toast({
+        title: 'Error',
+        description: err.message,
+        variant: 'destructive',
+      });
+    }
+  };
   if (loading) {
     return <div className="p-6 text-center">Loading payment methods...</div>;
   }
@@ -318,12 +396,44 @@ export default function PaymentsView() {
       <Card>
         <CardContent className="space-y-4 p-6">
           {paymentMethods.map((method) => (
-            <div key={method.id} className="flex justify-between border p-3 rounded">
+            <div
+              key={method.id}
+              className="flex items-center justify-between rounded border p-3"
+            >
               <div>
                 <p className="font-medium">{method.nickname}</p>
-                <p className="text-sm text-muted-foreground">{method.details}</p>
+                <p className="text-sm text-muted-foreground">
+                  {method.details}
+                </p>
               </div>
-              {method.isDefault && <Badge>Default</Badge>}
+
+              <div className="flex items-center gap-2">
+                {method.isDefault && (
+                  <Badge>
+                    Default
+                  </Badge>
+                )}
+
+                {!method.isDefault && (
+                  <>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => setDefaultPaymentMethod(method.id)}
+                    >
+                      Make Default
+                    </Button>
+
+                    <Button
+                      variant="destructive"
+                      size="sm"
+                      onClick={() => removePaymentMethod(method.id)}
+                    >
+                      Remove
+                    </Button>
+                  </>
+                )}
+              </div>
             </div>
           ))}
         </CardContent>

@@ -1,19 +1,28 @@
 import { defineConfig } from "vite";
 import react from "@vitejs/plugin-react";
 import path from "path";
+import fs from "fs";
 
-// https://vitejs.dev/config/
-export default defineConfig(() => ({
+export default defineConfig({
   server: {
     host: "::",
     port: 8080,
-    allowedHosts: ['loan.cashew.ph']
+
+    https: {
+      key: fs.readFileSync("./certs/key.pem"),
+      cert: fs.readFileSync("./certs/cert.pem"),
+    },
+
+    allowedHosts: ["loan.cashew.ph"],
   },
+
   plugins: [react()],
+
   resolve: {
     alias: {
       "@": path.resolve(__dirname, "./src"),
     },
   },
-  base:"/"
-}));
+
+  base: "/",
+});

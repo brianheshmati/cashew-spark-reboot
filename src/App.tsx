@@ -13,6 +13,7 @@ import LoanDetails from "./pages/LoanDetails";
 //import LoanApplicationForm from "./components/LoanApplicationForm";
 import Index from "./pages/Index";
 import NotFound from "./pages/NotFound";
+import PaymentCallback from "./pages/PaymentCallback";
 
 const queryClient = new QueryClient();
 
@@ -67,6 +68,8 @@ function App() {
             {/* <Route path="/apply" element={<Apply />} /> */}
 
             {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
+            <Route path="/payment-callback" element={<PaymentCallback />} />
+            
             <Route path="*" element={<NotFound />} />
 
           </Routes>

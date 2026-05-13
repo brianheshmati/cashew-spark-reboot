@@ -121,7 +121,7 @@ export function ProfileView({ internalUserId, internalUserEmail }: Props) {
       internalUserEmail ?? authUser.email ?? edited.email;
 
     const payload = {
-      internal_user_id: internalUserId ?? authUser.id,
+      // internal_user_id: internalUserId ?? authUser.id,
       first_name: edited.first_name,
       last_name: edited.last_name,
       email,

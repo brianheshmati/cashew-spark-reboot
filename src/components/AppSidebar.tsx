@@ -1,12 +1,13 @@
-import { 
-  User, 
-  CreditCard, 
-  History, 
-  UserPlus, 
+import {
+  User,
+  CreditCard,
+  History,
+  UserPlus,
   FileText,
   Home,
   FolderOpen
 } from 'lucide-react';
+
 import {
   Sidebar,
   SidebarContent,
@@ -20,6 +21,8 @@ import {
 } from '@/components/ui/sidebar';
 
 import { FEATURES } from '@/config/features';
+import { useEffect, useState } from 'react';
+import { supabase } from '@/integrations/supabase/client';
 
 type DashboardView =
   | 'overview'
@@ -36,31 +39,74 @@ interface AppSidebarProps {
   onViewChange: (view: DashboardView) => void;
 }
 
-const menuItems = [
-  { id: 'overview' as DashboardView, title: 'Overview', icon: Home },
-  { id: 'profile' as DashboardView, title: 'Profile', icon: User },
-  { id: 'loans' as DashboardView, title: 'My Loans', icon: CreditCard },
-  { id: 'transactions' as DashboardView, title: 'Transactions', icon: History },
-  { id: 'apply' as DashboardView, title: 'Apply for Loan', icon: FileText },
-
-  // ✅ FEATURE FLAG CONTROLLED
-  FEATURES.paymentMethods && {
-    id: 'payments' as DashboardView,
-    title: 'Payment Methods',
-    icon: CreditCard,
-  },
-
-  { id: 'documents' as DashboardView, title: 'Documents', icon: FolderOpen },
-  { id: 'invite' as DashboardView, title: 'Invite Friends', icon: UserPlus },
-].filter(Boolean) as {
-  id: DashboardView;
-  title: string;
-  icon: any;
-}[];
-
-export function AppSidebar({ currentView, onViewChange }: AppSidebarProps) {
+export function AppSidebar({
+  currentView,
+  onViewChange,
+}: AppSidebarProps) {
   const { state, isMobile, setOpen, setOpenMobile } = useSidebar();
+
+  const [userEmail, setUserEmail] = useState<string | null>(null);
+
+  useEffect(() => {
+    const loadUser = async () => {
+      const { data } = await supabase.auth.getUser();
+      setUserEmail(data.user?.email ?? null);
+    };
+
+    loadUser();
+  }, []);
+
   const collapsed = state === 'collapsed';
+
+  const menuItems = [
+    {
+      id: 'overview' as DashboardView,
+      title: 'Overview',
+      icon: Home,
+    },
+    {
+      id: 'profile' as DashboardView,
+      title: 'Profile',
+      icon: User,
+    },
+    {
+      id: 'loans' as DashboardView,
+      title: 'My Loans',
+      icon: CreditCard,
+    },
+    {
+      id: 'transactions' as DashboardView,
+      title: 'Transactions',
+      icon: History,
+    },
+    {
+      id: 'apply' as DashboardView,
+      title: 'Apply for Loan',
+      icon: FileText,
+    },
+
+    // PAYMENT METHODS ONLY FOR ADMIN EMAILS
+    FEATURES.paymentMethods(userEmail) && {
+      id: 'payments' as DashboardView,
+      title: 'Payment Methods',
+      icon: CreditCard,
+    },
+
+    {
+      id: 'documents' as DashboardView,
+      title: 'Documents',
+      icon: FolderOpen,
+    },
+    {
+      id: 'invite' as DashboardView,
+      title: 'Invite Friends',
+      icon: UserPlus,
+    },
+  ].filter(Boolean) as {
+    id: DashboardView;
+    title: string;
+    icon: any;
+  }[];
 
   const handleViewSelect = (view: DashboardView) => {
     onViewChange(view);
@@ -75,7 +121,7 @@ export function AppSidebar({ currentView, onViewChange }: AppSidebarProps) {
 
   return (
     <Sidebar
-      className={collapsed ? "w-14" : "w-60"}
+      className={collapsed ? 'w-14' : 'w-60'}
       collapsible="icon"
       onMouseEnter={() => {
         if (!isMobile) {
@@ -96,12 +142,12 @@ export function AppSidebar({ currentView, onViewChange }: AppSidebarProps) {
             <SidebarMenu>
               {menuItems.map((item) => (
                 <SidebarMenuItem key={item.id}>
-                  <SidebarMenuButton 
+                  <SidebarMenuButton
                     onClick={() => handleViewSelect(item.id)}
                     className={
                       currentView === item.id
-                        ? "bg-sidebar-accent text-sidebar-accent-foreground"
-                        : "hover:bg-sidebar-accent/50"
+                        ? 'bg-sidebar-accent text-sidebar-accent-foreground'
+                        : 'hover:bg-sidebar-accent/50'
                     }
                   >
                     <item.icon className="h-4 w-4" />

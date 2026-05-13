@@ -59,7 +59,9 @@ export function LoansView({ userEmail }: LoansViewProps) {
   const [nextPayment, setNextPayment] = useState<NextPayment | null>(null);
   const [loading, setLoading] = useState(true);
   const [isPayingNextDue, setIsPayingNextDue] = useState(false);
-  const paymentFallbackLink = import.meta.env.VITE_PAYMENT_LINK_URL as string | undefined;
+
+  const paymentFallbackLink =
+    import.meta.env.VITE_PAYMENT_LINK_URL as string | undefined;
 
   const { toast } = useToast();
   const navigate = useNavigate();
@@ -78,7 +80,6 @@ export function LoansView({ userEmail }: LoansViewProps) {
 
     try {
 
-      // 🔥 LOANS
       const { data: loansData, error: loansError } = await supabase
         .from('user_loans_summary')
         .select('*')
@@ -87,7 +88,6 @@ export function LoansView({ userEmail }: LoansViewProps) {
 
       if (loansError) throw loansError;
 
-      // 🔥 APPLICATIONS (VIEW)
       const { data: applicationsData, error: appError } = await supabase
         .from('applications_unconverted')
         .select('*')
@@ -96,12 +96,12 @@ export function LoansView({ userEmail }: LoansViewProps) {
 
       if (appError) throw appError;
 
-      // 🔥 NEXT PAYMENT (based on loan_ids)
-      const loanIds = (loansData || []).map(l => l.loan_id);
+      const loanIds = (loansData || []).map((l) => l.loan_id);
 
       let nextDueData: any[] = [];
 
       if (loanIds.length > 0) {
+
         const { data, error } = await supabase
           .from('loan_transactions_1')
           .select('*')
@@ -112,17 +112,21 @@ export function LoansView({ userEmail }: LoansViewProps) {
           .limit(1);
 
         if (error) throw error;
+
         nextDueData = data || [];
       }
 
       if (nextDueData.length > 0) {
+
         setNextPayment({
           loan_id: nextDueData[0].loan_id,
           amount: nextDueData[0].amount,
           date: nextDueData[0].date,
           schedule_id: nextDueData[0].schedule_id
         });
+
       } else {
+
         setNextPayment(null);
       }
 
@@ -140,31 +144,42 @@ export function LoansView({ userEmail }: LoansViewProps) {
       });
 
     } finally {
+
       setLoading(false);
     }
   };
 
-  const formatCurrency = (value: number | null | undefined) => {
+  const formatCurrency = (
+    value: number | null | undefined
+  ) => {
+
     const safe = Number(value ?? 0);
+
     return `₱${safe.toLocaleString('en-PH', {
       minimumFractionDigits: 2,
       maximumFractionDigits: 2
     })}`;
   };
 
-  const normalize = (status: string | null | undefined) =>
-    (status || '').toLowerCase();
+  const normalize = (
+    status: string | null | undefined
+  ) => (status || '').toLowerCase();
 
   const isActiveLoan = (loan: Loan) =>
     normalize(loan.status) === 'active';
 
   const isActiveApplication = (app: Application) =>
-    !['closed', 'duplicate', 'inactive'].includes(normalize(app.status));
+    !['closed', 'duplicate', 'inactive'].includes(
+      normalize(app.status)
+    );
 
   const formatStatus = (status: string) =>
-    status.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase());
+    status
+      .replace(/_/g, ' ')
+      .replace(/\b\w/g, (l) => l.toUpperCase());
 
   const openLoanDetails = (loanId: string) => {
+
     navigate({
       pathname: `/dashboard/loans/${loanId}`,
       search: location.search
@@ -172,39 +187,75 @@ export function LoansView({ userEmail }: LoansViewProps) {
   };
 
   const openNextPaymentLink = async () => {
+
     if (!nextPayment || !userEmail) return;
 
     setIsPayingNextDue(true);
+
     try {
-      const { data, error } = await supabase.functions.invoke('create-payment-link', {
-        body: {
-          amount: nextPayment.amount,
-          dueDate: nextPayment.date,
-          paymentNumber: 1,
-          totalPayments: 1,
-          loanId: nextPayment.loan_id,
-          description: 'My Loans next payment',
-          customer: {
-            given_names: userEmail.split('@')[0],
-            email: userEmail,
-          },
-        },
-      });
+
+      const { data, error } =
+        await supabase.functions.invoke(
+          'create-payment-link',
+          {
+            body: {
+              amount: nextPayment.amount,
+              dueDate: nextPayment.date,
+              paymentNumber: 1,
+              totalPayments: 1,
+              loanId: nextPayment.loan_id,
+              description: 'My Loans next payment',
+              customer: {
+                given_names: userEmail.split('@')[0],
+                email: userEmail
+              }
+            }
+          }
+        );
 
       if (error) throw error;
-      if (!data?.invoice_url) throw new Error('No invoice_url returned from payment provider.');
 
-      window.open(data.invoice_url, '_blank', 'noopener,noreferrer');
+      if (!data?.invoice_url) {
+        throw new Error(
+          'No invoice_url returned from payment provider.'
+        );
+      }
+
+      window.open(
+        data.invoice_url,
+        '_blank',
+        'noopener,noreferrer'
+      );
+
     } catch (err: any) {
+
       if (paymentFallbackLink) {
+
         const fallbackUrl = new URL(paymentFallbackLink);
-        fallbackUrl.searchParams.set('utm_source', 'my_loans_next_payment');
-        fallbackUrl.searchParams.set('amount', String(nextPayment.amount));
+
+        fallbackUrl.searchParams.set(
+          'utm_source',
+          'my_loans_next_payment'
+        );
+
+        fallbackUrl.searchParams.set(
+          'amount',
+          String(nextPayment.amount)
+        );
+
         fallbackUrl.searchParams.set(
           'description',
-          `Payment due on ${new Date(nextPayment.date).toLocaleDateString()}`
+          `Payment due on ${new Date(
+            nextPayment.date
+          ).toLocaleDateString()}`
         );
-        window.open(fallbackUrl.toString(), '_blank', 'noopener,noreferrer');
+
+        window.open(
+          fallbackUrl.toString(),
+          '_blank',
+          'noopener,noreferrer'
+        );
+
         return;
       }
 
@@ -212,10 +263,12 @@ export function LoansView({ userEmail }: LoansViewProps) {
         title: 'Unable to start payment',
         description:
           err?.message ??
-          'Failed to create payment link. Ensure create-payment-link is deployed.',
+          'Failed to create payment link.',
         variant: 'destructive'
       });
+
     } finally {
+
       setIsPayingNextDue(false);
     }
   };
@@ -227,225 +280,421 @@ export function LoansView({ userEmail }: LoansViewProps) {
   const activeLoans = loans.filter(isActiveLoan);
 
   const totalBalance = activeLoans.reduce(
-    (sum, loan) => sum + Number(loan.current_balance ?? 0),
+    (sum, loan) =>
+      sum + Number(loan.current_balance ?? 0),
     0
   );
 
+  const sortedLoans = [...loans].sort((a, b) => {
+
+    const aActive = isActiveLoan(a) ? 1 : 0;
+    const bActive = isActiveLoan(b) ? 1 : 0;
+
+    if (aActive !== bActive) {
+      return bActive - aActive;
+    }
+
+    return (
+      new Date(b.created_at).getTime() -
+      new Date(a.created_at).getTime()
+    );
+  });
+
+  const sortedApplications = [...applications].sort(
+    (a, b) => {
+
+      const aActive =
+        isActiveApplication(a) ? 1 : 0;
+
+      const bActive =
+        isActiveApplication(b) ? 1 : 0;
+
+      if (aActive !== bActive) {
+        return bActive - aActive;
+      }
+
+      return (
+        new Date(b.created_at).getTime() -
+        new Date(a.created_at).getTime()
+      );
+    }
+  );
+
   return (
+
     <div className="space-y-8">
 
-      {/* HEADER */}
-      <div className="flex justify-between items-center">
-        <div>
-          <p className="text-sm text-muted-foreground">Dashboard</p>
-          <h1 className="text-3xl font-bold">My Loans</h1>
-        </div>
-
-        <Button
-          className="rounded-xl shadow-sm"
-          onClick={() =>
-            navigate('/dashboard', { state: { view: 'apply' } })
-          }
-        >
-          <Plus className="h-4 w-4 mr-2" />
-          Apply for New Loan
-        </Button>
-      </div>
-
-      {/* SUMMARY */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+      {/* SUMMARY CARDS */}
+      <div className="grid md:grid-cols-3 gap-6">
 
         <Card className="rounded-2xl shadow-sm border">
           <CardContent className="p-6 flex justify-between items-center">
+
             <div>
               <p className="text-xs text-muted-foreground uppercase">
-                Active Balance
+                Active Loans
               </p>
+
               <p className="text-3xl font-semibold mt-2">
-                {formatCurrency(totalBalance)}
+                {activeLoans.length}
               </p>
+
               <p className="text-sm text-muted-foreground mt-1">
-                Across {activeLoans.length} active loans
+                Current active accounts
               </p>
             </div>
 
             <div className="p-3 rounded-xl bg-primary/10">
               <DollarSign className="h-6 w-6 text-primary" />
             </div>
-          </CardContent>
-        </Card>
 
-        <Card className="rounded-2xl shadow-sm border">
-          <CardContent className="p-6">
-            <p className="text-xs text-muted-foreground uppercase">
-              Next Payment
-            </p>
-
-            {nextPayment ? (
-              <>
-                <p className="text-3xl font-semibold mt-2">
-                  {formatCurrency(nextPayment.amount)}
-                </p>
-                <p className="text-sm text-muted-foreground mt-1">
-                  Due on {new Date(nextPayment.date).toLocaleDateString()}
-                </p>
-
-                <Button
-                  className="mt-4"
-                  size="sm"
-                  onClick={openNextPaymentLink}
-                  disabled={isPayingNextDue}
-                >
-                  <Calendar className="h-4 w-4 mr-2" />
-                  {isPayingNextDue ? 'Opening…' : 'Pay Now'}
-                </Button>
-              </>
-            ) : (
-              <p className="text-muted-foreground mt-2">
-                No upcoming payments
-              </p>
-            )}
           </CardContent>
         </Card>
 
         <Card className="rounded-2xl shadow-sm border">
           <CardContent className="p-6 flex justify-between items-center">
+
             <div>
+
+              <p className="text-xs text-muted-foreground uppercase">
+                Outstanding Balance
+              </p>
+
+              <p className="text-3xl font-semibold mt-2">
+                {formatCurrency(totalBalance)}
+              </p>
+
+              {nextPayment ? (
+                <>
+                  <p className="text-sm text-muted-foreground mt-1">
+                    Due on{' '}
+                    {new Date(
+                      nextPayment.date
+                    ).toLocaleDateString()}
+                  </p>
+
+                  <Button
+                    className="mt-4"
+                    size="sm"
+                    onClick={openNextPaymentLink}
+                    disabled={isPayingNextDue}
+                  >
+                    <Calendar className="h-4 w-4 mr-2" />
+
+                    {isPayingNextDue
+                      ? 'Opening…'
+                      : 'Pay Now'}
+                  </Button>
+                </>
+              ) : (
+                <p className="text-muted-foreground mt-2">
+                  No upcoming payments
+                </p>
+              )}
+            </div>
+
+            <div className="p-3 rounded-xl bg-orange-100">
+              <Calendar className="h-6 w-6 text-orange-600" />
+            </div>
+
+          </CardContent>
+        </Card>
+
+        <Card className="rounded-2xl shadow-sm border">
+          <CardContent className="p-6 flex justify-between items-center">
+
+            <div>
+
               <p className="text-xs text-muted-foreground uppercase">
                 Applications
               </p>
+
               <p className="text-3xl font-semibold mt-2">
                 {applications.length}
               </p>
+
               <p className="text-sm text-muted-foreground mt-1">
                 Active applications only
               </p>
+
             </div>
 
             <div className="p-3 rounded-xl bg-green-100">
               <TrendingUp className="h-6 w-6 text-green-600" />
             </div>
+
           </CardContent>
         </Card>
-
       </div>
 
-      {/* APPLICATIONS */}
-      {applications.length > 0 && (
+      {/* SIDE BY SIDE PANES */}
+      <div className="grid grid-cols-1 xl:grid-cols-2 gap-8 items-start">
+
+        {/* LOANS */}
         <div className="space-y-4">
-          <h2 className="text-xl font-semibold">Applications</h2>
 
-          {applications.map(app => {
+          <div className="flex items-center justify-between">
 
-            const active = isActiveApplication(app);
+            <h2 className="text-xl font-semibold">
+              Loans
+            </h2>
 
-            return (
-              <div
-                key={app.id}
-                className={`rounded-2xl p-6 border shadow-sm ${
-                  active ? 'border-green-400 bg-green-50' : 'bg-white'
-                }`}
-              >
-                <div className="flex justify-between mb-4">
-                  <div>
-                    <p className="text-lg font-semibold">
-                      Application #{app.app_id}
-                    </p>
-                    <p className="text-sm text-muted-foreground">
-                      {new Date(app.created_at).toLocaleDateString()}
-                    </p>
+            <Badge variant="secondary">
+              {sortedLoans.length}
+            </Badge>
+
+          </div>
+
+          {sortedLoans.length === 0 ? (
+
+            <div className="rounded-2xl border p-6 text-sm text-muted-foreground bg-muted/20">
+              No loans found.
+            </div>
+
+          ) : (
+
+            sortedLoans.map((loan) => {
+
+              const active = isActiveLoan(loan);
+
+              return (
+
+                <div
+                  key={loan.loan_id}
+                  role={active ? 'button' : undefined}
+                  tabIndex={active ? 0 : undefined}
+                  onClick={
+                    active
+                      ? () =>
+                          openLoanDetails(
+                            loan.loan_id
+                          )
+                      : undefined
+                  }
+                  onKeyDown={
+                    active
+                      ? (event) => {
+
+                          if (
+                            event.key === 'Enter' ||
+                            event.key === ' '
+                          ) {
+
+                            event.preventDefault();
+
+                            openLoanDetails(
+                              loan.loan_id
+                            );
+                          }
+                        }
+                      : undefined
+                  }
+                  className={`rounded-2xl p-6 border shadow-sm transition-all ${
+                    active
+                      ? 'border-primary/40 bg-primary/5 cursor-pointer hover:bg-primary/10 focus:outline-none focus:ring-2 focus:ring-primary/40'
+                      : 'bg-white'
+                  }`}
+                >
+
+                  <div className="flex justify-between mb-4 gap-4">
+
+                    <div>
+
+                      <p className="text-lg font-semibold">
+                        {loan.loan_type || 'Regular'}
+                      </p>
+
+                      <p className="text-sm text-muted-foreground">
+                        {new Date(
+                          loan.created_at
+                        ).toLocaleDateString()}
+                      </p>
+
+                      <p className="text-xs text-muted-foreground mt-1">
+                        ID:{' '}
+                        {loan.loan_id.slice(0, 8)}
+                        ...
+                      </p>
+
+                    </div>
+
+                    <Badge>
+                      {formatStatus(loan.status)}
+                    </Badge>
+
                   </div>
 
-                  <Badge>{formatStatus(app.status)}</Badge>
-                </div>
+                  <div className="grid grid-cols-2 lg:grid-cols-3 gap-6">
 
-                <div className="grid md:grid-cols-3 gap-6">
-                  <InfoBlock label="Amount" value={formatCurrency(app.amount)} />
-                  <InfoBlock label="Purpose" value={app.loan_purpose || '—'} />
-                  <InfoBlock label="Promo" value={app.promo_code || '—'} />
-                </div>
+                    <InfoBlock
+                      label="Amount"
+                      value={formatCurrency(
+                        loan.loan_amount
+                      )}
+                    />
 
-                {app.remarks && (
-                  <div className="mt-4 p-4 bg-muted/40 rounded-xl border">
-                    <p className="text-xs text-muted-foreground uppercase mb-1">
-                      Notes
-                    </p>
-                    <p className="text-sm">{app.remarks}</p>
+                    <InfoBlock
+                      label="Balance"
+                      value={formatCurrency(
+                        loan.current_balance
+                      )}
+                    />
+
+                    <InfoBlock
+                      label="Monthly"
+                      value={formatCurrency(
+                        loan.monthly_payment
+                      )}
+                    />
+
+                    <InfoBlock
+                      label="Rate"
+                      value={`${Number(
+                        loan.interest_rate ?? 0
+                      ) * 100}%`}
+                    />
+
+                    <InfoBlock
+                      label="Term"
+                      value={`${
+                        loan.term_months ?? 0
+                      } months`}
+                    />
+
                   </div>
-                )}
-              </div>
-            );
-          })}
+                </div>
+              );
+            })
+          )}
         </div>
-      )}
 
-      {/* LOANS */}
-      {loans.length > 0 && (
+        {/* APPLICATIONS */}
         <div className="space-y-4">
-          <h2 className="text-xl font-semibold">Loans</h2>
 
-          {loans.map(loan => {
+          <div className="flex items-center justify-between">
 
-            const active = isActiveLoan(loan);
+            <h2 className="text-xl font-semibold">
+              Applications
+            </h2>
 
-            return (
-              <div
-                key={loan.loan_id}
-                role={active ? 'button' : undefined}
-                tabIndex={active ? 0 : undefined}
-                onClick={active ? () => openLoanDetails(loan.loan_id) : undefined}
-                onKeyDown={
-                  active
-                    ? (event) => {
-                      if (event.key === 'Enter' || event.key === ' ') {
-                        event.preventDefault();
-                        openLoanDetails(loan.loan_id);
+            <Badge variant="secondary">
+              {sortedApplications.length}
+            </Badge>
+
+          </div>
+
+          {sortedApplications.length === 0 ? (
+
+            <div className="rounded-2xl border p-6 text-sm text-muted-foreground bg-muted/20">
+              No applications found.
+            </div>
+
+          ) : (
+
+            sortedApplications.map((app) => {
+
+              const active =
+                isActiveApplication(app);
+
+              return (
+
+                <div
+                  key={app.id}
+                  className={`rounded-2xl p-6 border shadow-sm ${
+                    active
+                      ? 'border-green-400 bg-green-50'
+                      : 'bg-white'
+                  }`}
+                >
+
+                  <div className="flex justify-between mb-4 gap-4">
+
+                    <div>
+
+                      <p className="text-lg font-semibold">
+                        Application #{app.app_id}
+                      </p>
+
+                      <p className="text-sm text-muted-foreground">
+                        {new Date(
+                          app.created_at
+                        ).toLocaleDateString()}
+                      </p>
+
+                    </div>
+
+                    <Badge>
+                      {formatStatus(app.status)}
+                    </Badge>
+
+                  </div>
+
+                  <div className="grid grid-cols-2 lg:grid-cols-3 gap-6">
+
+                    <InfoBlock
+                      label="Amount"
+                      value={formatCurrency(
+                        app.amount
+                      )}
+                    />
+
+                    <InfoBlock
+                      label="Purpose"
+                      value={
+                        app.loan_purpose || '—'
                       }
-                    }
-                    : undefined
-                }
-                className={`rounded-2xl p-6 border shadow-sm ${
-                  active
-                    ? 'border-primary/40 bg-primary/5 cursor-pointer hover:bg-primary/10 focus:outline-none focus:ring-2 focus:ring-primary/40'
-                    : 'bg-white'
-                }`}
-              >
-                <div className="flex justify-between mb-4">
-                  <div>
-                    <p className="text-lg font-semibold">
-                      {loan.loan_type || 'Regular'}
-                    </p>
-                    <p className="text-sm text-muted-foreground">
-                      ID: {loan.loan_id.slice(0, 8)}...
-                    </p>
+                    />
+
+                    <InfoBlock
+                      label="Promo"
+                      value={
+                        app.promo_code || '—'
+                      }
+                    />
+
                   </div>
 
-                  <Badge>{formatStatus(loan.status)}</Badge>
-                </div>
+                  {app.remarks && (
 
-                <div className="grid md:grid-cols-5 gap-6">
-                  <InfoBlock label="Amount" value={formatCurrency(loan.loan_amount)} />
-                  <InfoBlock label="Balance" value={formatCurrency(loan.current_balance)} />
-                  <InfoBlock label="Monthly" value={formatCurrency(loan.monthly_payment)} />
-                  <InfoBlock label="Rate" value={`${Number(loan.interest_rate ?? 0) * 100}%`} />
-                  <InfoBlock label="Term" value={`${loan.term_months ?? 0} months`} />
-                </div>
+                    <div className="mt-4 p-4 bg-muted/40 rounded-xl border">
 
-              </div>
-            );
-          })}
+                      <p className="text-xs text-muted-foreground uppercase mb-1">
+                        Notes
+                      </p>
+
+                      <p className="text-sm">
+                        {app.remarks}
+                      </p>
+
+                    </div>
+                  )}
+                </div>
+              );
+            })
+          )}
         </div>
-      )}
-
+      </div>
     </div>
   );
 }
 
-function InfoBlock({ label, value }: { label: string; value: string }) {
+function InfoBlock({
+  label,
+  value
+}: {
+  label: string;
+  value: string;
+}) {
+
   return (
     <div>
-      <p className="text-xs text-muted-foreground uppercase">{label}</p>
-      <p className="text-lg font-semibold mt-1">{value}</p>
+      <p className="text-xs text-muted-foreground uppercase">
+        {label}
+      </p>
+
+      <p className="text-lg font-semibold mt-1">
+        {value}
+      </p>
     </div>
   );
 }
