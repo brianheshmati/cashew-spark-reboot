@@ -120,17 +120,18 @@ export function ProfileView({ internalUserId, internalUserEmail }: Props) {
     const email =
       internalUserEmail ?? authUser.email ?? edited.email;
 
-    const payload = {
-      internal_user_id: internalUserId ?? authUser.id,
-
+    // fields shared by update + insert
+    const basePayload = {
       first_name: edited.first_name,
       last_name: edited.last_name,
       email,
       phone: edited.phone,
       address: edited.address,
+
       employer: edited.employer_name,
       employer_phone: edited.employer_phone,
       employer_address: edited.employer_address,
+
       occupation: edited.position,
 
       years_employed: edited.years_employed
@@ -154,21 +155,26 @@ export function ProfileView({ internalUserId, internalUserEmail }: Props) {
       pay_schedule: edited.pay_schedule,
     };
 
-    // try update first
+    // update payload DOES NOT include internal_user_id
     const updateResult = await supabase
       .from("userProfiles")
-      .update(payload)
+      .update(basePayload)
       .ilike("email", email)
       .select();
 
     let error = updateResult.error;
     let created = false;
 
-    // no rows updated -> insert
+    // if nothing updated -> insert
     if (!error && (!updateResult.data || updateResult.data.length === 0)) {
+      const insertPayload = {
+        ...basePayload,
+        internal_user_id: internalUserId ?? authUser.id,
+      };
+
       const insertResult = await supabase
         .from("userProfiles")
-        .insert(payload);
+        .insert(insertPayload);
 
       error = insertResult.error;
       created = !insertResult.error;
