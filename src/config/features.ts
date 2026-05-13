@@ -16,4 +16,10 @@ export const FEATURES = {
 
   impersonation: (email?: string | null) =>
     isAdminEmail(email),
+  
+  paymentMethodTypes: {
+    payroll: true,
+    card: true,
+    ach: true,
+  },
 };
