@@ -72,6 +72,8 @@ export default function LoanApplicationForm({ user, internalUserId, internalUser
 
   const [hasPaidOffLoan, setHasPaidOffLoan] = useState(false)
   const [submitting, setSubmitting] = useState(false)
+  const [documentsReady, setDocumentsReady] = useState(false)
+  const [documentsStatusMessage, setDocumentsStatusMessage] = useState('Upload your last two payslips (within 30 days), a Certificate of Employment, and a valid Government ID to continue.')
 
   /*
   DOCUMENT VALIDATION
@@ -100,8 +102,9 @@ export default function LoanApplicationForm({ user, internalUserId, internalUser
     const thirtyDaysAgo = new Date()
     thirtyDaysAgo.setDate(now.getDate() - 30)
 
-    let validPayslip = false
+    let recentPayslips = 0
     let validCertificate = false
+    let validGovernmentId = false
 
     for (const file of data || []) {
 
@@ -112,39 +115,23 @@ export default function LoanApplicationForm({ user, internalUserId, internalUser
 
       if (created < thirtyDaysAgo) continue
 
-      if (type === 'payslip') validPayslip = true
+      if (type === 'payslip') recentPayslips += 1
       if (type === 'certificate_employment') validCertificate = true
+      if (type === 'government_id') validGovernmentId = true
 
     }
 
-    if (!validPayslip && !validCertificate) {
+    const missingRequirements: string[] = []
 
+    if (recentPayslips < 2) missingRequirements.push('two payslips issued within the last 30 days')
+    if (!validCertificate) missingRequirements.push('a Certificate of Employment issued within the last 30 days')
+    if (!validGovernmentId) missingRequirements.push('a valid Government ID')
+
+    if (missingRequirements.length > 0) {
       return {
         valid: false,
-        message:
-          'Upload a recent payslip and Certificate of Employment (both within the last 30 days).'
+        message: `Please upload ${missingRequirements.join(', ')}.`
       }
-
-    }
-
-    if (!validPayslip) {
-
-      return {
-        valid: false,
-        message:
-          'Please upload a recent payslip (within the last 30 days).'
-      }
-
-    }
-
-    if (!validCertificate) {
-
-      return {
-        valid: false,
-        message:
-          'Please upload a Certificate of Employment issued within the last 30 days.'
-      }
-
     }
 
     return { valid: true }
@@ -239,6 +226,26 @@ export default function LoanApplicationForm({ user, internalUserId, internalUser
     }
 
     checkLoans()
+
+  }, [internalUserId, user])
+
+
+  useEffect(() => {
+
+    const checkRequiredDocuments = async () => {
+
+      const docCheck = await validateRequiredDocuments()
+
+      setDocumentsReady(Boolean(docCheck.valid))
+      if (docCheck.valid) {
+        setDocumentsStatusMessage('Required documents are on file.')
+      } else {
+        setDocumentsStatusMessage(docCheck.message || 'Upload the required documents to continue.')
+      }
+
+    }
+
+    checkRequiredDocuments()
 
   }, [internalUserId, user])
 
@@ -533,6 +540,12 @@ export default function LoanApplicationForm({ user, internalUserId, internalUser
             </div>
           )}
 
+          {!documentsReady && (
+            <div className="rounded-md border border-destructive/40 bg-destructive/10 p-3 text-sm text-destructive">
+              {documentsStatusMessage}
+            </div>
+          )}
+
           <div className="flex justify-between">
             <span>Loan Type</span>
             <span>{loanType || '-'}</span>
@@ -566,7 +579,7 @@ export default function LoanApplicationForm({ user, internalUserId, internalUser
 
           <Button
             className="w-full h-12 text-lg"
-            disabled={submitting || !isProfileComplete}
+            disabled={submitting || !isProfileComplete || !documentsReady}
             onClick={submitApplication}
           >
             {submitting ? 'Submitting...' : 'Submit Application'}
