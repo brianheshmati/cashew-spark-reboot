@@ -16,6 +16,7 @@ const DOCUMENT_TYPES = [
   { value: 'payslip', label: 'Payslip' },
   { value: 'certificate_employment', label: 'Certificate of Employment' },
   { value: 'government_id', label: 'Government ID' },
+  { value: 'selfie_with_government_id', label: 'Selfie Holding Government ID' },
   { value: 'bank_statement', label: 'Bank Statement' }
 ]
 

@@ -73,8 +73,9 @@ export default function LoanApplicationForm({ user, internalUserId, internalUser
   const [hasPaidOffLoan, setHasPaidOffLoan] = useState(false)
   const [submitting, setSubmitting] = useState(false)
   const [documentsReady, setDocumentsReady] = useState(false)
-  const [documentsStatusMessage, setDocumentsStatusMessage] = useState('Upload your last two payslips (within 30 days), a Certificate of Employment, and a valid Government ID to continue.')
-
+  const [documentsStatusMessage, setDocumentsStatusMessage] = useState(
+  'Upload your last two payslips (within 30 days), a Certificate of Employment, a valid Government ID, and a selfie clearly holding your Government Issued ID to continue.'
+)
   /*
   DOCUMENT VALIDATION
   */
@@ -105,6 +106,7 @@ export default function LoanApplicationForm({ user, internalUserId, internalUser
     let recentPayslips = 0
     let validCertificate = false
     let validGovernmentId = false
+    let validSelfieWithId = false
 
     for (const file of data || []) {
 
@@ -118,6 +120,7 @@ export default function LoanApplicationForm({ user, internalUserId, internalUser
       if (type === 'payslip') recentPayslips += 1
       if (type === 'certificate_employment') validCertificate = true
       if (type === 'government_id') validGovernmentId = true
+      if (type === 'selfie_with_government_id') validSelfieWithId = true
 
     }
 
@@ -125,8 +128,14 @@ export default function LoanApplicationForm({ user, internalUserId, internalUser
 
     if (recentPayslips < 2) missingRequirements.push('two payslips issued within the last 30 days')
     if (!validCertificate) missingRequirements.push('a Certificate of Employment issued within the last 30 days')
-    if (!validGovernmentId) missingRequirements.push('a valid Government ID')
+    if (!validGovernmentId)
+      missingRequirements.push('a valid Government ID')
 
+    if (!validSelfieWithId)
+      missingRequirements.push(
+        'a selfie clearly holding your Government Issued ID'
+      )
+      
     if (missingRequirements.length > 0) {
       return {
         valid: false,
