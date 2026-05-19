@@ -2,7 +2,6 @@ name: Send Collection Reminders
 
 on:
   schedule:
-    # Every day at 8 AM UTC
     - cron: '0 8 * * *'
 
   workflow_dispatch:
@@ -12,9 +11,30 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
+      - name: Debug Secrets
+        env:
+          EDGE_FUNCTION_URL: ${{ secrets.EDGE_FUNCTION_URL }}
+          EDGE_FUNCTION_TOKEN: ${{ secrets.EDGE_FUNCTION_TOKEN }}
+        run: |
+          echo "Testing secrets..."
+
+          if [ -z "$EDGE_FUNCTION_URL" ]; then
+            echo "EDGE_FUNCTION_URL is EMPTY"
+            exit 1
+          else
+            echo "EDGE_FUNCTION_URL exists"
+          fi
+
+          if [ -z "$EDGE_FUNCTION_TOKEN" ]; then
+            echo "EDGE_FUNCTION_TOKEN is EMPTY"
+            exit 1
+          else
+            echo "EDGE_FUNCTION_TOKEN exists"
+          fi
+
       - name: Call Supabase Edge Function
         run: |
-          curl -X POST "${{ secrets.EDGE_FUNCTION_URL }}" \
+          curl -v -X POST "${{ secrets.EDGE_FUNCTION_URL }}" \
             -H "Authorization: Bearer ${{ secrets.EDGE_FUNCTION_TOKEN }}" \
             -H "Content-Type: application/json" \
             -d '{}'
