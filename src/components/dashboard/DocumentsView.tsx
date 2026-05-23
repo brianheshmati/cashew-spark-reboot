@@ -1,13 +1,40 @@
 import { FormEvent, useEffect, useMemo, useState } from 'react'
 import { useSearchParams } from 'react-router-dom'
 import { User } from '@supabase/supabase-js'
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
+
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle
+} from '@/components/ui/card'
+
 import { Button } from '@/components/ui/button'
+
 import { Input } from '@/components/ui/input'
+
 import { Label } from '@/components/ui/label'
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
+
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow
+} from '@/components/ui/table'
+
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue
+} from '@/components/ui/select'
+
 import { supabase } from '@/integrations/supabase/client'
+
 import { useToast } from '@/hooks/use-toast'
 
 const BUCKET = 'clients_documents'
@@ -16,7 +43,10 @@ const DOCUMENT_TYPES = [
   { value: 'payslip', label: 'Payslip' },
   { value: 'certificate_employment', label: 'Certificate of Employment' },
   { value: 'government_id', label: 'Government ID' },
-  { value: 'selfie_with_government_id', label: 'Selfie Holding Government ID' },
+  {
+    value: 'selfie_with_government_id',
+    label: 'Selfie Holding Government ID'
+  },
   { value: 'bank_statement', label: 'Bank Statement' }
 ]
 
@@ -32,58 +62,201 @@ interface DocumentsViewProps {
   internalUserId?: string
 }
 
-export function DocumentsView({ user, internalUserId }: DocumentsViewProps) {
+export function DocumentsView({
+  user,
+  internalUserId
+}: DocumentsViewProps) {
 
   const [searchParams] = useSearchParams()
+
   const { toast } = useToast()
 
-  const [documents, setDocuments] = useState<DocumentRow[]>([])
-  const [loading, setLoading] = useState(true)
-  const [uploading, setUploading] = useState(false)
+  const [documents, setDocuments] =
+    useState<DocumentRow[]>([])
 
-  const [docType, setDocType] = useState('')
-  const [docName, setDocName] = useState('')
-  const [file, setFile] = useState<File | null>(null)
+  const [loading, setLoading] =
+    useState(true)
 
-  const [folderPath, setFolderPath] = useState<string | null>(null)
+  const [uploading, setUploading] =
+    useState(false)
+
+  const [docType, setDocType] =
+    useState('')
+
+  const [docName, setDocName] =
+    useState('')
+
+  const [file, setFile] =
+    useState<File | null>(null)
+
+  const [folderPath, setFolderPath] =
+    useState<string | null>(null)
 
   // =========================
-  // RESOLVE FOLDER (IMPERSONATION FIRST)
+  // RESOLVE FOLDER
+  // ALWAYS USE internal_user_id
   // =========================
   useEffect(() => {
+
     const resolveFolder = async () => {
-      const urlEmail = searchParams.get('email')
 
-      // 🔥 impersonation path
-      if (urlEmail) {
-        const normalizedEmail = urlEmail.toLowerCase()
+      try {
 
-        const { data, error } = await supabase
-          .from('userProfiles')
-          .select('internal_user_id')
-          .eq('email', normalizedEmail)
-          .single()
+        setLoading(true)
 
-        if (error || !data?.internal_user_id) {
-          toast({
-            title: 'Error',
-            description: 'Failed to resolve impersonated user',
-            variant: 'destructive'
-          })
-          setLoading(false)
+        const urlEmail =
+          searchParams.get('email')
+
+        // =========================
+        // IMPERSONATION MODE
+        // =========================
+        if (urlEmail) {
+
+          const normalizedEmail =
+            urlEmail
+              .trim()
+              .toLowerCase()
+
+          const { data, error } =
+            await supabase
+              .from('userProfiles')
+              .select('internal_user_id')
+              .eq(
+                'email',
+                normalizedEmail
+              )
+              .maybeSingle()
+
+          if (error) {
+            throw error
+          }
+
+          if (!data?.internal_user_id) {
+
+            throw new Error(
+              'Unable to resolve impersonated internal_user_id'
+            )
+
+          }
+
+          console.log(
+            'Resolved impersonated folder',
+            {
+              email: normalizedEmail,
+              internalUserId:
+                data.internal_user_id
+            }
+          )
+
+          setFolderPath(
+            data.internal_user_id
+          )
+
           return
+
         }
 
-        setFolderPath(data.internal_user_id)
-        return
+        // =========================
+        // NORMAL USER MODE
+        // =========================
+        if (!user?.email) {
+
+          throw new Error(
+            'Authenticated user email missing'
+          )
+
+        }
+
+        const normalizedEmail =
+          user.email
+            .trim()
+            .toLowerCase()
+
+        const { data, error } =
+          await supabase
+            .from('userProfiles')
+            .select('internal_user_id')
+            .eq(
+              'email',
+              normalizedEmail
+            )
+            .maybeSingle()
+
+        if (error) {
+          throw error
+        }
+
+        if (!data?.internal_user_id) {
+
+          throw new Error(
+            'Unable to resolve internal_user_id'
+          )
+
+        }
+
+        // =========================
+        // SAFETY CHECK
+        // =========================
+        if (
+          data.internal_user_id === user.id
+        ) {
+
+          console.warn(
+            'internal_user_id matches auth.users.id',
+            {
+              email: normalizedEmail,
+              authUserId: user.id,
+              internalUserId:
+                data.internal_user_id
+            }
+          )
+
+        }
+
+        console.log(
+          'Resolved document folder',
+          {
+            email: normalizedEmail,
+            authUserId: user.id,
+            internalUserId:
+              data.internal_user_id
+          }
+        )
+
+        // 🚫 NEVER FALL BACK TO auth.users.id
+        setFolderPath(
+          data.internal_user_id
+        )
+
+      } catch (error: any) {
+
+        console.error(
+          'Failed to resolve document folder',
+          error
+        )
+
+        setFolderPath(null)
+
+        toast({
+          title:
+            'Unable to initialize documents',
+          description:
+            error.message ||
+            'Please refresh and try again.',
+          variant: 'destructive'
+        })
+
+      } finally {
+
+        setLoading(false)
+
       }
 
-      // fallback
-      setFolderPath(internalUserId ?? user?.id ?? null)
     }
 
     resolveFolder()
-  }, [internalUserId, user, searchParams])
+
+  }, [user?.email, searchParams])
 
   // =========================
   // SORT
@@ -92,148 +265,259 @@ export function DocumentsView({ user, internalUserId }: DocumentsViewProps) {
     () =>
       [...documents].sort(
         (a, b) =>
-          new Date(b.createdAt).getTime() -
-          new Date(a.createdAt).getTime()
+          new Date(
+            b.createdAt
+          ).getTime() -
+          new Date(
+            a.createdAt
+          ).getTime()
       ),
     [documents]
   )
 
   // =========================
-  // FETCH
+  // FETCH DOCUMENTS
   // =========================
-  const fetchDocuments = async () => {
+  const fetchDocuments =
+    async () => {
 
-    if (!folderPath) return
+      if (!folderPath) return
 
-    setLoading(true)
+      setLoading(true)
 
-    try {
+      try {
 
-      const { data, error } = await supabase.storage
-        .from(BUCKET)
-        .list(folderPath)
+        const { data, error } =
+          await supabase.storage
+            .from(BUCKET)
+            .list(folderPath)
 
-      if (error) throw error
+        if (error) {
+          throw error
+        }
 
-      const rows: DocumentRow[] = (data ?? [])
-        .filter((item) => item.name)
-        .map((item) => {
+        const rows: DocumentRow[] =
+          (data ?? [])
+            .filter(
+              (item) => item.name
+            )
+            .map((item) => {
 
-          const parts = item.name.split('__')
+              const parts =
+                item.name.split('__')
 
-          const type = parts[1] || 'unknown'
-          const rawName = parts[2] || item.name
+              const type =
+                parts[1] || 'unknown'
 
-          return {
-            type,
-            name: rawName.replace(/\.[^/.]+$/, ''),
-            path: `${folderPath}/${item.name}`,
-            createdAt: item.created_at || new Date().toISOString()
-          }
+              const rawName =
+                parts[2] || item.name
 
+              return {
+                type,
+                name:
+                  rawName.replace(
+                    /\.[^/.]+$/,
+                    ''
+                  ),
+                path:
+                  `${folderPath}/${item.name}`,
+                createdAt:
+                  item.created_at ||
+                  new Date().toISOString()
+              }
+
+            })
+
+        setDocuments(rows)
+
+      } catch (error: any) {
+
+        toast({
+          title:
+            'Unable to load documents',
+          description:
+            error.message,
+          variant: 'destructive'
         })
 
-      setDocuments(rows)
+      } finally {
 
-    } catch (error: any) {
+        setLoading(false)
 
-      toast({
-        title: 'Unable to load documents',
-        description: error.message,
-        variant: 'destructive'
-      })
+      }
 
-    } finally {
-      setLoading(false)
     }
 
-  }
-
   useEffect(() => {
+
     fetchDocuments()
+
   }, [folderPath])
 
   // =========================
-  // UPLOAD
+  // UPLOAD DOCUMENT
   // =========================
-  const uploadDocument = async (event: FormEvent) => {
+  const uploadDocument =
+    async (event: FormEvent) => {
 
-    event.preventDefault()
+      event.preventDefault()
 
-    if (!file || !docName.trim() || !docType || !folderPath) return
+      if (
+        !file ||
+        !docName.trim() ||
+        !docType
+      ) {
+        return
+      }
 
-    setUploading(true)
+      // 🚫 BLOCK UNTIL internal_user_id RESOLVED
+      if (!folderPath) {
 
-    try {
+        toast({
+          title: 'Upload blocked',
+          description:
+            'internal_user_id is not resolved yet.',
+          variant: 'destructive'
+        })
 
-      const sanitizedName = docName
-        .trim()
-        .replace(/[^a-zA-Z0-9-_ ]/g, '')
-        .replace(/\s+/g, '-')
+        return
 
-      const fileExt = file.name.split('.').pop()
+      }
 
-      const timestamp = new Date().toISOString()
+      // 🚫 NEVER ALLOW auth.users.id
+      if (
+        folderPath === user?.id
+      ) {
 
-      const fileName =
-        `${timestamp}__${docType}__${sanitizedName}.${fileExt}`
+        toast({
+          title: 'Upload blocked',
+          description:
+            'Refusing upload using auth.users.id',
+          variant: 'destructive'
+        })
 
-      const fullPath = `${folderPath}/${fileName}`
+        return
 
-      const { error } = await supabase.storage
-        .from(BUCKET)
-        .upload(fullPath, file)
+      }
 
-      if (error) throw error
+      setUploading(true)
 
-      toast({
-        title: 'Document uploaded',
-        description: 'Your file has been saved.'
-      })
+      try {
 
-      setDocName('')
-      setFile(null)
-      setDocType('')
+        const sanitizedName =
+          docName
+            .trim()
+            .replace(
+              /[^a-zA-Z0-9-_ ]/g,
+              ''
+            )
+            .replace(/\s+/g, '-')
 
-      await fetchDocuments()
+        const fileExt =
+          file.name
+            .split('.')
+            .pop()
 
-    } catch (error: any) {
+        const timestamp =
+          new Date().toISOString()
 
-      toast({
-        title: 'Upload failed',
-        description: error.message,
-        variant: 'destructive'
-      })
+        const fileName =
+          `${timestamp}__${docType}__${sanitizedName}.${fileExt}`
 
-    } finally {
-      setUploading(false)
+        const fullPath =
+          `${folderPath}/${fileName}`
+
+        console.log(
+          'Uploading document',
+          {
+            bucket: BUCKET,
+            fullPath,
+            authUserId: user?.id,
+            folderPath
+          }
+        )
+
+        const { error } =
+          await supabase.storage
+            .from(BUCKET)
+            .upload(
+              fullPath,
+              file
+            )
+
+        if (error) {
+          throw error
+        }
+
+        toast({
+          title:
+            'Document uploaded',
+          description:
+            'Your file has been saved.'
+        })
+
+        setDocName('')
+        setFile(null)
+        setDocType('')
+
+        await fetchDocuments()
+
+      } catch (error: any) {
+
+        toast({
+          title:
+            'Upload failed',
+          description:
+            error.message,
+          variant: 'destructive'
+        })
+
+      } finally {
+
+        setUploading(false)
+
+      }
+
     }
-
-  }
 
   // =========================
   // OPEN FILE
   // =========================
-  const openDocument = async (path: string) => {
+  const openDocument =
+    async (path: string) => {
 
-    const { data, error } = await supabase.storage
-      .from(BUCKET)
-      .createSignedUrl(path, 60)
+      const { data, error } =
+        await supabase.storage
+          .from(BUCKET)
+          .createSignedUrl(
+            path,
+            60
+          )
 
-    if (error || !data?.signedUrl) {
+      if (
+        error ||
+        !data?.signedUrl
+      ) {
 
-      toast({
-        title: 'Unable to open file',
-        description: error?.message || 'Try again later',
-        variant: 'destructive'
-      })
+        toast({
+          title:
+            'Unable to open file',
+          description:
+            error?.message ||
+            'Try again later',
+          variant: 'destructive'
+        })
 
-      return
+        return
+
+      }
+
+      window.open(
+        data.signedUrl,
+        '_blank'
+      )
+
     }
-
-    window.open(data.signedUrl, '_blank')
-
-  }
 
   // =========================
   // UI
@@ -243,19 +527,31 @@ export function DocumentsView({ user, internalUserId }: DocumentsViewProps) {
     <div className="space-y-6">
 
       <div>
-        <h1 className="text-3xl font-bold">Documents</h1>
+
+        <h1 className="text-3xl font-bold">
+          Documents
+        </h1>
+
         <p className="text-muted-foreground">
-          Upload the documents required for your loan application.
+          Upload the documents required
+          for your loan application.
         </p>
+
       </div>
 
       <Card>
 
         <CardHeader>
-          <CardTitle>Upload Document</CardTitle>
+
+          <CardTitle>
+            Upload Document
+          </CardTitle>
+
           <CardDescription>
-            Select the document type before uploading.
+            Select the document type
+            before uploading.
           </CardDescription>
+
         </CardHeader>
 
         <CardContent>
@@ -266,52 +562,100 @@ export function DocumentsView({ user, internalUserId }: DocumentsViewProps) {
           >
 
             <div className="space-y-2">
-              <Label>Document Type</Label>
 
-              <Select value={docType} onValueChange={setDocType}>
+              <Label>
+                Document Type
+              </Label>
+
+              <Select
+                value={docType}
+                onValueChange={
+                  setDocType
+                }
+              >
+
                 <SelectTrigger>
                   <SelectValue placeholder="Select type" />
                 </SelectTrigger>
+
                 <SelectContent>
-                  {DOCUMENT_TYPES.map(t => (
-                    <SelectItem key={t.value} value={t.value}>
-                      {t.label}
-                    </SelectItem>
-                  ))}
+
+                  {DOCUMENT_TYPES.map(
+                    (t) => (
+
+                      <SelectItem
+                        key={t.value}
+                        value={t.value}
+                      >
+                        {t.label}
+                      </SelectItem>
+
+                    )
+                  )}
+
                 </SelectContent>
+
               </Select>
 
             </div>
 
             <div className="space-y-2">
-              <Label>Document name</Label>
+
+              <Label>
+                Document name
+              </Label>
+
               <Input
                 value={docName}
-                onChange={(e) => setDocName(e.target.value)}
+                onChange={(e) =>
+                  setDocName(
+                    e.target.value
+                  )
+                }
                 placeholder="March Payroll"
                 required
               />
+
             </div>
 
             <div className="space-y-2">
-              <Label>File</Label>
+
+              <Label>
+                File
+              </Label>
+
               <Input
                 type="file"
                 onChange={(e) =>
-                  setFile(e.target.files?.[0] ?? null)
+                  setFile(
+                    e.target.files?.[0] ??
+                    null
+                  )
                 }
                 required
               />
+
             </div>
 
             <div className="flex items-end">
+
               <Button
                 type="submit"
                 className="w-full"
-                disabled={uploading || !docType || !file}
+                disabled={
+                  uploading ||
+                  !docType ||
+                  !file ||
+                  !folderPath
+                }
               >
-                {uploading ? 'Uploading...' : 'Upload'}
+
+                {uploading
+                  ? 'Uploading...'
+                  : 'Upload'}
+
               </Button>
+
             </div>
 
           </form>
@@ -323,63 +667,107 @@ export function DocumentsView({ user, internalUserId }: DocumentsViewProps) {
       <Card>
 
         <CardHeader>
-          <CardTitle>All Documents</CardTitle>
+
+          <CardTitle>
+            All Documents
+          </CardTitle>
+
           <CardDescription>
             Newest files first
           </CardDescription>
+
         </CardHeader>
 
         <CardContent>
 
           {loading ? (
-            <div>Loading documents...</div>
+
+            <div>
+              Loading documents...
+            </div>
+
           ) : (
 
             <Table>
 
               <TableHeader>
+
                 <TableRow>
-                  <TableHead>Date</TableHead>
-                  <TableHead>Type</TableHead>
-                  <TableHead>Name</TableHead>
-                  <TableHead className="text-right">File</TableHead>
+
+                  <TableHead>
+                    Date
+                  </TableHead>
+
+                  <TableHead>
+                    Type
+                  </TableHead>
+
+                  <TableHead>
+                    Name
+                  </TableHead>
+
+                  <TableHead className="text-right">
+                    File
+                  </TableHead>
+
                 </TableRow>
+
               </TableHeader>
 
               <TableBody>
 
                 {sortedDocuments.length === 0 && (
+
                   <TableRow>
+
                     <TableCell colSpan={4}>
                       No documents uploaded
                     </TableCell>
+
                   </TableRow>
+
                 )}
 
-                {sortedDocuments.map((doc) => (
+                {sortedDocuments.map(
+                  (doc) => (
 
-                  <TableRow key={doc.path}>
+                    <TableRow
+                      key={doc.path}
+                    >
 
-                    <TableCell>
-                      {new Date(doc.createdAt).toLocaleDateString()}
-                    </TableCell>
+                      <TableCell>
+                        {new Date(
+                          doc.createdAt
+                        ).toLocaleDateString()}
+                      </TableCell>
 
-                    <TableCell>{doc.type}</TableCell>
+                      <TableCell>
+                        {doc.type}
+                      </TableCell>
 
-                    <TableCell>{doc.name}</TableCell>
+                      <TableCell>
+                        {doc.name}
+                      </TableCell>
 
-                    <TableCell className="text-right">
-                      <Button
-                        variant="link"
-                        onClick={() => openDocument(doc.path)}
-                      >
-                        Open
-                      </Button>
-                    </TableCell>
+                      <TableCell className="text-right">
 
-                  </TableRow>
+                        <Button
+                          variant="link"
+                          onClick={() =>
+                            openDocument(
+                              doc.path
+                            )
+                          }
+                        >
+                          Open
+                        </Button>
 
-                ))}
+                      </TableCell>
+
+                    </TableRow>
+
+                  )
+                )}
 
               </TableBody>
 
@@ -394,4 +782,5 @@ export function DocumentsView({ user, internalUserId }: DocumentsViewProps) {
     </div>
 
   )
+
 }
