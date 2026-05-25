@@ -194,25 +194,6 @@ export function DocumentsView({
 
         }
 
-        // =========================
-        // SAFETY CHECK
-        // =========================
-        if (
-          data.internal_user_id === user.id
-        ) {
-
-          console.warn(
-            'internal_user_id matches auth.users.id',
-            {
-              email: normalizedEmail,
-              authUserId: user.id,
-              internalUserId:
-                data.internal_user_id
-            }
-          )
-
-        }
-
         console.log(
           'Resolved document folder',
           {
@@ -223,7 +204,7 @@ export function DocumentsView({
           }
         )
 
-        // 🚫 NEVER FALL BACK TO auth.users.id
+        // ALWAYS USE internal_user_id
         setFolderPath(
           data.internal_user_id
         )
@@ -370,29 +351,13 @@ export function DocumentsView({
         return
       }
 
-      // 🚫 BLOCK UNTIL internal_user_id RESOLVED
+      // BLOCK UNTIL internal_user_id RESOLVED
       if (!folderPath) {
 
         toast({
           title: 'Upload blocked',
           description:
             'internal_user_id is not resolved yet.',
-          variant: 'destructive'
-        })
-
-        return
-
-      }
-
-      // 🚫 NEVER ALLOW auth.users.id
-      if (
-        folderPath === user?.id
-      ) {
-
-        toast({
-          title: 'Upload blocked',
-          description:
-            'Refusing upload using auth.users.id',
           variant: 'destructive'
         })
 
@@ -433,7 +398,7 @@ export function DocumentsView({
             bucket: BUCKET,
             fullPath,
             authUserId: user?.id,
-            folderPath
+            internalUserId: folderPath
           }
         )
 
