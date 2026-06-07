@@ -38,18 +38,51 @@ interface Props {
   internalUserEmail?: string
 }
 
+interface UserProfile {
+  first_name?: string | null
+  middle_name?: string | null
+  last_name?: string | null
+  email?: string | null
+  phone?: string | null
+  address?: string | null
+  employer_name?: string | null
+  employer?: string | null
+  employer_phone?: string | null
+  employer_address?: string | null
+  position?: string | null
+  job_title?: string | null
+  occupation?: string | null
+  years_employed?: string | number | null
+  employment_status?: string | null
+  bank_name?: string | null
+  bank_account?: string | null
+  income?: string | number | null
+  expense?: string | number | null
+  pay_schedule?: string | null
+  dob?: string | null
+  referral?: string | null
+}
+
 interface LoanCalculation {
   interest: number
   total: number
   payment: number
-  frequency: 'daily' | 'semi-monthly'
+  frequency: 'monthly' | 'semi-monthly'
   periods: number
 }
+
+type LoanType = 'conventional' | 'emergency'
+
+const EMERGENCY_LOAN_RATE = 0.12
+const EMERGENCY_LOAN_TERM_MONTHS = '1'
+const EMERGENCY_LOAN_MIN_AMOUNT = 5000
+const EMERGENCY_LOAN_MAX_AMOUNT = 10000
+const CONVENTIONAL_LOAN_RATE = 0.10
 
 function calculateLoan(
   amount: number,
   months: number,
-  type: string
+  type: LoanType
 ): LoanCalculation | null {
 
   if (!amount || !months) {
@@ -58,10 +91,8 @@ function calculateLoan(
 
   if (type === 'emergency') {
 
-    const days = 30
-
     const interest =
-      amount * 0.004 * days
+      amount * EMERGENCY_LOAN_RATE * months
 
     const total =
       amount + interest
@@ -69,15 +100,15 @@ function calculateLoan(
     return {
       interest,
       total,
-      payment: total / days,
-      frequency: 'daily',
-      periods: days
+      payment: total,
+      frequency: 'monthly',
+      periods: months
     }
 
   }
 
   const interest =
-    amount * 0.10 * months
+    amount * CONVENTIONAL_LOAN_RATE * months
 
   const total =
     amount + interest
@@ -104,7 +135,7 @@ export default function LoanApplicationForm({
   const { toast } = useToast()
 
   const [profile, setProfile] =
-    useState<any>(null)
+    useState<UserProfile | null>(null)
 
   // =========================
   // SINGLE CANONICAL ID
@@ -124,15 +155,15 @@ export default function LoanApplicationForm({
     useState('')
 
   const [loanType, setLoanType] =
-    useState('conventional')
+    useState<LoanType>('conventional')
 
   const [promoCode, setPromoCode] =
     useState('')
 
   const [
-    hasPaidOffLoan,
-    setHasPaidOffLoan
-  ] = useState(false)
+    activeLoanTypes,
+    setActiveLoanTypes
+  ] = useState<LoanType[]>([])
 
   const [submitting, setSubmitting] =
     useState(false)
@@ -537,7 +568,7 @@ export default function LoanApplicationForm({
   }, [internalUserEmail, user])
 
   /*
-  CHECK ELIGIBILITY
+  CHECK ACTIVE LOANS
   */
 
   useEffect(() => {
@@ -554,20 +585,43 @@ export default function LoanApplicationForm({
 
         const { data } =
           await supabase
-            .from('loans')
-            .select('id')
+            .from('user_loans_summary')
+            .select('loan_type')
             .eq(
               'internal_user_id',
               targetUserId
             )
-            .eq(
+            .ilike(
               'status',
-              'paid_off'
+              'active'
             )
-            .limit(1)
 
-        setHasPaidOffLoan(
-          (data?.length || 0) > 0
+        const loanTypes =
+          (data || [])
+            .map((loan) => {
+
+              const type =
+                String(loan.loan_type)
+                  .trim()
+                  .toLowerCase()
+
+              if (
+                type === 'regular'
+              ) {
+                return 'conventional'
+              }
+
+              return type
+
+            })
+            .filter(
+              (type): type is LoanType =>
+                type === 'conventional' ||
+                type === 'emergency'
+            )
+
+        setActiveLoanTypes(
+          Array.from(new Set(loanTypes))
         )
 
       }
@@ -575,6 +629,40 @@ export default function LoanApplicationForm({
     checkLoans()
 
   }, [resolvedInternalUserId])
+
+  const hasActiveConventionalLoan =
+    activeLoanTypes.includes(
+      'conventional'
+    )
+
+  const hasActiveEmergencyLoan =
+    activeLoanTypes.includes(
+      'emergency'
+    )
+
+  const derivedLoanType: LoanType =
+    hasActiveEmergencyLoan
+      ? 'conventional'
+      : hasActiveConventionalLoan
+        ? 'emergency'
+        : 'conventional'
+
+  useEffect(() => {
+
+    setLoanType(derivedLoanType)
+
+    if (
+      derivedLoanType ===
+      'emergency'
+    ) {
+
+      setLoanTerm(
+        EMERGENCY_LOAN_TERM_MONTHS
+      )
+
+    }
+
+  }, [derivedLoanType])
 
   /*
   CHECK REQUIRED DOCUMENTS
@@ -625,13 +713,10 @@ export default function LoanApplicationForm({
       return ['1']
     }
 
-    return hasPaidOffLoan
-      ? ['1', '2', '3']
-      : ['1', '2']
+    return ['1', '2']
 
   }, [
-    loanType,
-    hasPaidOffLoan
+    loanType
   ])
 
   /*
@@ -689,6 +774,31 @@ export default function LoanApplicationForm({
             'Missing required fields',
           description:
             'Please fill all required fields.',
+          variant:
+            'destructive'
+        })
+
+        return
+
+      }
+
+      if (
+        loanType === 'emergency' &&
+        (
+          loanTerm !==
+          EMERGENCY_LOAN_TERM_MONTHS ||
+          amount <
+            EMERGENCY_LOAN_MIN_AMOUNT ||
+          amount >
+            EMERGENCY_LOAN_MAX_AMOUNT
+        )
+      ) {
+
+        toast({
+          title:
+            'Invalid emergency loan details',
+          description:
+            'Emergency loans must be 1 month and between ₱5,000 and ₱10,000.',
           variant:
             'destructive'
         })
@@ -817,7 +927,12 @@ export default function LoanApplicationForm({
               loanPurpose.trim(),
 
             loanType:
-              loanType
+              loanType,
+
+            interestRate:
+              loanType === 'emergency'
+                ? EMERGENCY_LOAN_RATE
+                : CONVENTIONAL_LOAN_RATE
 
           },
 
@@ -905,16 +1020,18 @@ export default function LoanApplicationForm({
         setLoanPurpose('')
         setPromoCode('')
         setLoanType(
-          'conventional'
+          derivedLoanType
         )
 
-      } catch (err: any) {
+      } catch (err: unknown) {
 
         toast({
           title:
             'Submission failed',
           description:
-            err.message,
+            err instanceof Error
+              ? err.message
+              : 'An unexpected error occurred.',
           variant:
             'destructive'
         })
@@ -951,20 +1068,21 @@ export default function LoanApplicationForm({
 
             <Select
               value={loanType}
-              onValueChange={
-                setLoanType
-              }
               disabled
             >
 
               <SelectTrigger>
-                <SelectValue placeholder="Conventional" />
+                <SelectValue placeholder="Loan type" />
               </SelectTrigger>
 
               <SelectContent>
 
                 <SelectItem value="conventional">
                   Conventional
+                </SelectItem>
+
+                <SelectItem value="emergency">
+                  Emergency
                 </SelectItem>
 
               </SelectContent>
@@ -977,6 +1095,9 @@ export default function LoanApplicationForm({
 
             <Label>
               Amount
+              {loanType === 'emergency'
+                ? ' (₱5,000-₱10,000)'
+                : ''}
             </Label>
 
             <div className="flex gap-2 items-center">
@@ -986,6 +1107,16 @@ export default function LoanApplicationForm({
               <Input
                 type="number"
                 value={loanAmount}
+                min={
+                  loanType === 'emergency'
+                    ? EMERGENCY_LOAN_MIN_AMOUNT
+                    : undefined
+                }
+                max={
+                  loanType === 'emergency'
+                    ? EMERGENCY_LOAN_MAX_AMOUNT
+                    : undefined
+                }
                 onChange={(e) =>
                   setLoanAmount(
                     e.target.value
@@ -1145,6 +1276,20 @@ export default function LoanApplicationForm({
           <div className="flex justify-between">
 
             <span>
+              Interest Rate
+            </span>
+
+            <span>
+              {loanType === 'emergency'
+                ? '12%'
+                : '10%'}
+            </span>
+
+          </div>
+
+          <div className="flex justify-between">
+
+            <span>
               Amount
             </span>
 
@@ -1175,8 +1320,8 @@ export default function LoanApplicationForm({
             <span>
 
               {calculation?.frequency ===
-              'daily'
-                ? 'Daily Payment'
+              'monthly'
+                ? 'Payment (1 month)'
                 : 'Payment (15 days)'}
 
             </span>

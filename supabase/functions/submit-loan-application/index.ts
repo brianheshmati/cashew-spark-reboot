@@ -5,6 +5,10 @@ const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type'
 };
+const EMERGENCY_LOAN_RATE = 0.12;
+const EMERGENCY_LOAN_TERM_MONTHS = 1;
+const EMERGENCY_LOAN_MIN_AMOUNT = 5000;
+const EMERGENCY_LOAN_MAX_AMOUNT = 10000;
 const handler = async (req)=>{
   if (req.method === 'OPTIONS') {
     return new Response(null, {
@@ -22,10 +26,25 @@ const handler = async (req)=>{
     const cleanLoanAmount = parseFloat(applicationData.loanInfo.loanAmount.replace(/[^0-9.]/g, ''));
     const cleanMonthlyIncome = parseFloat(applicationData.employmentInfo.monthlyIncome.replace(/[^0-9.]/g, ''));
     const cleanMonthlyExpense = parseFloat(applicationData.employmentInfo.monthlyExpense.replace(/[^0-9.]/g, ''));
+    const loanType = applicationData.loanInfo.loanType === 'emergency' ? 'emergency' : 'conventional';
+    const interestRate = loanType === 'emergency' ? EMERGENCY_LOAN_RATE : Number(applicationData.loanInfo.interestRate ?? 0.10);
+    // Parse loan term to get months
+    const loanTermMonths = parseInt(applicationData.loanInfo.loanTerm.replace(/[^0-9]/g, ''));
     // Validate minimum loan amount
     if (cleanLoanAmount < 5000) {
       return new Response(JSON.stringify({
         error: 'Minimum loan amount is PHP 5,000'
+      }), {
+        status: 400,
+        headers: {
+          ...corsHeaders,
+          'Content-Type': 'application/json'
+        }
+      });
+    }
+    if (loanType === 'emergency' && (loanTermMonths !== EMERGENCY_LOAN_TERM_MONTHS || cleanLoanAmount < EMERGENCY_LOAN_MIN_AMOUNT || cleanLoanAmount > EMERGENCY_LOAN_MAX_AMOUNT)) {
+      return new Response(JSON.stringify({
+        error: 'Emergency loans must be 1 month and between PHP 5,000 and PHP 10,000'
       }), {
         status: 400,
         headers: {
@@ -53,8 +72,6 @@ const handler = async (req)=>{
     // Generate application ID
     const applicationId = crypto.randomUUID();
     console.log('Generated application ID:', applicationId);
-    // Parse loan term to get months
-    const loanTermMonths = parseInt(applicationData.loanInfo.loanTerm.replace(/[^0-9]/g, ''));
     // First, try to sign up the user
     console.log('Attempting to sign up user with email:', email);
     const { data: authData, error: authError } = await supabase.auth.signUp({
@@ -118,7 +135,7 @@ const handler = async (req)=>{
       email: applicationData.personalInfo.email,
       phone: cleanPhone,
       //user_id: userId,
-      //loan_type: 'personal',
+      loan_type: loanType,
       amount: cleanLoanAmount,
       term: loanTermMonths,
       income: cleanMonthlyIncome,
@@ -133,7 +150,8 @@ const handler = async (req)=>{
       job_title: applicationData.employmentInfo.position.trim() || 'Not specified',
       address: applicationData.personalInfo.address,
       promo_code: applicationData.personalInfo.promo_code,
-      dob: applicationData.personalInfo.dob
+      dob: applicationData.personalInfo.dob,
+      remarks: loanType === 'emergency' ? `Emergency loan default rate: ${interestRate * 100}%` : undefined
     };
     console.log('Attempting to insert data:', insertData);
     const { error: insertError } = await supabase.from('applications').insert(insertData);
