@@ -334,6 +334,51 @@ export type Database = {
           },
         ]
       }
+      promotions: {
+        Row: {
+          active: boolean
+          body: string
+          created_at: string
+          cta_label: string | null
+          cta_view: string | null
+          expires_at: string | null
+          id: string
+          published_at: string
+          slug: string
+          subtitle: string | null
+          title: string
+          updated_at: string
+        }
+        Insert: {
+          active?: boolean
+          body: string
+          created_at?: string
+          cta_label?: string | null
+          cta_view?: string | null
+          expires_at?: string | null
+          id?: string
+          published_at?: string
+          slug: string
+          subtitle?: string | null
+          title: string
+          updated_at?: string
+        }
+        Update: {
+          active?: boolean
+          body?: string
+          created_at?: string
+          cta_label?: string | null
+          cta_view?: string | null
+          expires_at?: string | null
+          id?: string
+          published_at?: string
+          slug?: string
+          subtitle?: string | null
+          title?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
       profiles: {
         Row: {
           address: string | null

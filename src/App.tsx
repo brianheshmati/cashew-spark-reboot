@@ -8,6 +8,7 @@ import { BrowserRouter, Routes, Route } from "react-router-dom";
 import Landing from "./pages/Landing";
 import Auth from "./pages/Auth";
 import Dashboard from "./pages/Dashboard";
+import Promotions from "./pages/Promotions";
 import Apply from "./pages/Apply";
 import LoanDetails from "./pages/LoanDetails";
 //import LoanApplicationForm from "./components/LoanApplicationForm";
@@ -57,6 +58,8 @@ function App() {
             <Route path="/home" element={<Index />} />
 
             <Route path="/auth" element={<Auth />} />
+
+            <Route path="/promotions" element={<Promotions />} />
 
             <Route path="/dashboard" element={<Dashboard />} />
 

@@ -105,7 +105,7 @@ const Auth = () => {
             console.warn("Referral processing skipped:", e)
           }
 
-          navigate('/dashboard')
+          navigate('/promotions')
 
         }
 
@@ -127,7 +127,7 @@ const Auth = () => {
             console.warn("Referral processing skipped:", e)
           }
 
-          navigate('/dashboard')
+          navigate('/promotions')
 
         }
 
@@ -171,7 +171,7 @@ const Auth = () => {
       const { error } = await supabase.auth.signInWithOtp({
         email,
         options: {
-          emailRedirectTo: `${window.location.origin}/dashboard`
+          emailRedirectTo: `${window.location.origin}/promotions`
         }
       })
 
