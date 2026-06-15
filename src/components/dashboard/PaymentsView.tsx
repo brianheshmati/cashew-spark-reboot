@@ -80,6 +80,7 @@ export default function PaymentsView() {
     cvv: '',
     email: '',
     phone: '',
+    consent: false,
   });
 
   // ✅ Make sure options ALWAYS exist (no silent failure)
@@ -95,12 +96,17 @@ export default function PaymentsView() {
 
   // 🔥 Init Xendit
   useEffect(() => {
+    console.log(
+      "Xendit Publishable Key:",
+      import.meta.env.VITE_XENDIT_PRODUCTION_KEY
+    );
+
     if (window.Xendit) {
       window.Xendit.setPublishableKey(
-        //import.meta.env.VITE_XENDIT_PUBLIC_KEY
         import.meta.env.VITE_XENDIT_PRODUCTION_KEY
-        //import.meta.env.VITE_XENDIT_TEST_KEY
       );
+    } else {
+      console.log("Xendit SDK not loaded");
     }
   }, []);
 
@@ -116,7 +122,13 @@ export default function PaymentsView() {
       }
 
       setInternalUserId(user.id);
+
       setUserEmail(user.email ?? '');
+
+      setCardForm((prev) => ({
+        ...prev,
+        email: user.email ?? '',
+      }));
 
       const { data, error } = await supabase
         .from('payment_methods')
@@ -137,7 +149,7 @@ export default function PaymentsView() {
 
       const mapped: SavedPaymentMethod[] = (data ?? [])
         .map((row) => {
-          const type = providerToType(row.brand);
+          const type = providerToType(row.provider);
 
           const details =
             type === 'card'
@@ -181,15 +193,32 @@ export default function PaymentsView() {
 
     if (selectedMethod === 'card') {
       if (!window.Xendit) {
-        toast({ title: 'Xendit not loaded', variant: 'destructive' });
+        toast({
+          title: 'Xendit not loaded',
+          variant: 'destructive',
+        });
+
         setSaving(false);
         return;
       }
 
       try {
         const cleanNumber = cardForm.number.replace(/\s/g, '');
+
         const [first_name, ...rest] = cardForm.name.split(' ');
         const last_name = rest.join(' ') || 'NA';
+
+        if (!cardForm.consent) {
+          toast({
+            title: 'Authorization Required',
+            description:
+              'Please authorize Cashew to save and charge this card for future loan repayments.',
+            variant: 'destructive',
+          });
+
+          setSaving(false);
+          return;
+        }
 
         window.Xendit.card.createToken(
           {
@@ -207,48 +236,79 @@ export default function PaymentsView() {
             card_holder_email: cardForm.email,
             card_holder_phone_number: cardForm.phone,
           },
+
           async (err: any, token: any) => {
+            console.log('Token Error:', err);
+            console.log('Token Response:', token);
+
             if (err) {
               toast({
                 title: 'Card error',
                 description: err.message,
                 variant: 'destructive',
               });
+
               setSaving(false);
               return;
             }
 
             if (!token?.id) {
+              toast({
+                title: 'Unable to tokenize card',
+                variant: 'destructive',
+              });
+
               setSaving(false);
               return;
             }
 
-            // 🔴 Save token BEFORE redirect
-            localStorage.setItem("xendit_token_id", token.id);
-
-            // 🔥 Create authentication
-            const { data, error } = await supabase.functions.invoke(
-              'create-card-authentication',
-              {
-                body: {
-                  token_id: token.id,
-                  amount: 50,
-                },
-              }
-            );
+            const { error } =
+              await supabase.functions.invoke(
+                'create-card-authentication',
+                {
+                  body: {
+                    token_id: token.id,
+                    masked_card_number:
+                      token.masked_card_number,
+                    exp_month:
+                      token.card_expiration_month,
+                    exp_year:
+                      token.card_expiration_year,
+                    brand:
+                      token.card_info?.brand,
+                    bank:
+                      token.card_info?.bank,
+                    country:
+                      token.card_info?.country,
+                    card_type:
+                      token.card_info?.type,
+                    fingerprint:
+                      token.card_info?.fingerprint,
+                  },
+                }
+              );
 
             if (error) {
               toast({
-                title: 'Authentication failed',
+                title: 'Error',
                 description: error.message,
                 variant: 'destructive',
               });
+
               setSaving(false);
               return;
             }
 
-            // 🔁 Redirect to 3DS
-            window.location.href = data.payer_authentication_url;
+            toast({
+              title: 'Card Saved',
+              description:
+                'Your card was successfully saved.',
+            });
+
+            setSaving(false);
+
+            // Refresh page to reload payment methods
+            window.location.reload();
           }
         );
       } catch (err: any) {
@@ -257,6 +317,7 @@ export default function PaymentsView() {
           description: err.message,
           variant: 'destructive',
         });
+
         setSaving(false);
       }
 
@@ -492,7 +553,10 @@ export default function PaymentsView() {
   );
 }
 
-function CardForm({ cardForm, setCardForm }: any) {
+function CardForm({
+    cardForm,
+    setCardForm,
+  }: any) {
   const formatCardNumber = (value: string) => {
     const digits = value.replace(/\D/g, '').slice(0, 16);
     return digits.replace(/(.{4})/g, '$1 ').trim();
@@ -615,10 +679,29 @@ function CardForm({ cardForm, setCardForm }: any) {
       </div>
 
       {/* TRUST / SECURITY */}
-      <div className="rounded-md bg-muted p-3 text-xs text-muted-foreground">
-        🔒 Your card details are encrypted and securely processed. We never store full card information.
-      </div>
-    </div>
+      <div className="flex items-start gap-3 rounded-md border p-3">
+        <Checkbox
+          checked={cardForm.consent}
+          onCheckedChange={(checked) =>
+            setCardForm({
+              ...cardForm,
+              consent: !!checked,
+            })
+          }
+        />
+
+        <div className="text-sm">
+            I authorize Cashew to securely save this card and
+            charge it for scheduled loan repayments, fees,
+            and other authorized amounts related to my loan.
+          </div>
+        </div>
+
+        <div className="rounded-md bg-muted p-3 text-xs text-muted-foreground">
+          🔒 Your card details are encrypted and securely processed through Xendit.
+          Cashew never stores your full card number or CVV.
+        </div>
+     </div>
   );
 }
 function Field({ label, children }: { label: string; children: ReactNode }) {

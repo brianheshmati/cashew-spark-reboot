@@ -18,8 +18,8 @@ export const FEATURES = {
     isAdminEmail(email),
   
   paymentMethodTypes: {
-    payroll: true,
+    //payroll: true,
     card: true,
-    ach: true,
+    //ach: true,
   },
 };
