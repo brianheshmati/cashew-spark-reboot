@@ -11,24 +11,26 @@ export default function PaymentCallback() {
     const run = async () => {
       try {
         const params = new URLSearchParams(window.location.search);
-        const authentication_id = params.get("authentication_id");
+        const payment_request_id =
+          params.get("payment_request_id") ||
+          params.get("paymentRequestId") ||
+          params.get("id") ||
+          localStorage.getItem("xendit_payment_request_id");
 
-        if (!authentication_id) {
-          throw new Error("Missing authentication_id");
+        if (!payment_request_id) {
+          throw new Error("Missing payment request id");
         }
 
-        // 🔥 Call backend to verify + save card
         const { error } = await supabase.functions.invoke(
           "add-payment-method",
           {
-            body: { authentication_id },
+            body: { payment_request_id },
           }
         );
 
         if (error) throw error;
 
-        // cleanup token
-        localStorage.removeItem("xendit_token_id");
+        localStorage.removeItem("xendit_payment_request_id");
 
         setStatus("success");
         setMessage("Card successfully added!");
@@ -43,8 +45,7 @@ export default function PaymentCallback() {
         setStatus("error");
         setMessage(err.message || "Failed to verify card");
 
-        // optional cleanup
-        localStorage.removeItem("xendit_token_id");
+        localStorage.removeItem("xendit_payment_request_id");
       }
     };
 

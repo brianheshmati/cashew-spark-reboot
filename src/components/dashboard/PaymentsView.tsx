@@ -18,12 +18,6 @@ import {
 
 import { FEATURES } from '@/config/features';
 
-declare global {
-  interface Window {
-    Xendit: any;
-  }
-}
-
 type PaymentMethodType = 'payroll' | 'card' | 'ach';
 
 type SavedPaymentMethod = {
@@ -93,17 +87,6 @@ export default function PaymentsView() {
       setSelectedMethod(availableMethodOptions[0].value);
     }
   }, [availableMethodOptions, selectedMethod]);
-
-  // 🔥 Init Xendit
-  useEffect(() => {
-    if (window.Xendit) {
-      window.Xendit.setPublishableKey(
-        import.meta.env.VITE_XENDIT_PRODUCTION_KEY
-      );
-    } else {
-      console.log("Xendit SDK not loaded");
-    }
-  }, []);
 
   useEffect(() => {
     const load = async () => {
@@ -189,21 +172,8 @@ export default function PaymentsView() {
     setSaving(true);
 
     if (selectedMethod === 'card') {
-      if (!window.Xendit) {
-        toast({
-          title: 'Xendit not loaded',
-          variant: 'destructive',
-        });
-
-        setSaving(false);
-        return;
-      }
-
       try {
         const cleanNumber = cardForm.number.replace(/\s/g, '');
-
-        const [first_name, ...rest] = cardForm.name.split(' ');
-        const last_name = rest.join(' ') || 'NA';
 
         if (!cardForm.consent) {
           toast({
@@ -217,97 +187,62 @@ export default function PaymentsView() {
           return;
         }
 
-        window.Xendit.card.createToken(
-          {
-            amount: 50,
-            card_number: cleanNumber,
-            card_exp_month: cardForm.expMonth,
-            card_exp_year: cardForm.expYear,
-            card_cvn: cardForm.cvv,
+        if (
+          cleanNumber.length < 12 ||
+          !cardForm.name.trim() ||
+          !cardForm.expMonth ||
+          !cardForm.expYear ||
+          !cardForm.cvv ||
+          !cardForm.email
+        ) {
+          toast({
+            title: 'Missing card details',
+            description: 'Please complete the card form before continuing.',
+            variant: 'destructive',
+          });
 
-            is_multiple_use: true,
-            should_authenticate: true,
+          setSaving(false);
+          return;
+        }
 
-            card_holder_first_name: first_name,
-            card_holder_last_name: last_name,
-            card_holder_email: cardForm.email,
-            card_holder_phone_number: cardForm.phone,
+        const { data, error } = await supabase.functions.invoke('add-payment-method', {
+          body: {
+            payment_type: 'card',
+            card: {
+              number: cleanNumber,
+              exp_month: cardForm.expMonth,
+              exp_year: cardForm.expYear,
+              cvn: cardForm.cvv,
+            },
+            cardholder: {
+              name: cardForm.name,
+              email: cardForm.email,
+              phone: cardForm.phone,
+            },
+            return_origin: window.location.origin,
           },
+        });
 
-          async (err: any, token: any) => {
-            console.log('Token Error:', err);
-            console.log('Token Response:', token);
+        if (error) {
+          throw error;
+        }
 
-            if (err) {
-              toast({
-                title: 'Card error',
-                description: err.message,
-                variant: 'destructive',
-              });
+        if (data?.payment_method_id) {
+          toast({
+            title: 'Card saved',
+            description: 'Your card was successfully saved.',
+          });
 
-              setSaving(false);
-              return;
-            }
+          window.location.reload();
+          return;
+        }
 
-            if (!token?.id) {
-              toast({
-                title: 'Unable to tokenize card',
-                variant: 'destructive',
-              });
+        if (!data?.id || !data?.action_url) {
+          throw new Error('Xendit did not return a 3DS authorization link.');
+        }
 
-              setSaving(false);
-              return;
-            }
-
-            const { error } =
-              await supabase.functions.invoke(
-                'create-card-authentication',
-                {
-                  body: {
-                    token_id: token.id,
-                    masked_card_number:
-                      token.masked_card_number,
-                    exp_month:
-                      token.card_expiration_month,
-                    exp_year:
-                      token.card_expiration_year,
-                    brand:
-                      token.card_info?.brand,
-                    bank:
-                      token.card_info?.bank,
-                    country:
-                      token.card_info?.country,
-                    card_type:
-                      token.card_info?.type,
-                    fingerprint:
-                      token.card_info?.fingerprint,
-                  },
-                }
-              );
-
-            if (error) {
-              toast({
-                title: 'Error',
-                description: error.message,
-                variant: 'destructive',
-              });
-
-              setSaving(false);
-              return;
-            }
-
-            toast({
-              title: 'Card Saved',
-              description:
-                'Your card was successfully saved.',
-            });
-
-            setSaving(false);
-
-            // Refresh page to reload payment methods
-            window.location.reload();
-          }
-        );
+        localStorage.setItem('xendit_payment_request_id', data.id);
+        window.location.href = data.action_url;
       } catch (err: any) {
         toast({
           title: 'Error',
