@@ -96,11 +96,6 @@ export default function PaymentsView() {
 
   // 🔥 Init Xendit
   useEffect(() => {
-    console.log(
-      "Xendit Publishable Key:",
-      import.meta.env.VITE_XENDIT_PRODUCTION_KEY
-    );
-
     if (window.Xendit) {
       window.Xendit.setPublishableKey(
         import.meta.env.VITE_XENDIT_PRODUCTION_KEY
@@ -153,7 +148,9 @@ export default function PaymentsView() {
 
           const details =
             type === 'card'
-              ? `${row.brand ?? 'Card'} •••• ${row.last4 ?? '----'}`
+              ? row.exp_month && row.exp_year
+                ? `Expires ${String(row.exp_month).padStart(2, '0')}/${row.exp_year}`
+                : 'Expiration unavailable'
               : type === 'ach'
               ? `Bank account ending ${row.last4 ?? '----'}`
               : `Payroll method`;
@@ -163,7 +160,7 @@ export default function PaymentsView() {
             type,
             nickname:
               type === 'card'
-                ? `${row.brand ?? 'Card'} ending ${row.last4 ?? '----'}`
+                ? `Card ending ${row.last4 ?? '----'}`
                 : type === 'ach'
                 ? 'ACH account'
                 : 'Payroll deduction',
