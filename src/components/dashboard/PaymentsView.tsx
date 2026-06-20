@@ -49,9 +49,9 @@ const paymentMethodOptions = [
   },
 ] as const;
 
-const providerToType = (brand: string | null): PaymentMethodType => {
-  if (brand === 'payroll') return 'payroll';
-  if (brand === 'ach') return 'ach';
+const paymentTypeToType = (paymentType: string | null): PaymentMethodType => {
+  if (paymentType === 'payroll') return 'payroll';
+  if (paymentType === 'ach') return 'ach';
   return 'card';
 };
 
@@ -109,8 +109,8 @@ export default function PaymentsView() {
       }));
 
       const { data, error } = await supabase
-        .from('payment_methods')
-        .select('id, brand, last4, exp_month, exp_year, is_default, provider')
+        .from('alternative_payment_methods')
+        .select('id, payment_type, brand, last4, exp_month, exp_year, is_default, provider')
         .eq('internal_user_id', user.id)
         .eq('is_active', true)
         .order('created_at', { ascending: false });
@@ -127,7 +127,7 @@ export default function PaymentsView() {
 
       const mapped: SavedPaymentMethod[] = (data ?? [])
         .map((row) => {
-          const type = providerToType(row.provider);
+          const type = paymentTypeToType(row.payment_type);
 
           const details =
             type === 'card'
@@ -205,7 +205,7 @@ export default function PaymentsView() {
           return;
         }
 
-        const { data, error } = await supabase.functions.invoke('add-payment-method', {
+        const { data, error } = await supabase.functions.invoke('xendit-save-card-payment-method', {
           body: {
             payment_type: 'card',
             card: {
@@ -241,7 +241,7 @@ export default function PaymentsView() {
           throw new Error('Xendit did not return a 3DS authorization link.');
         }
 
-        localStorage.setItem('xendit_payment_request_id', data.id);
+        localStorage.setItem('xendit_payment_token_id', data.id);
         window.location.href = data.action_url;
       } catch (err: any) {
         toast({
@@ -291,7 +291,7 @@ export default function PaymentsView() {
       }
 
       const { error } = await supabase
-        .from('payment_methods')
+        .from('alternative_payment_methods')
         .update({
           is_active: false,
         })
@@ -326,7 +326,7 @@ export default function PaymentsView() {
     try {
       // remove existing defaults
       const { error: clearError } = await supabase
-        .from('payment_methods')
+        .from('alternative_payment_methods')
         .update({ is_default: false })
         .eq('internal_user_id', internalUserId);
 
@@ -342,7 +342,7 @@ export default function PaymentsView() {
 
       // set new default
       const { error: setError } = await supabase
-        .from('payment_methods')
+        .from('alternative_payment_methods')
         .update({ is_default: true })
         .eq('id', methodId);
 

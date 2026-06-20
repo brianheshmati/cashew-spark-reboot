@@ -334,6 +334,92 @@ export type Database = {
           },
         ]
       }
+      alternative_payment_methods: {
+        Row: {
+          bank: string | null
+          brand: string | null
+          card_type: string | null
+          channel_code: string
+          country: string | null
+          created_at: string
+          exp_month: number | null
+          exp_year: number | null
+          fingerprint: string | null
+          id: string
+          internal_user_id: string
+          is_active: boolean
+          is_default: boolean
+          last4: string | null
+          metadata: Json
+          payment_type: string
+          provider: string
+          provider_customer_id: string | null
+          provider_reference_id: string | null
+          provider_token_id: string
+          token_status: string
+          updated_at: string
+          verification_status: string
+        }
+        Insert: {
+          bank?: string | null
+          brand?: string | null
+          card_type?: string | null
+          channel_code?: string
+          country?: string | null
+          created_at?: string
+          exp_month?: number | null
+          exp_year?: number | null
+          fingerprint?: string | null
+          id?: string
+          internal_user_id: string
+          is_active?: boolean
+          is_default?: boolean
+          last4?: string | null
+          metadata?: Json
+          payment_type?: string
+          provider?: string
+          provider_customer_id?: string | null
+          provider_reference_id?: string | null
+          provider_token_id: string
+          token_status?: string
+          updated_at?: string
+          verification_status?: string
+        }
+        Update: {
+          bank?: string | null
+          brand?: string | null
+          card_type?: string | null
+          channel_code?: string
+          country?: string | null
+          created_at?: string
+          exp_month?: number | null
+          exp_year?: number | null
+          fingerprint?: string | null
+          id?: string
+          internal_user_id?: string
+          is_active?: boolean
+          is_default?: boolean
+          last4?: string | null
+          metadata?: Json
+          payment_type?: string
+          provider?: string
+          provider_customer_id?: string | null
+          provider_reference_id?: string | null
+          provider_token_id?: string
+          token_status?: string
+          updated_at?: string
+          verification_status?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "alternative_payment_methods_internal_user_id_fkey"
+            columns: ["internal_user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       promotions: {
         Row: {
           active: boolean

@@ -10,23 +10,25 @@ export default function CardSuccess() {
   useEffect(() => {
     const complete = async () => {
       try {
-        const authentication_id =
-          localStorage.getItem(
-            "authentication_id"
-          );
+        const params = new URLSearchParams(window.location.search);
+        const payment_token_id =
+          params.get("payment_token_id") ||
+          params.get("paymentTokenId") ||
+          params.get("id") ||
+          localStorage.getItem("xendit_payment_token_id");
 
-        if (!authentication_id) {
+        if (!payment_token_id) {
           throw new Error(
-            "Missing authentication."
+            "Missing payment token."
           );
         }
 
         const { error } =
           await supabase.functions.invoke(
-            "complete-card-authentication",
+            "xendit-save-card-payment-method",
             {
               body: {
-                authentication_id,
+                payment_token_id,
               },
             }
           );
@@ -35,9 +37,7 @@ export default function CardSuccess() {
           throw error;
         }
 
-        localStorage.removeItem(
-          "authentication_id"
-        );
+        localStorage.removeItem("xendit_payment_token_id");
 
         setMessage(
           "Card saved successfully."

@@ -3,6 +3,7 @@ const axios = require("axios");
 
 //const XENDIT_SECRET_KEY = process.env.XENDIT_SECRET_KEY;
 const XENDIT_SECRET_KEY="xnd_production_PrfpkMGgaS4wzc5Fjv7lU6L9UIYt5KBuc5lW9vLJ0Pj3mWPVVyiT13yWuQ3zzB";
+
 const api = axios.create({
   baseURL: "https://api.xendit.co",
   auth: {
@@ -11,15 +12,28 @@ const api = axios.create({
   },
   headers: {
     "Content-Type": "application/json",
+    "api-version": "2026-01-01",
   },
 });
 
 async function createSubscription() {
   try {
+    console.log("=== CUSTOMER ===");
+
+    const customer = await api.get(
+      "/customers/68952b48-be9b-4ece-9bee-0bb27345c330"
+    );
+
+    console.log(
+      JSON.stringify(customer.data, null, 2)
+    );
+
+    console.log("\n=== CREATING SUBSCRIPTION ===");
+
     const payload = {
       reference_id: `test-sub-${Date.now()}`,
 
-      customer_id: "cust-test-001",
+      customer_id: "68952b48-be9b-4ece-9bee-0bb27345c330",
 
       currency: "PHP",
 
@@ -29,26 +43,14 @@ async function createSubscription() {
         interval: "WEEK",
         interval_count: 2,
         total_recurrence: 4,
-        anchor_date: "2026-06-20T00:00:00Z",
-
-        retry_interval: "DAY",
-        retry_interval_count: 1,
-        total_retry: 3
+        anchor_date: "2026-06-20T00:00:00Z"
       },
 
       payment_tokens: [
         {
-          payment_token_id: "pt-test-token-id",
+          payment_token_id: "69f3cae4e4b50b868e6a8f41",
           rank: 1
         }
-      ],
-
-      immediate_payment: false,
-
-      failed_cycle_action: "RESUME",
-
-      notification_channels: [
-        "EMAIL"
       ],
 
       metadata: {
@@ -56,8 +58,13 @@ async function createSubscription() {
       },
 
       description:
-        "Test subscription: PHP 100 every 2 weeks, 4 payments"
+        "PHP 100 every 2 weeks for 4 cycles"
     };
+
+    console.log(
+      "REQUEST:",
+      JSON.stringify(payload, null, 2)
+    );
 
     const response = await api.post(
       "/recurring/plans",
@@ -65,13 +72,19 @@ async function createSubscription() {
     );
 
     console.log(
+      "\n=== SUCCESS ===\n",
       JSON.stringify(response.data, null, 2)
     );
   } catch (err) {
-    console.error(
-      "ERROR:",
-      err.response?.data || err.message
-    );
+    console.log("\n=== ERROR ===");
+
+    if (err.response) {
+      console.log(
+        JSON.stringify(err.response.data, null, 2)
+      );
+    } else {
+      console.log(err.message);
+    }
   }
 }
 
