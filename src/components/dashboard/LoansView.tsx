@@ -8,6 +8,7 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
+import { PaymentInstructionsDialog } from '@/components/payments/PaymentInstructionsDialog';
 
 import {
   DollarSign,
@@ -58,10 +59,7 @@ export function LoansView({ userEmail }: LoansViewProps) {
   const [applications, setApplications] = useState<Application[]>([]);
   const [nextPayment, setNextPayment] = useState<NextPayment | null>(null);
   const [loading, setLoading] = useState(true);
-  const [isPayingNextDue, setIsPayingNextDue] = useState(false);
-
-  const paymentFallbackLink =
-    import.meta.env.VITE_PAYMENT_LINK_URL as string | undefined;
+  const [paymentDialogOpen, setPaymentDialogOpen] = useState(false);
 
   const { toast } = useToast();
   const navigate = useNavigate();
@@ -186,93 +184,6 @@ export function LoansView({ userEmail }: LoansViewProps) {
     });
   };
 
-  const openNextPaymentLink = async () => {
-
-    if (!nextPayment || !userEmail) return;
-
-    setIsPayingNextDue(true);
-
-    try {
-
-      const { data, error } =
-        await supabase.functions.invoke(
-          'create-payment-link',
-          {
-            body: {
-              amount: nextPayment.amount,
-              dueDate: nextPayment.date,
-              paymentNumber: 1,
-              totalPayments: 1,
-              loanId: nextPayment.loan_id,
-              description: 'My Loans next payment',
-              customer: {
-                given_names: userEmail.split('@')[0],
-                email: userEmail
-              }
-            }
-          }
-        );
-
-      if (error) throw error;
-
-      if (!data?.invoice_url) {
-        throw new Error(
-          'No invoice_url returned from payment provider.'
-        );
-      }
-
-      window.open(
-        data.invoice_url,
-        '_blank',
-        'noopener,noreferrer'
-      );
-
-    } catch (err: any) {
-
-      if (paymentFallbackLink) {
-
-        const fallbackUrl = new URL(paymentFallbackLink);
-
-        fallbackUrl.searchParams.set(
-          'utm_source',
-          'my_loans_next_payment'
-        );
-
-        fallbackUrl.searchParams.set(
-          'amount',
-          String(nextPayment.amount)
-        );
-
-        fallbackUrl.searchParams.set(
-          'description',
-          `Payment due on ${new Date(
-            nextPayment.date
-          ).toLocaleDateString()}`
-        );
-
-        window.open(
-          fallbackUrl.toString(),
-          '_blank',
-          'noopener,noreferrer'
-        );
-
-        return;
-      }
-
-      toast({
-        title: 'Unable to start payment',
-        description:
-          err?.message ??
-          'Failed to create payment link.',
-        variant: 'destructive'
-      });
-
-    } finally {
-
-      setIsPayingNextDue(false);
-    }
-  };
-
   if (loading) {
     return <div className="p-6">Loading...</div>;
   }
@@ -323,6 +234,10 @@ export function LoansView({ userEmail }: LoansViewProps) {
   return (
 
     <div className="space-y-8">
+      <PaymentInstructionsDialog
+        open={paymentDialogOpen}
+        onOpenChange={setPaymentDialogOpen}
+      />
 
       {/* SUMMARY CARDS */}
       <div className="grid md:grid-cols-3 gap-6">
@@ -376,14 +291,11 @@ export function LoansView({ userEmail }: LoansViewProps) {
                   <Button
                     className="mt-4"
                     size="sm"
-                    onClick={openNextPaymentLink}
-                    disabled={isPayingNextDue}
+                    onClick={() => setPaymentDialogOpen(true)}
                   >
                     <Calendar className="h-4 w-4 mr-2" />
 
-                    {isPayingNextDue
-                      ? 'Opening…'
-                      : 'Pay Now'}
+                    Pay Now
                   </Button>
                 </>
               ) : (

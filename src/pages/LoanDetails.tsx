@@ -12,6 +12,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 import { formatCurrency } from '@/lib/utils';
 import { getInternalUserEmailFromSearch, resolveInternalUserId } from '@/lib/internal-user';
+import { PaymentInstructionsDialog } from '@/components/payments/PaymentInstructionsDialog';
 
 type DashboardView = 'overview' | 'profile' | 'loans' | 'transactions' | 'invite' | 'apply';
 
@@ -66,12 +67,12 @@ const LoanDetails = () => {
   const [paymentSchedule, setPaymentSchedule] = useState<PaymentScheduleItem[]>([]);
   const [profile, setProfile] = useState<ProfileName | null>(null);
   const [lookupEmail, setLookupEmail] = useState<string | null>(null);
+  const [paymentDialogOpen, setPaymentDialogOpen] = useState(false);
   const { effectiveUserId: userId } = resolveInternalUserId({
     authenticatedUserId: user?.id,
     search: location.search
   });
   const urlLookupEmail = getInternalUserEmailFromSearch(location.search);
-  const xenditFallbackLink = import.meta.env.VITE_XENDIT_PAYMENT_LINK as string | undefined;
 
   useEffect(() => {
     if (urlLookupEmail) {
@@ -208,72 +209,6 @@ const LoanDetails = () => {
 
   if (!loan || !user) return null;
 
-  // const openQuickPayPage = (
-  //   amount: number,
-  //   paymentNumber: number,
-  //   totalPayments: number
-  // ) => {
-  //   const quickPayUrl = new URL('https://wise.com/pay/business/cashewsolutionsopc');
-  //   quickPayUrl.searchParams.set('utm_source', 'quick_pay');
-  //   quickPayUrl.searchParams.set('amount', String(amount));
-  //   quickPayUrl.searchParams.set(
-  //     'description',
-  //     `${loan.app_id ?? 'Loan'} - Payment ${paymentNumber} of ${totalPayments}`
-  //   );
-
-  //   window.open(quickPayUrl.toString(), '_blank', 'noopener,noreferrer');
-  // };
-  const openQuickPayPage = async (
-    amount: number,
-    dueDate: string,
-    paymentNumber: number,
-    totalPayments: number
-  ) => {
-    try {
-      const { data, error } = await supabase.functions.invoke('create-payment-link', {
-        body: {
-          amount,
-          dueDate,
-          paymentNumber,
-          totalPayments,
-          loanId: loan.loan_id,
-          appId: loan.app_id,
-          description: `${loan.app_id ?? 'Loan'} - Payment ${paymentNumber} of ${totalPayments}`,
-          customer: {
-            given_names: displayName,
-            email: lookupEmail ?? user?.email ?? undefined,
-          },
-        },
-      });
-
-      if (error) throw error;
-      if (!data?.invoice_url) {
-        throw new Error('No invoice_url returned from Xendit.');
-      }
-
-      window.open(data.invoice_url, '_blank', 'noopener,noreferrer');
-    } catch (err: any) {
-      if (xenditFallbackLink) {
-        const fallbackUrl = new URL(xenditFallbackLink);
-        fallbackUrl.searchParams.set('utm_source', 'quick_pay_fallback');
-        fallbackUrl.searchParams.set('amount', String(amount));
-        fallbackUrl.searchParams.set(
-          'description',
-          `${loan.app_id ?? 'Loan'} - Payment ${paymentNumber} of ${totalPayments}`
-        );
-        window.open(fallbackUrl.toString(), '_blank', 'noopener,noreferrer');
-        return;
-      }
-
-      toast({
-        title: 'Unable to start payment',
-        description:
-          err?.message ??
-          'Failed to create a Xendit payment link. Ensure create-payment-link is deployed.',
-        variant: 'destructive',
-      });
-    }
-  };
   // =====================
   // RENDER
   // =====================
@@ -292,6 +227,11 @@ const LoanDetails = () => {
 
           <main className="flex-1 p-6 bg-gradient-soft">
             <div className="mx-auto max-w-2xl space-y-8">
+              <PaymentInstructionsDialog
+                open={paymentDialogOpen}
+                onOpenChange={setPaymentDialogOpen}
+              />
+
               <div className="relative flex items-center justify-center">
                 <Button variant="ghost" size="icon" className="absolute left-0" onClick={() => navigate(-1)}>
                   <ArrowLeft />
@@ -349,7 +289,7 @@ const LoanDetails = () => {
                   </Card>
                 )}
 
-                {paymentSchedule.map((schedule, index) => (
+                {paymentSchedule.map((schedule) => (
                   <Card key={schedule.id}>
                     <CardContent className="py-4 flex items-center justify-between gap-4">
                       <div className="space-y-1">
@@ -374,14 +314,7 @@ const LoanDetails = () => {
                         </Button>
                       ) : (
                         <Button
-                          onClick={() =>
-                            openQuickPayPage(
-                              schedule.amount,
-                              schedule.date,
-                              index + 1,
-                              paymentSchedule.length
-                            )
-                          }
+                          onClick={() => setPaymentDialogOpen(true)}
                         >
                           Pay
                         </Button>

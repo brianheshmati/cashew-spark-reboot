@@ -1,0 +1,89 @@
+curl -L -X POST 'https://api.cashew.ph/functions/v1/send-atd-signature'  -H 'Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImZrbGF4aHB1Ymx4aGd4Y2FqdXl1Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3MzEwNDcyODAsImV4cCI6MjA0NjYyMzI4MH0.8c7FWSRsw0PfrZmq9dzVEq5wTl668AG0ww7jf9tYIAo' \
+  -H 'Content-Type: application/json' --data '{"name":"Functions"}'
+
+
+curl -L -X POST 'https://api.cashew.ph/functions/v1/test-payment-method' -H 'Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImZrbGF4aHB1Ymx4aGd4Y2FqdXl1Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3MzEwNDcyODAsImV4cCI6MjA0NjYyMzI4MH0.8c7FWSRsw0PfrZmq9dzVEq5wTl668AG0ww7jf9tYIAo' -H 'Content-Type: application/json'  -d '{   "payment_method_id": "b557ebf0-9b88-473d-8ff7-7e6483815e26",    "amount": 50  }'
+  
+xnd_production_PrfpkMGgaS4wzc5Fjv7lU6L9UIYt5KBuc5lW9vLJ0Pj3mWPVVyiT13yWuQ3zzB  
+
+curl --request POST \
+  --url https://api.xendit.co/v3/payment_requests \
+  --header 'accept: application/json' \
+  --header 'api-version: 2024-11-11' \
+  --header 'authorization: Basic xnd_production_PrfpkMGgaS4wzc5Fjv7lU6L9UIYt5KBuc5lW9vLJ0Pj3mWPVVyiT13yWuQ3zzB:' \
+  --header 'content-type: application/json' \
+  --header 'for-user-id: just-a-test' \
+  --data '{
+  "reference_id": "order_123456_3ds",
+  "type": "PAY",
+  "country": "PHP",
+  "currency": "PHP",
+  "request_amount": 100,
+  "capture_method": "AUTOMATIC",
+  "channel_code": "CARDS",
+  "channel_properties": {
+    "mid_label": "CTV_TEST",
+    "card_details": {
+      "cvn": "123",
+      "card_number": "4000000000001091",
+      "expiry_year": "2030",
+      "expiry_month": "02",
+      "cardholder_first_name": "John",
+      "cardholder_last_name": "Doe",
+      "cardholder_email": "john.doe@example.com",
+      "cardholder_phone_number": "+628123456789"
+    },
+    "skip_three_ds": false,
+    "failure_return_url": "https://xendit.co/failure",
+    "success_return_url": "https://xendit.co/success"
+  },
+  "description": "Payment for Order #123456",
+  "metadata": {
+    "order_id": "123456",
+    "customer_type": "premium"
+  }
+}'
+
+
+curl --request POST \
+  --url https://api.xendit.co/v3/payment_tokens \
+  --header 'accept: application/json' \
+  --header 'api-version: 2024-11-11' \
+  --header 'authorization: Basic eG5kX3Byb2R1Y3Rpb25fUHJmcGtNR2dhUzR3emM1Rmp2N2xVNkw5VUlZdDVLQnVjNWxXOXZMSjBQajNtV1BWVnlpVDEzeVd1UTN6ekI6cGFzc3dvcmQ=' \
+  --header 'content-type: application/json' \
+  --data '{
+  "reference_id": "tokenize_card_user456",
+  "customer": {
+    "reference_id": "customer_456",
+    "type": "INDIVIDUAL",
+    "individual_detail": {
+      "given_names": "Jane",
+      "surname": "Doe"
+    },
+    "email": "jane.doe@example.com",
+    "mobile_number": "+6212345678903"
+  },
+  "country": "PH",
+  "currency": "PHP",
+  "channel_code": "CARDS",
+  "channel_properties": {
+    "card_details": {
+      "cvn": "321",
+      "card_number": "5200000000001005",
+      "expiry_year": "2028",
+      "expiry_month": "09",
+      "cardholder_first_name": "Jane",
+      "cardholder_last_name": "Doe",
+      "cardholder_email": "jane.doe@example.com",
+      "cardholder_phone_number": "+6212345678903"
+    },
+    "skip_three_ds": false,
+    "failure_return_url": "https://xendit.co/failure",
+    "success_return_url": "https://xendit.co/success"
+  },
+  "description": "Save card for future payments",
+  "metadata": {
+    "customer_id": "CUST456",
+    "card_usage": "subscription"
+  }
+}'

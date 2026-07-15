@@ -16,6 +16,11 @@ const CONVENTIONAL_LOAN_RATE = 0.10;
 
 type LoanType = "conventional" | "emergency";
 
+type ActiveLoanSummary = {
+  loan_id: string | number;
+  loan_type: unknown;
+};
+
 const normalizeLoanType = (loanType: unknown): LoanType | null => {
   const normalized = String(loanType || "").trim().toLowerCase();
 
@@ -105,12 +110,12 @@ serve(async (req) => {
     }
 
     /*
-    DERIVE LOAN TYPE
+    VALIDATE UI-SELECTED LOAN TYPE
     */
 
     const { data: activeLoans, error: activeLoansError } = await supabase
       .from("user_loans_summary")
-      .select("loan_type")
+      .select("loan_id, loan_type")
       .eq("internal_user_id", internal_user_id)
       .ilike("status", "active");
 
@@ -122,24 +127,83 @@ serve(async (req) => {
       );
     }
 
+    const activeLoanSummaries = (activeLoans || []) as ActiveLoanSummary[];
+
     const activeLoanTypes = new Set(
-      (activeLoans || [])
+      activeLoanSummaries
         .map((loan) => normalizeLoanType(loan.loan_type))
         .filter((loanType): loanType is LoanType => Boolean(loanType))
     );
 
-    const derivedLoanType: LoanType = activeLoanTypes.has("emergency")
-      ? "conventional"
-      : activeLoanTypes.has("conventional")
-        ? "emergency"
-        : "conventional";
+    const conventionalLoanIds = activeLoanSummaries
+      .filter((loan) => normalizeLoanType(loan.loan_type) === "conventional")
+      .map((loan) => loan.loan_id);
 
-    const interestRate = derivedLoanType === "emergency"
+    let hasConventionalLoanNearPayoff = false;
+
+    if (conventionalLoanIds.length) {
+      const { data: outstandingPayments, error: outstandingPaymentsError } =
+        await supabase
+          .from("outstanding_payment_schedules")
+          .select("loan_id")
+          .in("loan_id", conventionalLoanIds);
+
+      if (outstandingPaymentsError) {
+        console.error(outstandingPaymentsError);
+        return new Response(
+          JSON.stringify({ error: "Unable to verify remaining loan payments" }),
+          { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
+      }
+
+      const remainingPaymentsByLoanId = (outstandingPayments || []).reduce<Record<string, number>>(
+        (counts, payment) => {
+          const loanId = String(payment.loan_id);
+          counts[loanId] = (counts[loanId] || 0) + 1;
+          return counts;
+        },
+        {}
+      );
+
+      hasConventionalLoanNearPayoff = conventionalLoanIds.some(
+        (loanId) => (remainingPaymentsByLoanId[String(loanId)] || 0) <= 2
+      );
+    }
+
+    const eligibleLoanTypes: LoanType[] = hasConventionalLoanNearPayoff
+      ? ["conventional", "emergency"]
+      : activeLoanTypes.has("emergency")
+        ? ["conventional"]
+        : activeLoanTypes.has("conventional")
+          ? ["emergency"]
+          : ["conventional"];
+
+    const requestedLoanType = normalizeLoanType(loanInfo.loanType);
+
+    if (!requestedLoanType) {
+      return new Response(
+        JSON.stringify({ error: "Loan type is required" }),
+        { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+
+    if (!eligibleLoanTypes.includes(requestedLoanType)) {
+      return new Response(
+        JSON.stringify({
+          error: `${requestedLoanType} loans are not available for this borrower`,
+        }),
+        { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+
+    const selectedLoanType: LoanType = requestedLoanType;
+
+    const interestRate = selectedLoanType === "emergency"
       ? EMERGENCY_LOAN_RATE
       : CONVENTIONAL_LOAN_RATE;
 
     if (
-      derivedLoanType === "emergency" &&
+      selectedLoanType === "emergency" &&
       (
         loanTermMonths !== EMERGENCY_LOAN_TERM_MONTHS ||
         cleanLoanAmount < EMERGENCY_LOAN_MIN_AMOUNT ||
@@ -198,7 +262,7 @@ serve(async (req) => {
       amount: cleanLoanAmount,
       term: loanTermMonths,
       loan_purpose: loanInfo.loanPurpose,
-      loan_type: derivedLoanType,
+      loan_type: selectedLoanType,
 
       status: "Open",
 
@@ -223,9 +287,11 @@ serve(async (req) => {
 
       promo_code: personal.promoCode,
       referral: personal.referralCode,
-      remarks: derivedLoanType === "emergency"
+      remarks: selectedLoanType === "emergency"
         ? `Emergency loan default rate: ${interestRate * 100}%`
-        : null,
+        : hasConventionalLoanNearPayoff
+          ? "Conventional loan rollover requested: borrower has 2 or fewer payments left on current conventional loan."
+          : null,
     };
 
     console.log("Insert Data:", JSON.stringify(insertData, null, 2));
@@ -312,7 +378,7 @@ We have successfully received your application and are excited to help you achie
 <div class="highlight">
 
 <p><strong>Application Reference Number:</strong> ${app_id}</p>
-<p><strong>Loan Type:</strong> ${derivedLoanType}</p>
+<p><strong>Loan Type:</strong> ${selectedLoanType}</p>
 <p><strong>Loan Amount:</strong> PHP ${cleanLoanAmount.toLocaleString()}</p>
 <p><strong>Loan Term:</strong> ${loanTermMonths} month(s)</p>
 <p><strong>Purpose:</strong> ${loanInfo.loanPurpose}</p>

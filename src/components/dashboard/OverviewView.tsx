@@ -8,6 +8,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 import { Calendar } from 'lucide-react';
 import { formatCurrency } from '@/lib/utils';
+import { PaymentInstructionsDialog } from '@/components/payments/PaymentInstructionsDialog';
 
 // =========================
 // TYPES
@@ -46,8 +47,7 @@ export function OverviewView({ userEmail }: OverviewViewProps) {
   const [transactionsPage, setTransactionsPage] = useState(1);
   const [transactionsTotal, setTransactionsTotal] = useState(0);
   const [loading, setLoading] = useState(true);
-  const [isPayingNextDue, setIsPayingNextDue] = useState(false);
-  const paymentFallbackLink = import.meta.env.VITE_PAYMENT_LINK_URL as string | undefined;
+  const [paymentDialogOpen, setPaymentDialogOpen] = useState(false);
 
   const transactionsPageSize = 6;
 
@@ -161,55 +161,6 @@ export function OverviewView({ userEmail }: OverviewViewProps) {
   const primaryLoanId = nextPayment?.loan_id ?? null;
   const canOpenLoan = Boolean(primaryLoanId);
 
-  const openNextPaymentLink = async () => {
-    if (!nextPayment || !email) return;
-
-    setIsPayingNextDue(true);
-    try {
-      const { data, error } = await supabase.functions.invoke('create-payment-link', {
-        body: {
-          amount: nextPayment.remaining_amount,
-          dueDate: nextPayment.due_date,
-          paymentNumber: 1,
-          totalPayments: 1,
-          loanId: nextPayment.loan_id,
-          description: 'Overview next payment due',
-          customer: {
-            given_names: email.split('@')[0],
-            email,
-          },
-        },
-      });
-
-      if (error) throw error;
-      if (!data?.invoice_url) throw new Error('No invoice_url returned from payment provider.');
-
-      window.open(data.invoice_url, '_blank', 'noopener,noreferrer');
-    } catch (err: any) {
-      if (paymentFallbackLink) {
-        const fallbackUrl = new URL(paymentFallbackLink);
-        fallbackUrl.searchParams.set('utm_source', 'overview_next_payment_due');
-        fallbackUrl.searchParams.set('amount', String(nextPayment.remaining_amount));
-        fallbackUrl.searchParams.set(
-          'description',
-          `Payment due on ${new Date(nextPayment.due_date).toLocaleDateString()}`
-        );
-        window.open(fallbackUrl.toString(), '_blank', 'noopener,noreferrer');
-        return;
-      }
-
-      toast({
-        title: 'Unable to start payment',
-        description:
-          err?.message ??
-          'Failed to create payment link. Ensure create-payment-link is deployed.',
-        variant: 'destructive'
-      });
-    } finally {
-      setIsPayingNextDue(false);
-    }
-  };
-
   // =========================
   // LOADING
   // =========================
@@ -222,6 +173,11 @@ export function OverviewView({ userEmail }: OverviewViewProps) {
   // =========================
   return (
     <div className="space-y-6">
+      <PaymentInstructionsDialog
+        open={paymentDialogOpen}
+        onOpenChange={setPaymentDialogOpen}
+      />
+
       {/* SUMMARY */}
       <div className="grid gap-6 md:grid-cols-2">
         <button
@@ -252,11 +208,10 @@ export function OverviewView({ userEmail }: OverviewViewProps) {
                     onClick={(event) => {
                       event.preventDefault();
                       event.stopPropagation();
-                      void openNextPaymentLink();
+                      setPaymentDialogOpen(true);
                     }}
-                    disabled={isPayingNextDue}
                   >
-                    {isPayingNextDue ? 'Opening…' : 'Pay Now'}
+                    Pay Now
                   </Button>
                 </>
               ) : (

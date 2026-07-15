@@ -73,6 +73,11 @@ interface LoanCalculation {
 
 type LoanType = 'conventional' | 'emergency'
 
+type ActiveLoanSummary = {
+  loan_id: string | number
+  loan_type: string | null
+}
+
 const EMERGENCY_LOAN_RATE = 0.12
 const EMERGENCY_LOAN_TERM_MONTHS = '1'
 const EMERGENCY_LOAN_MIN_AMOUNT = 5000
@@ -164,6 +169,11 @@ export default function LoanApplicationForm({
     activeLoanTypes,
     setActiveLoanTypes
   ] = useState<LoanType[]>([])
+
+  const [
+    hasConventionalLoanNearPayoff,
+    setHasConventionalLoanNearPayoff
+  ] = useState(false)
 
   const [submitting, setSubmitting] =
     useState(false)
@@ -586,7 +596,7 @@ export default function LoanApplicationForm({
         const { data } =
           await supabase
             .from('user_loans_summary')
-            .select('loan_type')
+            .select('loan_id, loan_type')
             .eq(
               'internal_user_id',
               targetUserId
@@ -596,8 +606,11 @@ export default function LoanApplicationForm({
               'active'
             )
 
+        const activeLoans =
+          (data || []) as ActiveLoanSummary[]
+
         const loanTypes =
-          (data || [])
+          activeLoans
             .map((loan) => {
 
               const type =
@@ -624,6 +637,73 @@ export default function LoanApplicationForm({
           Array.from(new Set(loanTypes))
         )
 
+        const conventionalLoanIds =
+          activeLoans
+            .filter((loan) => {
+
+              const type =
+                String(loan.loan_type)
+                  .trim()
+                  .toLowerCase()
+
+              return (
+                type === 'regular' ||
+                type === 'conventional'
+              )
+
+            })
+            .map((loan) => loan.loan_id)
+
+        if (!conventionalLoanIds.length) {
+
+          setHasConventionalLoanNearPayoff(false)
+          return
+
+        }
+
+        const {
+          data: outstandingPayments,
+          error: outstandingPaymentsError
+        } =
+          await supabase
+            .from('outstanding_payment_schedules')
+            .select('loan_id')
+            .in(
+              'loan_id',
+              conventionalLoanIds
+            )
+
+        if (outstandingPaymentsError) {
+
+          setHasConventionalLoanNearPayoff(false)
+          return
+
+        }
+
+        const remainingPaymentsByLoanId =
+          (outstandingPayments || [])
+            .reduce<Record<string, number>>(
+              (counts, payment) => {
+
+                const loanId =
+                  String(payment.loan_id)
+
+                counts[loanId] =
+                  (counts[loanId] || 0) + 1
+
+                return counts
+
+              },
+              {}
+            )
+
+        setHasConventionalLoanNearPayoff(
+          conventionalLoanIds.some(
+            (loanId) =>
+              (remainingPaymentsByLoanId[String(loanId)] || 0) <= 2
+          )
+        )
+
       }
 
     checkLoans()
@@ -641,18 +721,40 @@ export default function LoanApplicationForm({
     )
 
   const derivedLoanType: LoanType =
-    hasActiveEmergencyLoan
+    hasConventionalLoanNearPayoff
       ? 'conventional'
-      : hasActiveConventionalLoan
-        ? 'emergency'
-        : 'conventional'
+      : hasActiveEmergencyLoan
+        ? 'conventional'
+        : hasActiveConventionalLoan
+          ? 'emergency'
+          : 'conventional'
+
+  const availableLoanTypes =
+    useMemo<LoanType[]>(
+      () =>
+        hasConventionalLoanNearPayoff
+          ? ['conventional', 'emergency']
+          : [derivedLoanType],
+      [
+        hasConventionalLoanNearPayoff,
+        derivedLoanType
+      ]
+    )
 
   useEffect(() => {
 
-    setLoanType(derivedLoanType)
+    if (
+      !availableLoanTypes.includes(
+        loanType
+      )
+    ) {
+
+      setLoanType(derivedLoanType)
+
+    }
 
     if (
-      derivedLoanType ===
+      loanType ===
       'emergency'
     ) {
 
@@ -662,7 +764,11 @@ export default function LoanApplicationForm({
 
     }
 
-  }, [derivedLoanType])
+  }, [
+    availableLoanTypes,
+    derivedLoanType,
+    loanType
+  ])
 
   /*
   CHECK REQUIRED DOCUMENTS
@@ -1068,7 +1174,27 @@ export default function LoanApplicationForm({
 
             <Select
               value={loanType}
-              disabled
+              onValueChange={(value) => {
+
+                const nextLoanType =
+                  value as LoanType
+
+                setLoanType(nextLoanType)
+
+                if (
+                  nextLoanType === 'emergency'
+                ) {
+
+                  setLoanTerm(
+                    EMERGENCY_LOAN_TERM_MONTHS
+                  )
+
+                }
+
+              }}
+              disabled={
+                availableLoanTypes.length === 1
+              }
             >
 
               <SelectTrigger>
@@ -1077,13 +1203,22 @@ export default function LoanApplicationForm({
 
               <SelectContent>
 
-                <SelectItem value="conventional">
-                  Conventional
-                </SelectItem>
+                {availableLoanTypes.map(
+                  (type) => (
 
-                <SelectItem value="emergency">
-                  Emergency
-                </SelectItem>
+                    <SelectItem
+                      key={type}
+                      value={type}
+                    >
+                      {type === 'conventional'
+                        ? hasConventionalLoanNearPayoff
+                          ? 'Conventional Rollover'
+                          : 'Conventional'
+                        : 'Emergency'}
+                    </SelectItem>
+
+                  )
+                )}
 
               </SelectContent>
 
