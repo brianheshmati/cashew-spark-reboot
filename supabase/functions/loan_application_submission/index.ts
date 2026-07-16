@@ -17,7 +17,6 @@ const CONVENTIONAL_LOAN_RATE = 0.10;
 type LoanType = "conventional" | "emergency";
 
 type ActiveLoanSummary = {
-  loan_id: string | number;
   loan_type: unknown;
 };
 
@@ -115,7 +114,7 @@ serve(async (req) => {
 
     const { data: activeLoans, error: activeLoansError } = await supabase
       .from("user_loans_summary")
-      .select("loan_id, loan_type")
+      .select("loan_type")
       .eq("internal_user_id", internal_user_id)
       .ilike("status", "active");
 
@@ -135,48 +134,9 @@ serve(async (req) => {
         .filter((loanType): loanType is LoanType => Boolean(loanType))
     );
 
-    const conventionalLoanIds = activeLoanSummaries
-      .filter((loan) => normalizeLoanType(loan.loan_type) === "conventional")
-      .map((loan) => loan.loan_id);
-
-    let hasConventionalLoanNearPayoff = false;
-
-    if (conventionalLoanIds.length) {
-      const { data: outstandingPayments, error: outstandingPaymentsError } =
-        await supabase
-          .from("outstanding_payment_schedules")
-          .select("loan_id")
-          .in("loan_id", conventionalLoanIds);
-
-      if (outstandingPaymentsError) {
-        console.error(outstandingPaymentsError);
-        return new Response(
-          JSON.stringify({ error: "Unable to verify remaining loan payments" }),
-          { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-        );
-      }
-
-      const remainingPaymentsByLoanId = (outstandingPayments || []).reduce<Record<string, number>>(
-        (counts, payment) => {
-          const loanId = String(payment.loan_id);
-          counts[loanId] = (counts[loanId] || 0) + 1;
-          return counts;
-        },
-        {}
-      );
-
-      hasConventionalLoanNearPayoff = conventionalLoanIds.some(
-        (loanId) => (remainingPaymentsByLoanId[String(loanId)] || 0) <= 2
-      );
-    }
-
-    const eligibleLoanTypes: LoanType[] = hasConventionalLoanNearPayoff
-      ? ["conventional", "emergency"]
-      : activeLoanTypes.has("emergency")
-        ? ["conventional"]
-        : activeLoanTypes.has("conventional")
-          ? ["emergency"]
-          : ["conventional"];
+    const eligibleLoanTypes: LoanType[] = activeLoanTypes.has("emergency")
+      ? ["conventional"]
+      : ["conventional", "emergency"];
 
     const requestedLoanType = normalizeLoanType(loanInfo.loanType);
 
@@ -289,9 +249,7 @@ serve(async (req) => {
       referral: personal.referralCode,
       remarks: selectedLoanType === "emergency"
         ? `Emergency loan default rate: ${interestRate * 100}%`
-        : hasConventionalLoanNearPayoff
-          ? "Conventional loan rollover requested: borrower has 2 or fewer payments left on current conventional loan."
-          : null,
+        : null,
     };
 
     console.log("Insert Data:", JSON.stringify(insertData, null, 2));
