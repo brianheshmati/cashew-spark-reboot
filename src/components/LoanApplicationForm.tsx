@@ -74,7 +74,6 @@ interface LoanCalculation {
 type LoanType = 'conventional' | 'emergency'
 
 type ActiveLoanSummary = {
-  loan_id: string | number
   loan_type: string | null
 }
 
@@ -169,11 +168,6 @@ export default function LoanApplicationForm({
     activeLoanTypes,
     setActiveLoanTypes
   ] = useState<LoanType[]>([])
-
-  const [
-    hasConventionalLoanNearPayoff,
-    setHasConventionalLoanNearPayoff
-  ] = useState(false)
 
   const [submitting, setSubmitting] =
     useState(false)
@@ -596,7 +590,7 @@ export default function LoanApplicationForm({
         const { data } =
           await supabase
             .from('user_loans_summary')
-            .select('loan_id, loan_type')
+            .select('loan_type')
             .eq(
               'internal_user_id',
               targetUserId
@@ -637,83 +631,11 @@ export default function LoanApplicationForm({
           Array.from(new Set(loanTypes))
         )
 
-        const conventionalLoanIds =
-          activeLoans
-            .filter((loan) => {
-
-              const type =
-                String(loan.loan_type)
-                  .trim()
-                  .toLowerCase()
-
-              return (
-                type === 'regular' ||
-                type === 'conventional'
-              )
-
-            })
-            .map((loan) => loan.loan_id)
-
-        if (!conventionalLoanIds.length) {
-
-          setHasConventionalLoanNearPayoff(false)
-          return
-
-        }
-
-        const {
-          data: outstandingPayments,
-          error: outstandingPaymentsError
-        } =
-          await supabase
-            .from('outstanding_payment_schedules')
-            .select('loan_id')
-            .in(
-              'loan_id',
-              conventionalLoanIds
-            )
-
-        if (outstandingPaymentsError) {
-
-          setHasConventionalLoanNearPayoff(false)
-          return
-
-        }
-
-        const remainingPaymentsByLoanId =
-          (outstandingPayments || [])
-            .reduce<Record<string, number>>(
-              (counts, payment) => {
-
-                const loanId =
-                  String(payment.loan_id)
-
-                counts[loanId] =
-                  (counts[loanId] || 0) + 1
-
-                return counts
-
-              },
-              {}
-            )
-
-        setHasConventionalLoanNearPayoff(
-          conventionalLoanIds.some(
-            (loanId) =>
-              (remainingPaymentsByLoanId[String(loanId)] || 0) <= 2
-          )
-        )
-
       }
 
     checkLoans()
 
   }, [resolvedInternalUserId])
-
-  const hasActiveConventionalLoan =
-    activeLoanTypes.includes(
-      'conventional'
-    )
 
   const hasActiveEmergencyLoan =
     activeLoanTypes.includes(
@@ -721,23 +643,16 @@ export default function LoanApplicationForm({
     )
 
   const derivedLoanType: LoanType =
-    hasConventionalLoanNearPayoff
-      ? 'conventional'
-      : hasActiveEmergencyLoan
-        ? 'conventional'
-        : hasActiveConventionalLoan
-          ? 'emergency'
-          : 'conventional'
+    'conventional'
 
   const availableLoanTypes =
     useMemo<LoanType[]>(
       () =>
-        hasConventionalLoanNearPayoff
-          ? ['conventional', 'emergency']
-          : [derivedLoanType],
+        hasActiveEmergencyLoan
+          ? ['conventional']
+          : ['conventional', 'emergency'],
       [
-        hasConventionalLoanNearPayoff,
-        derivedLoanType
+        hasActiveEmergencyLoan
       ]
     )
 
@@ -1211,9 +1126,7 @@ export default function LoanApplicationForm({
                       value={type}
                     >
                       {type === 'conventional'
-                        ? hasConventionalLoanNearPayoff
-                          ? 'Conventional Rollover'
-                          : 'Conventional'
+                        ? 'Conventional'
                         : 'Emergency'}
                     </SelectItem>
 
