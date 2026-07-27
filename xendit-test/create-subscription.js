@@ -21,7 +21,7 @@ async function createSubscription() {
     console.log("=== CUSTOMER ===");
 
     const customer = await api.get(
-      "/customers/68952b48-be9b-4ece-9bee-0bb27345c330"
+      "/customers"//cust-a8a6ba2a-d9b4-44bd-aedf-d44b838ff93a"
     );
 
     console.log(

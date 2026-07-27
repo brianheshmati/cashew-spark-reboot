@@ -181,7 +181,7 @@ export default function LoanApplicationForm({
     documentsStatusMessage,
     setDocumentsStatusMessage
   ] = useState(
-    'Upload your last two payslips (within 30 days), a Certificate of Employment, a valid Government ID, and a selfie clearly holding your Government Issued ID to continue.'
+    'Upload your last two payslips (within 30 days), a Certificate of Employment, a valid Government ID, a selfie clearly holding your Government Issued ID, and your latest bank statement to continue.'
   )
 
   // =========================
@@ -318,6 +318,8 @@ export default function LoanApplicationForm({
 
       let validSelfieWithId = false
 
+      let validBankStatement = false
+
       for (const file of data || []) {
 
         const parts =
@@ -364,6 +366,13 @@ export default function LoanApplicationForm({
           validSelfieWithId = true
         }
 
+        if (
+          type ===
+          'bank_statement'
+        ) {
+          validBankStatement = true
+        }
+
       }
 
       const missingRequirements:
@@ -397,6 +406,14 @@ export default function LoanApplicationForm({
 
         missingRequirements.push(
           'a selfie clearly holding your Government Issued ID'
+        )
+
+      }
+
+      if (!validBankStatement) {
+
+        missingRequirements.push(
+          'your latest bank statement (issued within the last 30 days)'
         )
 
       }

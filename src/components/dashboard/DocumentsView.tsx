@@ -106,6 +106,7 @@ export function DocumentsView({
 
         const urlEmail =
           searchParams.get('email')
+        console.log("email:", urlEmail);
 
         // =========================
         // IMPERSONATION MODE
@@ -116,21 +117,17 @@ export function DocumentsView({
             urlEmail
               .trim()
               .toLowerCase()
-
-          const { data, error } =
-            await supabase
-              .from('userProfiles')
-              .select('internal_user_id')
-              .eq(
-                'email',
-                normalizedEmail
-              )
-              .maybeSingle()
+          console.log("normalized email:", normalizedEmail);
+          const { data, error } = await supabase
+            .from('userProfiles')
+            .select('internal_user_id')
+            .ilike('email', normalizedEmail)
+            .maybeSingle();
 
           if (error) {
             throw error
           }
-
+          console.log("internal id:", data?.internal_user_id);
           if (!data?.internal_user_id) {
 
             throw new Error(
@@ -272,6 +269,10 @@ export function DocumentsView({
           await supabase.storage
             .from(BUCKET)
             .list(folderPath)
+            
+        console.log("folderPath:", folderPath)
+        console.log("list data:", data)
+        console.log("list error:", error)
 
         if (error) {
           throw error
