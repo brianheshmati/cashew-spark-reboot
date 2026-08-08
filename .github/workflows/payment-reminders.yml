@@ -1,0 +1,55 @@
+name: Send payment reminders
+
+on:
+  schedule:
+    # GitHub Actions uses UTC. 00:00 UTC is 8:00 AM in the Philippines.
+    - cron: "0 0 * * *"
+  workflow_dispatch:
+
+concurrency:
+  group: payment-reminders
+  cancel-in-progress: false
+
+jobs:
+  send-reminders:
+    name: Invoke payment reminder function
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    steps:
+      - name: Call Supabase Edge Function
+        env:
+          FUNCTION_URL: ${{ secrets.PAYMENT_REMINDER_FUNCTION_URL }}
+          SUPABASE_ANON_KEY: ${{ secrets.SUPABASE_ANON_KEY }}
+        run: |
+          if [ -z "$FUNCTION_URL" ]; then
+            echo "::error::Missing repository secret PAYMENT_REMINDER_FUNCTION_URL"
+            exit 1
+          fi
+
+          if [ -z "$SUPABASE_ANON_KEY" ]; then
+            echo "::error::Missing repository secret SUPABASE_ANON_KEY"
+            exit 1
+          fi
+
+          response_file="$(mktemp)"
+          http_status="$(
+            curl --silent --show-error               --output "$response_file"               --write-out "%{http_code}"               --request POST               --header "Authorization: Bearer $SUPABASE_ANON_KEY"               --header "apikey: $SUPABASE_ANON_KEY"               --header "Content-Type: application/json"               --data '{}'               "$FUNCTION_URL"
+          )"
+
+          cat "$response_file"
+
+          if [ "$http_status" -lt 200 ] || [ "$http_status" -ge 300 ]; then
+            echo
+            echo "::error::Edge Function returned HTTP $http_status"
+            exit 1
+          fi
+
+          if ! jq -e '.success == true' "$response_file" >/dev/null; then
+            echo
+            echo "::error::Edge Function response did not contain success=true"
+            exit 1
+          fi
+
+          echo
+          echo "Payment reminder function completed successfully."
