@@ -15,7 +15,6 @@ import LoanDetails from "./pages/LoanDetails";
 import Index from "./pages/Index";
 import NotFound from "./pages/NotFound";
 import PaymentCallback from "./pages/PaymentCallback";
-import CardSuccess from "./pages/card-success";
 
 const queryClient = new QueryClient();
 
@@ -68,11 +67,6 @@ function App() {
               path="/dashboard/loans/:loanId"
               element={<LoanDetails />}
             />
-            <Route
-              path="/card-success"
-              element={<CardSuccess />}
-            />
-
             {/* <Route path="/apply" element={<Apply />} /> */}
 
             {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}

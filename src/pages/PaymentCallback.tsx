@@ -1,105 +1,106 @@
-import { useEffect, useState } from "react";
-import { supabase } from '@/integrations/supabase/client';
+import { useEffect, useState } from 'react';
+import { useNavigate, useSearchParams } from 'react-router-dom';
+import { loadStripe } from '@stripe/stripe-js';
+import { Loader2, CheckCircle2, XCircle } from 'lucide-react';
+import { Button } from '@/components/ui/button';
 
-export default function PaymentCallback() {
-  const [status, setStatus] = useState<"loading" | "success" | "error">(
-    "loading"
-  );
-  const [message, setMessage] = useState<string>("Verifying your card...");
+type Status = 'checking' | 'succeeded' | 'processing' | 'failed';
+
+/**
+ * Return target for Stripe's 3DS redirect during card setup.
+ *
+ * This page only reports status to the borrower. The payment method row is
+ * written by the stripe-webhook function -- a borrower who closes this tab
+ * mid-redirect must still end up with an authorized mandate.
+ */
+const PaymentCallback = () => {
+  const navigate = useNavigate();
+  const [params] = useSearchParams();
+  const [status, setStatus] = useState<Status>('checking');
+  const [message, setMessage] = useState('Confirming your card authorization…');
 
   useEffect(() => {
-    const run = async () => {
-      try {
-        const params = new URLSearchParams(window.location.search);
-        const payment_token_id =
-          params.get("payment_token_id") ||
-          params.get("paymentTokenId") ||
-          params.get("id") ||
-          localStorage.getItem("xendit_payment_token_id");
+    const clientSecret = params.get('setup_intent_client_secret');
+    const publishableKey = import.meta.env.VITE_STRIPE_PUBLISHABLE_KEY;
 
-        if (!payment_token_id) {
-          throw new Error("Missing payment token id");
-        }
+    if (!clientSecret || !publishableKey) {
+      setStatus('failed');
+      setMessage('This authorization link is missing or has expired.');
+      return;
+    }
 
-        const { error } = await supabase.functions.invoke(
-          "xendit-save-card-payment-method",
-          {
-            body: { payment_token_id },
-          }
-        );
+    let cancelled = false;
 
-        if (error) throw error;
+    const check = async () => {
+      const stripe = await loadStripe(publishableKey);
+      if (!stripe || cancelled) return;
 
-        localStorage.removeItem("xendit_payment_token_id");
+      const { setupIntent, error } = await stripe.retrieveSetupIntent(clientSecret);
+      if (cancelled) return;
 
-        setStatus("success");
-        setMessage("Card successfully added!");
+      if (error || !setupIntent) {
+        setStatus('failed');
+        setMessage(error?.message ?? 'We could not confirm this card.');
+        return;
+      }
 
-        // redirect after short delay
-        setTimeout(() => {
-          window.location.href = "/dashboard?card_added=true";
-        }, 1500);
-      } catch (err: any) {
-        console.error("Callback error:", err);
-
-        setStatus("error");
-        setMessage(err.message || "Failed to verify card");
-
-        localStorage.removeItem("xendit_payment_token_id");
+      switch (setupIntent.status) {
+        case 'succeeded':
+          setStatus('succeeded');
+          setMessage(
+            'Your card is authorized. We will charge it on the dates in your loan agreement, and email you 3 days before each charge.',
+          );
+          break;
+        case 'processing':
+          setStatus('processing');
+          setMessage('Your bank is still processing this authorization.');
+          break;
+        default:
+          setStatus('failed');
+          setMessage(
+            'The card was not authorized. Please try again or use a different card.',
+          );
       }
     };
 
-    run();
-  }, []);
+    check();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [params]);
+
+  const Icon =
+    status === 'succeeded' ? CheckCircle2 : status === 'failed' ? XCircle : Loader2;
 
   return (
-    <div
-      style={{
-        height: "100vh",
-        display: "flex",
-        justifyContent: "center",
-        alignItems: "center",
-        flexDirection: "column",
-        fontFamily: "sans-serif",
-      }}
-    >
-      {status === "loading" && (
-        <>
-          <div style={{ marginBottom: 10 }}>⏳</div>
-          <h3>{message}</h3>
-        </>
-      )}
-
-      {status === "success" && (
-        <>
-          <div style={{ marginBottom: 10 }}>✅</div>
-          <h3>{message}</h3>
-          <p>Redirecting...</p>
-        </>
-      )}
-
-      {status === "error" && (
-        <>
-          <div style={{ marginBottom: 10 }}>❌</div>
-          <h3>Error</h3>
-          <p>{message}</p>
-
-          <button
-            onClick={() => (window.location.href = "/payments")}
-            style={{
-              marginTop: 20,
-              padding: "10px 16px",
-              borderRadius: 6,
-              border: "none",
-              background: "#000",
-              color: "#fff",
-              cursor: "pointer",
-            }}
-          >
-            Try Again
-          </button>
-        </>
-      )}
+    <div className="flex min-h-screen items-center justify-center p-6">
+      <div className="w-full max-w-md rounded-xl border p-8 text-center">
+        <Icon
+          className={`mx-auto mb-4 h-10 w-10 ${
+            status === 'succeeded'
+              ? 'text-green-600'
+              : status === 'failed'
+                ? 'text-destructive'
+                : 'animate-spin text-muted-foreground'
+          }`}
+        />
+        <h1 className="mb-2 text-lg font-semibold">
+          {status === 'succeeded'
+            ? 'Card authorized'
+            : status === 'failed'
+              ? 'Authorization failed'
+              : 'Confirming…'}
+        </h1>
+        <p className="mb-6 text-sm text-muted-foreground">{message}</p>
+        {status !== 'checking' && (
+          <Button onClick={() => navigate('/dashboard')} className="w-full">
+            Back to dashboard
+          </Button>
+        )}
+      </div>
     </div>
   );
-}
+};
+
+export default PaymentCallback;
