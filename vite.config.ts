@@ -8,10 +8,12 @@ export default defineConfig({
     host: "::",
     port: 8080,
 
-    https: {
-      key: fs.readFileSync("./certs/key.pem"),
-      cert: fs.readFileSync("./certs/cert.pem"),
-    },
+    https: process.env.NO_HTTPS
+      ? undefined
+      : {
+          key: fs.readFileSync("./certs/key.pem"),
+          cert: fs.readFileSync("./certs/cert.pem"),
+        },
 
     allowedHosts: ["loan.cashew.ph"],
   },
