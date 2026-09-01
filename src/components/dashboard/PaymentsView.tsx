@@ -1,24 +1,16 @@
-import { useEffect, useMemo, useState, type ReactNode } from 'react';
-import { BriefcaseBusiness, Check, CreditCard, Landmark, Plus } from 'lucide-react';
+import { useEffect, useMemo, useState } from 'react';
+import { Check, CreditCard } from 'lucide-react';
 
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
-import { Checkbox } from '@/components/ui/checkbox';
-import { Input } from '@/components/ui/input';
 import { useToast } from '@/hooks/use-toast';
 import { supabase } from '@/integrations/supabase/client';
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select';
 
 import { FEATURES } from '@/config/features';
+import { StripeCardSetup } from '@/components/payments/StripeCardSetup';
 
-type PaymentMethodType = 'payroll' | 'card' | 'ach';
+type PaymentMethodType = 'card';
 
 type SavedPaymentMethod = {
   id: string;
@@ -30,30 +22,13 @@ type SavedPaymentMethod = {
 
 const paymentMethodOptions = [
   {
-    value: 'payroll',
-    label: 'Payroll deduction',
-    description: 'Repay automatically from each paycheck.',
-    icon: BriefcaseBusiness,
-  },
-  {
     value: 'card',
     label: 'Credit / Debit card',
-    description: 'Recurring monthly charge to your card.',
+    description: 'Automatic charge on each scheduled repayment date.',
     icon: CreditCard,
-  },
-  {
-    value: 'ach',
-    label: 'Bank authorization (ACH)',
-    description: 'Direct debit from your bank account.',
-    icon: Landmark,
   },
 ] as const;
 
-const paymentTypeToType = (paymentType: string | null): PaymentMethodType => {
-  if (paymentType === 'payroll') return 'payroll';
-  if (paymentType === 'ach') return 'ach';
-  return 'card';
-};
 
 export default function PaymentsView() {
   const { toast } = useToast();
@@ -66,16 +41,6 @@ export default function PaymentsView() {
   const [saving, setSaving] = useState(false);
 
   // 🔥 Card form state
-  const [cardForm, setCardForm] = useState({
-    name: '',
-    number: '',
-    expMonth: '',
-    expYear: '',
-    cvv: '',
-    email: '',
-    phone: '',
-    consent: false,
-  });
 
   // ✅ Make sure options ALWAYS exist (no silent failure)
   const availableMethodOptions =
@@ -103,16 +68,11 @@ export default function PaymentsView() {
 
       setUserEmail(user.email ?? '');
 
-      setCardForm((prev) => ({
-        ...prev,
-        email: user.email ?? '',
-      }));
-
       const { data, error } = await supabase
-        .from('alternative_payment_methods')
-        .select('id, payment_type, brand, last4, exp_month, exp_year, is_default, provider')
+        .from('stripe_payment_methods')
+        .select('id, brand, last4, exp_month, exp_year, is_default, status')
         .eq('internal_user_id', user.id)
-        .eq('is_active', true)
+        .eq('status', 'authorized')
         .order('created_at', { ascending: false });
 
       if (error) {
@@ -125,32 +85,16 @@ export default function PaymentsView() {
         return;
       }
 
-      const mapped: SavedPaymentMethod[] = (data ?? [])
-        .map((row) => {
-          const type = paymentTypeToType(row.payment_type);
-
-          const details =
-            type === 'card'
-              ? row.exp_month && row.exp_year
-                ? `Expires ${String(row.exp_month).padStart(2, '0')}/${row.exp_year}`
-                : 'Expiration unavailable'
-              : type === 'ach'
-              ? `Bank account ending ${row.last4 ?? '----'}`
-              : `Payroll method`;
-
-          return {
-            id: row.id,
-            type,
-            nickname:
-              type === 'card'
-                ? `Card ending ${row.last4 ?? '----'}`
-                : type === 'ach'
-                ? 'ACH account'
-                : 'Payroll deduction',
-            details,
-            isDefault: !!row.is_default,
-          };
-        });
+      const mapped: SavedPaymentMethod[] = (data ?? []).map((row) => ({
+        id: row.id,
+        type: 'card' as PaymentMethodType,
+        nickname: `${row.brand ?? 'Card'} ending ${row.last4 ?? '----'}`,
+        details:
+          row.exp_month && row.exp_year
+            ? `Expires ${String(row.exp_month).padStart(2, '0')}/${row.exp_year}`
+            : 'Expiration unavailable',
+        isDefault: !!row.is_default,
+      }));
 
       setPaymentMethods(
         mapped.sort((a, b) => Number(b.isDefault) - Number(a.isDefault))
@@ -166,116 +110,6 @@ export default function PaymentsView() {
     [paymentMethods],
   );
 
-  const saveNewMethod = async () => {
-    if (!selectedMethod || !internalUserId) return;
-
-    setSaving(true);
-
-    if (selectedMethod === 'card') {
-      try {
-        const cleanNumber = cardForm.number.replace(/\s/g, '');
-
-        if (!cardForm.consent) {
-          toast({
-            title: 'Authorization Required',
-            description:
-              'Please authorize Cashew to save and charge this card for future loan repayments.',
-            variant: 'destructive',
-          });
-
-          setSaving(false);
-          return;
-        }
-
-        if (
-          cleanNumber.length < 12 ||
-          !cardForm.name.trim() ||
-          !cardForm.expMonth ||
-          !cardForm.expYear ||
-          !cardForm.cvv ||
-          !cardForm.email
-        ) {
-          toast({
-            title: 'Missing card details',
-            description: 'Please complete the card form before continuing.',
-            variant: 'destructive',
-          });
-
-          setSaving(false);
-          return;
-        }
-
-        const { data, error } = await supabase.functions.invoke('xendit-save-card-payment-method', {
-          body: {
-            payment_type: 'card',
-            card: {
-              number: cleanNumber,
-              exp_month: cardForm.expMonth,
-              exp_year: cardForm.expYear,
-              cvn: cardForm.cvv,
-            },
-            cardholder: {
-              name: cardForm.name,
-              email: cardForm.email,
-              phone: cardForm.phone,
-            },
-            return_origin: window.location.origin,
-          },
-        });
-
-        if (error) {
-          throw error;
-        }
-
-        if (data?.payment_method_id) {
-          toast({
-            title: 'Card saved',
-            description: 'Your card was successfully saved.',
-          });
-
-          window.location.reload();
-          return;
-        }
-
-        if (!data?.id || !data?.action_url) {
-          throw new Error('Xendit did not return a 3DS authorization link.');
-        }
-
-        localStorage.setItem('xendit_payment_token_id', data.id);
-        window.location.href = data.action_url;
-      } catch (err: any) {
-        toast({
-          title: 'Error',
-          description: err.message,
-          variant: 'destructive',
-        });
-
-        setSaving(false);
-      }
-
-      return;
-    }
-
-    // other methods unchanged
-    const { error } = await supabase.functions.invoke('add-payment-method', {
-      body: {
-        payment_type: selectedMethod,
-        email: userEmail,
-      },
-    });
-
-    if (error) {
-      toast({
-        title: 'Error',
-        description: error.message,
-        variant: 'destructive',
-      });
-    } else {
-      toast({ title: 'Payment method saved' });
-    }
-
-    setSaving(false);
-  };
   const removePaymentMethod = async (methodId: string) => {
     try {
       const method = paymentMethods.find((m) => m.id === methodId);
@@ -291,7 +125,7 @@ export default function PaymentsView() {
       }
 
       const { error } = await supabase
-        .from('alternative_payment_methods')
+        .from('stripe_payment_methods')
         .update({
           is_active: false,
         })
@@ -326,7 +160,7 @@ export default function PaymentsView() {
     try {
       // remove existing defaults
       const { error: clearError } = await supabase
-        .from('alternative_payment_methods')
+        .from('stripe_payment_methods')
         .update({ is_default: false })
         .eq('internal_user_id', internalUserId);
 
@@ -342,7 +176,7 @@ export default function PaymentsView() {
 
       // set new default
       const { error: setError } = await supabase
-        .from('alternative_payment_methods')
+        .from('stripe_payment_methods')
         .update({ is_default: true })
         .eq('id', methodId);
 
@@ -467,225 +301,16 @@ export default function PaymentsView() {
       {/* 🔹 FORM */}
       <Card>
         <CardContent className="space-y-6 p-6">
-          {selectedMethod === 'payroll' && <PayrollForm />}
           {selectedMethod === 'card' && (
-            <CardForm cardForm={cardForm} setCardForm={setCardForm} />
+            <StripeCardSetup
+              onAuthorized={() => {
+                // The webhook writes the row; reload to pick it up.
+                window.location.reload();
+              }}
+            />
           )}
-          {selectedMethod === 'ach' && <AchForm />}
-
-          <div className="flex justify-end">
-            <Button onClick={saveNewMethod} disabled={saving}>
-              <Plus className="mr-2 h-4 w-4" />
-              {saving ? 'Saving...' : 'Save payment method'}
-            </Button>
-          </div>
         </CardContent>
       </Card>
-    </div>
-  );
-}
-
-function CardForm({
-    cardForm,
-    setCardForm,
-  }: any) {
-  const formatCardNumber = (value: string) => {
-    const digits = value.replace(/\D/g, '').slice(0, 16);
-    return digits.replace(/(.{4})/g, '$1 ').trim();
-  };
-
-  return (
-    <div className="space-y-6">
-      {/* HEADER */}
-      <div>
-        <h3 className="text-lg font-semibold">Add Card</h3>
-        <p className="text-sm text-muted-foreground">
-          Enter your card details securely. We use encrypted processing via Xendit.
-        </p>
-      </div>
-
-      {/* CARD NUMBER */}
-      <div className="space-y-2">
-        <label className="text-sm font-medium">Card Number</label>
-        <Input
-          placeholder="1234 5678 9012 3456"
-          value={cardForm.number}
-          onChange={(e) =>
-            setCardForm({
-              ...cardForm,
-              number: formatCardNumber(e.target.value),
-            })
-          }
-          className="text-lg tracking-widest"
-        />
-      </div>
-
-      {/* NAME */}
-      <div className="space-y-2">
-        <label className="text-sm font-medium">Cardholder Name</label>
-        <Input
-          placeholder="Juan Dela Cruz"
-          value={cardForm.name}
-          onChange={(e) =>
-            setCardForm({ ...cardForm, name: e.target.value })
-          }
-        />
-      </div>
-
-      {/* EMAIL + PHONE */}
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-        <div className="space-y-2">
-          <label className="text-sm font-medium">Email</label>
-          <Input
-            placeholder="juan@email.com"
-            type="email"
-            value={cardForm.email}
-            onChange={(e) =>
-              setCardForm({ ...cardForm, email: e.target.value })
-            }
-          />
-        </div>
-
-        <div className="space-y-2">
-          <label className="text-sm font-medium">Phone Number</label>
-          <Input
-            placeholder="+639XXXXXXXXX"
-            value={cardForm.phone}
-            onChange={(e) =>
-              setCardForm({
-                ...cardForm,
-                phone: e.target.value.replace(/[^\d+]/g, ''),
-              })
-            }
-          />
-        </div>
-      </div>
-
-      {/* EXPIRY + CVV */}
-      <div className="grid grid-cols-3 gap-4">
-        <div className="space-y-2">
-          <label className="text-sm font-medium">Month</label>
-          <Input
-            placeholder="MM"
-            maxLength={2}
-            value={cardForm.expMonth}
-            onChange={(e) =>
-              setCardForm({
-                ...cardForm,
-                expMonth: e.target.value.replace(/\D/g, ''),
-              })
-            }
-          />
-        </div>
-
-        <div className="space-y-2">
-          <label className="text-sm font-medium">Year</label>
-          <Input
-            placeholder="YYYY"
-            maxLength={4}
-            value={cardForm.expYear}
-            onChange={(e) =>
-              setCardForm({
-                ...cardForm,
-                expYear: e.target.value.replace(/\D/g, ''),
-              })
-            }
-          />
-        </div>
-
-        <div className="space-y-2">
-          <label className="text-sm font-medium">CVV</label>
-          <Input
-            placeholder="123"
-            maxLength={4}
-            type="password"
-            value={cardForm.cvv}
-            onChange={(e) =>
-              setCardForm({
-                ...cardForm,
-                cvv: e.target.value.replace(/\D/g, ''),
-              })
-            }
-          />
-        </div>
-      </div>
-
-      {/* TRUST / SECURITY */}
-      <div className="flex items-start gap-3 rounded-md border p-3">
-        <Checkbox
-          checked={cardForm.consent}
-          onCheckedChange={(checked) =>
-            setCardForm({
-              ...cardForm,
-              consent: !!checked,
-            })
-          }
-        />
-
-        <div className="text-sm">
-            I authorize Cashew to securely save this card and
-            charge it for scheduled loan repayments, fees,
-            and other authorized amounts related to my loan.
-          </div>
-        </div>
-
-        <div className="rounded-md bg-muted p-3 text-xs text-muted-foreground">
-          🔒 Your card details are encrypted and securely processed through Xendit.
-          Cashew never stores your full card number or CVV.
-        </div>
-     </div>
-  );
-}
-function Field({ label, children }: { label: string; children: ReactNode }) {
-  return (
-    <div className="space-y-2">
-      <label className="text-sm font-medium">{label}</label>
-      {children}
-    </div>
-  );
-}
-function PayrollForm() {
-  return (
-    <div className="grid grid-cols-1 gap-6 md:grid-cols-2">
-      <Field label="Employee ID">
-        <Input placeholder="EMP-12345" />
-      </Field>
-      <Field label="Pay frequency">
-        <Select>
-          <SelectTrigger><SelectValue placeholder="Select..." /></SelectTrigger>
-          <SelectContent>
-            <SelectItem value="weekly">Weekly</SelectItem>
-            <SelectItem value="bi-weekly">Bi-weekly</SelectItem>
-            <SelectItem value="semi-monthly">Semi-monthly</SelectItem>
-            <SelectItem value="monthly">Monthly</SelectItem>
-          </SelectContent>
-        </Select>
-      </Field>
-    </div>
-  );
-}
-
-function AchForm() {
-  return (
-    <div className="space-y-6">
-      <Field label="Account holder name">
-        <Input />
-      </Field>
-      <Field label="Bank name">
-        <Input />
-      </Field>
-      <Field label="Routing number">
-        <Input placeholder="123456789" />
-      </Field>
-      <Field label="Account number">
-        <Input />
-      </Field>
-      <label className="flex items-start gap-4">
-        <Checkbox className="mt-0.5" />
-        <span className="text-sm text-muted-foreground">
-          I authorize recurring ACH debits from the account above.
-        </span>
-      </label>
     </div>
   );
 }

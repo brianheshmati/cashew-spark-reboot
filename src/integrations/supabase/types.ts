@@ -14,6 +14,261 @@ export type Database = {
   }
   public: {
     Tables: {
+      stripe_payment_methods: {
+        Row: {
+          brand: string | null
+          country: string | null
+          created_at: string
+          exp_month: number | null
+          exp_year: number | null
+          fingerprint: string | null
+          funding: string | null
+          id: string
+          internal_user_id: string
+          is_default: boolean
+          mandate_id: string | null
+          metadata: Json
+          status: string
+          stripe_customer_id: string
+          stripe_payment_method_id: string
+          stripe_setup_intent_id: string | null
+          three_d_secure_status: string | null
+          updated_at: string
+        }
+        Insert: {
+          brand?: string | null
+          country?: string | null
+          created_at?: string
+          exp_month?: number | null
+          exp_year?: number | null
+          fingerprint?: string | null
+          funding?: string | null
+          id?: string
+          internal_user_id: string
+          is_default?: boolean
+          mandate_id?: string | null
+          metadata?: Json
+          status?: string
+          stripe_customer_id: string
+          stripe_payment_method_id: string
+          stripe_setup_intent_id?: string | null
+          three_d_secure_status?: string | null
+          updated_at?: string
+        }
+        Update: {
+          brand?: string | null
+          country?: string | null
+          created_at?: string
+          exp_month?: number | null
+          exp_year?: number | null
+          fingerprint?: string | null
+          funding?: string | null
+          id?: string
+          internal_user_id?: string
+          is_default?: boolean
+          mandate_id?: string | null
+          metadata?: Json
+          status?: string
+          stripe_customer_id?: string
+          stripe_payment_method_id?: string
+          stripe_setup_intent_id?: string | null
+          three_d_secure_status?: string | null
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      loan_agreements: {
+        Row: {
+          agreement_pdf_url: string | null
+          audit_trail: Json
+          created_at: string
+          esign_contract_id: string
+          esign_template_id: string | null
+          id: string
+          internal_user_id: string
+          loan_id: string
+          schedule_snapshot: Json | null
+          signed_at: string | null
+          signer_email: string | null
+          signer_ip: string | null
+          signer_name: string | null
+          status: string
+          stripe_payment_method_id: string | null
+          template_version: string
+          updated_at: string
+        }
+        Insert: {
+          agreement_pdf_url?: string | null
+          audit_trail?: Json
+          created_at?: string
+          esign_contract_id: string
+          esign_template_id?: string | null
+          id?: string
+          internal_user_id: string
+          loan_id: string
+          schedule_snapshot?: Json | null
+          signed_at?: string | null
+          signer_email?: string | null
+          signer_ip?: string | null
+          signer_name?: string | null
+          status?: string
+          stripe_payment_method_id?: string | null
+          template_version?: string
+          updated_at?: string
+        }
+        Update: {
+          agreement_pdf_url?: string | null
+          audit_trail?: Json
+          created_at?: string
+          esign_contract_id?: string
+          esign_template_id?: string | null
+          id?: string
+          internal_user_id?: string
+          loan_id?: string
+          schedule_snapshot?: Json | null
+          signed_at?: string | null
+          signer_email?: string | null
+          signer_ip?: string | null
+          signer_name?: string | null
+          status?: string
+          stripe_payment_method_id?: string | null
+          template_version?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      collection_attempts: {
+        Row: {
+          amount_centavos: number
+          attempt_no: number
+          attempted_at: string
+          failure_code: string | null
+          failure_message: string | null
+          id: string
+          idempotency_key: string
+          loan_id: string
+          payment_schedule_id: string
+          settled_at: string | null
+          status: string
+          stripe_payment_intent_id: string | null
+          stripe_payment_method_id: string | null
+        }
+        Insert: {
+          amount_centavos: number
+          attempt_no: number
+          attempted_at?: string
+          failure_code?: string | null
+          failure_message?: string | null
+          id?: string
+          idempotency_key: string
+          loan_id: string
+          payment_schedule_id: string
+          settled_at?: string | null
+          status?: string
+          stripe_payment_intent_id?: string | null
+          stripe_payment_method_id?: string | null
+        }
+        Update: {
+          amount_centavos?: number
+          attempt_no?: number
+          attempted_at?: string
+          failure_code?: string | null
+          failure_message?: string | null
+          id?: string
+          idempotency_key?: string
+          loan_id?: string
+          payment_schedule_id?: string
+          settled_at?: string | null
+          status?: string
+          stripe_payment_intent_id?: string | null
+          stripe_payment_method_id?: string | null
+        }
+        Relationships: []
+      }
+      notification_log: {
+        Row: {
+          channel: string
+          created_at: string
+          dedupe_key: string
+          error: string | null
+          id: string
+          internal_user_id: string | null
+          kind: string
+          loan_id: string | null
+          payload: Json
+          payment_schedule_id: string | null
+          provider_message_id: string | null
+          recipient: string
+          sent_at: string | null
+          status: string
+        }
+        Insert: {
+          channel?: string
+          created_at?: string
+          dedupe_key: string
+          error?: string | null
+          id?: string
+          internal_user_id?: string | null
+          kind: string
+          loan_id?: string | null
+          payload?: Json
+          payment_schedule_id?: string | null
+          provider_message_id?: string | null
+          recipient: string
+          sent_at?: string | null
+          status?: string
+        }
+        Update: {
+          channel?: string
+          created_at?: string
+          dedupe_key?: string
+          error?: string | null
+          id?: string
+          internal_user_id?: string | null
+          kind?: string
+          loan_id?: string | null
+          payload?: Json
+          payment_schedule_id?: string | null
+          provider_message_id?: string | null
+          recipient?: string
+          sent_at?: string | null
+          status?: string
+        }
+        Relationships: []
+      }
+      webhook_events: {
+        Row: {
+          error: string | null
+          event_id: string
+          event_type: string | null
+          id: string
+          payload: Json
+          processed_at: string | null
+          received_at: string
+          source: string
+        }
+        Insert: {
+          error?: string | null
+          event_id: string
+          event_type?: string | null
+          id?: string
+          payload: Json
+          processed_at?: string | null
+          received_at?: string
+          source: string
+        }
+        Update: {
+          error?: string | null
+          event_id?: string
+          event_type?: string | null
+          id?: string
+          payload?: Json
+          processed_at?: string | null
+          received_at?: string
+          source?: string
+        }
+        Relationships: []
+      }
       applications: {
         Row: {
           created_at: string | null
@@ -148,6 +403,9 @@ export type Database = {
       }
       loans: {
         Row: {
+          agreement_id: string | null
+          disbursed_at: string | null
+          stripe_payment_method_id: string | null
           application_id: string
           created_at: string | null
           current_balance: number
@@ -164,6 +422,9 @@ export type Database = {
           user_id: string
         }
         Insert: {
+          agreement_id?: string | null
+          disbursed_at?: string | null
+          stripe_payment_method_id?: string | null
           application_id: string
           created_at?: string | null
           current_balance: number
@@ -180,6 +441,9 @@ export type Database = {
           user_id: string
         }
         Update: {
+          agreement_id?: string | null
+          disbursed_at?: string | null
+          stripe_payment_method_id?: string | null
           application_id?: string
           created_at?: string | null
           current_balance?: number
@@ -235,6 +499,11 @@ export type Database = {
       }
       payment_schedules: {
         Row: {
+          amount_due_centavos: number
+          attempt_count: number
+          collection_state: string
+          last_error: string | null
+          next_attempt_at: string | null
           amount_due: number
           created_at: string | null
           due_date: string
@@ -249,6 +518,11 @@ export type Database = {
           updated_at: string | null
         }
         Insert: {
+          amount_due_centavos?: number
+          attempt_count?: number
+          collection_state?: string
+          last_error?: string | null
+          next_attempt_at?: string | null
           amount_due: number
           created_at?: string | null
           due_date: string
@@ -263,6 +537,11 @@ export type Database = {
           updated_at?: string | null
         }
         Update: {
+          amount_due_centavos?: number
+          attempt_count?: number
+          collection_state?: string
+          last_error?: string | null
+          next_attempt_at?: string | null
           amount_due?: number
           created_at?: string | null
           due_date?: string
@@ -288,6 +567,8 @@ export type Database = {
       }
       payments: {
         Row: {
+          stripe_charge_id: string | null
+          stripe_payment_intent_id: string | null
           amount: number
           created_at: string | null
           id: string
@@ -298,6 +579,8 @@ export type Database = {
           transaction_id: string | null
         }
         Insert: {
+          stripe_charge_id?: string | null
+          stripe_payment_intent_id?: string | null
           amount: number
           created_at?: string | null
           id?: string
@@ -308,6 +591,8 @@ export type Database = {
           transaction_id?: string | null
         }
         Update: {
+          stripe_charge_id?: string | null
+          stripe_payment_intent_id?: string | null
           amount?: number
           created_at?: string | null
           id?: string
@@ -524,7 +809,40 @@ export type Database = {
       }
     }
     Views: {
-      [_ in never]: never
+      due_collections: {
+        Row: {
+          amount_due_centavos: number | null
+          attempt_count: number | null
+          borrower_email: string | null
+          collection_state: string | null
+          due_date: string | null
+          first_name: string | null
+          internal_user_id: string | null
+          last_name: string | null
+          loan_id: string | null
+          payment_number: number | null
+          payment_schedule_id: string | null
+          stripe_customer_id: string | null
+          stripe_payment_method_id: string | null
+          stripe_payment_method_row_id: string | null
+        }
+        Relationships: []
+      }
+      upcoming_debits: {
+        Row: {
+          amount_due_centavos: number | null
+          borrower_email: string | null
+          brand: string | null
+          due_date: string | null
+          first_name: string | null
+          internal_user_id: string | null
+          last4: string | null
+          loan_id: string | null
+          payment_number: number | null
+          payment_schedule_id: string | null
+        }
+        Relationships: []
+      }
     }
     Functions: {
       [_ in never]: never
